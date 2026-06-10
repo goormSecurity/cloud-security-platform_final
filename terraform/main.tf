@@ -1,1 +1,5 @@
-# 모듈들은 순서대로 추가 예정
+module "networking" {
+  source       = "./modules/networking"
+  project_name = var.project_name
+  vpc_cidr     = var.vpc_cidr
+}
