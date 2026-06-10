@@ -42,3 +42,12 @@ terraform.rc
 # Optional: ignore plan files saved before destroying Terraform configuration
 # Uncomment the line below if you want to ignore planout files.
 # planout
+
+analyzer/sample_logs/
+analyzer/logs_merged/
+analyzer/logs_merged.zip
+analyzer/output/
+analyzer/cti_cache.json
+analyzer/.env
+*.log
+*.gz
