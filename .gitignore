@@ -51,3 +51,20 @@ analyzer/cti_cache.json
 analyzer/.env
 *.log
 *.gz
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Monitoring (Grafana)
+monitoring/data/
+monitoring/grafana-data/
+monitoring/loki-data/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
