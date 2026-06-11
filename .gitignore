@@ -1,3 +1,6 @@
+# ===========================================
+# Terraform
+# ===========================================
 # Local .terraform directories
 .terraform/
 
@@ -43,11 +46,42 @@ terraform.rc
 # Uncomment the line below if you want to ignore planout files.
 # planout
 
+# ===========================================
+# Python
+# ===========================================
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# ===========================================
+# Environment & Secrets
+# ===========================================
+.env
+*.env
+
+# ===========================================
+# Analyzer - Logs & Cache & Output
+# ===========================================
 analyzer/sample_logs/
 analyzer/logs_merged/
 analyzer/logs_merged.zip
 analyzer/output/
 analyzer/cti_cache.json
 analyzer/.env
+
+# 루트 또는 어느 위치에서나
+sample_logs/
+logs_merged/
+output/
+cti_cache.json
+
+# ===========================================
+# Log files
+# ===========================================
 *.log
 *.gz
+
+# WAF 로그 형식은 무시하되, 테스트용 고정 샘플은 포함
+!analyzer/tests/fixtures/sample_waf_logs.log
