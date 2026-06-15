@@ -96,4 +96,6 @@ monitoring/loki-data/
 Thumbs.db
 .vscode/
 .idea/
->>>>>>> origin/feature/grafana
+
+# Local installers
+Docker Desktop Installer.exe
