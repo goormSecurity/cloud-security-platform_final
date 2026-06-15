@@ -38,8 +38,8 @@ from config import Config
 ATTACK_PATTERNS = {
     "SQLi": re.compile(r"(union\s+select|'\s*or\s*'?\d|or\s+1=1|--|drop\s+table|information_schema)", re.I),
     "XSS": re.compile(r"(<script|onerror\s*=|onload\s*=|<svg|<img[^>]+src|javascript:)", re.I),
-    "PathTraversal": re.compile(r"(\.\./|\.\.\\|/etc/passwd|\.\.%2f|\.\.\.\.//)", re.I),
     "CommandInjection": re.compile(r"(;\s*cat\s|\|\s*whoami|;\s*ls\s|`.*`|\$\(.*\))", re.I),
+    "PathTraversal": re.compile(r"(\.\./|\.\.\\|/etc/passwd|\.\.%2f|\.\.\.\.//)", re.I),
 }
 SCANNER_UA = re.compile(r"(sqlmap|nikto|nmap|masscan|nuclei|dirbuster|gobuster|acunetix)", re.I)
 
@@ -106,19 +106,64 @@ def _user_agent(req):
     return ""
 
 
+def _matched_rule_text(record):
+    """Return metadata for rules that actually matched the request."""
+    matched = []
+    terminating_rule_id = record.get("terminatingRuleId", "") or ""
+    if terminating_rule_id and terminating_rule_id != "Default_Action":
+        matched.append(terminating_rule_id)
+
+    for rule in record.get("nonTerminatingMatchingRules", []):
+        matched.append(rule.get("ruleId", ""))
+        for detail in rule.get("ruleMatchDetails") or []:
+            matched.append(detail.get("conditionType", ""))
+
+    for group in record.get("ruleGroupList", []):
+        terminating_rule = group.get("terminatingRule")
+        if terminating_rule:
+            matched.append(group.get("ruleGroupId", ""))
+            matched.append(terminating_rule.get("ruleId", ""))
+        for rule in group.get("nonTerminatingMatchingRules") or []:
+            matched.append(group.get("ruleGroupId", ""))
+            matched.append(rule.get("ruleId", ""))
+
+    matched.extend(label.get("name", "") for label in record.get("labels", []))
+    return " ".join(part for part in matched if part)
+
+
+def _matched_rule_ids(record):
+    """Return unique dashboard IDs for rules or groups that matched."""
+    matched = set()
+    terminating_rule_id = record.get("terminatingRuleId", "") or ""
+    if terminating_rule_id and terminating_rule_id != "Default_Action":
+        matched.add(terminating_rule_id)
+
+    for rule in record.get("nonTerminatingMatchingRules", []):
+        rule_id = rule.get("ruleId", "")
+        if rule_id:
+            matched.add(rule_id)
+
+    for group in record.get("ruleGroupList", []):
+        group_id = group.get("ruleGroupId", "").split("#")[-1]
+        if group.get("terminatingRule") or group.get("nonTerminatingMatchingRules"):
+            if group_id:
+                matched.add(group_id)
+
+    return matched
+
+
 def classify_attack(record):
     """레코드 1건 → 공격 유형 문자열. 룰 그룹 우선, 없으면 패턴 매칭."""
     req = record.get("httpRequest", {})
-    rule_ids = " ".join(g.get("ruleGroupId", "") for g in record.get("ruleGroupList", []))
-    term = record.get("terminatingRuleId", "") or ""
+    rule_text = _matched_rule_text(record)
 
-    if re.search(r"SQLi", rule_ids + term, re.I):
+    if re.search(r"SQLi|SQL_INJECTION|sql-database", rule_text, re.I):
         return "SQLi"
-    if re.search(r"CrossSiteScripting|XSS", rule_ids + term, re.I):
+    if re.search(r"CrossSiteScripting|XSS", rule_text, re.I):
         return "XSS"
-    if re.search(r"LFI|PathTraversal", rule_ids + term, re.I):
+    if re.search(r"LFI|PathTraversal", rule_text, re.I):
         return "PathTraversal"
-    if re.search(r"RFI|Command", rule_ids + term, re.I):
+    if re.search(r"RFI|Command", rule_text, re.I):
         return "CommandInjection"
 
     # 룰로 안 잡히면 URI/args 패턴으로 판단
@@ -149,6 +194,7 @@ def compute_risk(stats, threshold=Config.IP_REQUEST_THRESHOLD, cti=None):
 
 def analyze(records, threshold=Config.IP_REQUEST_THRESHOLD):
     """레코드 이터러블 → 분석 결과 dict (JSON 직렬화 가능)."""
+    records = list(records)
     action_counts = Counter()
     attack_type_counts = Counter()
     rule_hits = Counter()
@@ -204,6 +250,11 @@ def analyze(records, threshold=Config.IP_REQUEST_THRESHOLD):
 
     top_ips.sort(key=lambda x: x["risk_score"], reverse=True)
     total = sum(action_counts.values())
+    rule_hits = Counter(
+        rid
+        for rec in records
+        for rid in _matched_rule_ids(rec)
+    )
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
