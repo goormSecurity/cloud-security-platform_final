@@ -85,3 +85,15 @@ cti_cache.json
 
 # WAF 로그 형식은 무시하되, 테스트용 고정 샘플은 포함
 !analyzer/tests/fixtures/sample_waf_logs.log
+
+# Monitoring (Grafana)
+monitoring/data/
+monitoring/grafana-data/
+monitoring/loki-data/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+>>>>>>> origin/feature/grafana
