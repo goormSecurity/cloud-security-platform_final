@@ -16,6 +16,8 @@ services:
       - GF_INSTALL_PLUGINS=marcusolsson-json-datasource
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./provisioning:/etc/grafana/provisioning
+      - ./dashboards:/var/lib/grafana/dashboards
     depends_on:
       - loki
 
