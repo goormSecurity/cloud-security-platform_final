@@ -7,6 +7,7 @@ on:
       - develop
     paths:
       - terraform/**
+      - .github/workflows/**
 
 permissions:
   contents: read
