@@ -1,11 +1,7 @@
 name: Terraform Apply
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - terraform/**
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -13,6 +9,9 @@ permissions:
 jobs:
   apply:
     runs-on: ubuntu-latest
+    env:
+      TF_INPUT: false
+      TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     steps:
       - name: Checkout repository
@@ -33,5 +32,5 @@ jobs:
         working-directory: ./terraform
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve -input=false
         working-directory: ./terraform

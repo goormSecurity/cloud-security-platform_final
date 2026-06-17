@@ -1,13 +1,7 @@
 name: Terraform Plan
 
 on:
-  pull_request:
-    branches:
-      - main
-      - develop
-    paths:
-      - terraform/**
-      - .github/workflows/**
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,6 +10,9 @@ permissions:
 jobs:
   plan:
     runs-on: ubuntu-latest
+    env:
+      TF_INPUT: false
+      TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
     steps:
       - name: Checkout repository
@@ -36,5 +33,5 @@ jobs:
         working-directory: ./terraform
 
       - name: Terraform Plan
-        run: terraform plan -no-color
+        run: terraform plan -no-color -input=false
         working-directory: ./terraform
