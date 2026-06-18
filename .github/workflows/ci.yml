@@ -53,7 +53,7 @@ jobs:
         run: terraform -chdir=terraform validate
 
       - name: Terraform plan
-        run: terraform -chdir=terraform plan -no-color
+        run: terraform -chdir=terraform plan -no-color -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}"
 
   # ── CD: main 병합 시 AWS 자동 반영 ──────────────
   cd:
