@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import sys
 
 import pytest
@@ -52,3 +53,36 @@ def test_unknown_number_is_rejected():
 
     with pytest.raises(ValueError, match="없는 숫자"):
         report_generator.validate_report(report, SAMPLE_DATA)
+
+
+def test_prompt_does_not_treat_every_top_ip_as_high_risk():
+    assert 'risk_level이 LOW인 IP를 "위험한 IP"' in report_generator.SYSTEM_PROMPT
+
+
+def test_prompt_separates_analyzer_classification_from_waf_detection():
+    assert "attack_type_counts는 Analyzer 분류 결과" in report_generator.SYSTEM_PROMPT
+
+
+def test_generation_retries_after_invalid_report(monkeypatch, tmp_path):
+    input_path = tmp_path / "analysis.json"
+    input_path.write_text(
+        json.dumps(SAMPLE_DATA, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    responses = iter(["invalid report", _valid_report()])
+
+    monkeypatch.setattr(
+        report_generator,
+        "call_ollama_with_langchain",
+        lambda **_: next(responses),
+    )
+
+    output_path = report_generator.generate_report(
+        input_path=input_path,
+        output_dir=tmp_path / "output",
+        model="test-model",
+        ollama_base_url="http://localhost:11435",
+    )
+
+    assert output_path.exists()
+    assert output_path.read_text(encoding="utf-8") == _valid_report()
