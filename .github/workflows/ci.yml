@@ -1,22 +1,15 @@
-name: CI/CD
+name: CI
 
 on:
   pull_request:
-    branches: [main]      # PR 시 CI
+    branches: [main]
   push:
-    branches: [main]      # main 병합 시 CD
-
-env:
-  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION }}
+    branches: [main]
 
 jobs:
-  # ── CI: PR 올릴 때 검증 ──────────────────────────
   ci:
     name: Test & Validate
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
 
     steps:
       - uses: actions/checkout@v4
@@ -27,9 +20,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r analyzer/requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Run pytest
         run: pytest -q
@@ -47,28 +38,7 @@ jobs:
         run: terraform -chdir=terraform fmt -check -recursive
 
       - name: Terraform init
-        run: terraform -chdir=terraform init
+        run: terraform -chdir=terraform init -backend=false
 
       - name: Terraform validate
         run: terraform -chdir=terraform validate
-
-      - name: Terraform plan
-        run: terraform -chdir=terraform plan -no-color -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}"
-
-  # ── CD: main 병합 시 AWS 자동 반영 ──────────────
-  cd:
-    name: Deploy to AWS
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Terraform init
-        run: terraform -chdir=terraform init
-
-      - name: Terraform apply
-        run: terraform -chdir=terraform apply -auto-approve

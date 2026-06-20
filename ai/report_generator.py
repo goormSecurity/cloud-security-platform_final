@@ -132,7 +132,9 @@ def extract_ips_from_text(text: str) -> Set[str]:
     """
     문자열에서 IPv4 주소를 추출한다.
     """
-    ip_pattern = r"\b(?:\d{1,3}\.){3}\d{1,3}\b"
+    # Korean particles are Unicode word characters, so \b does not match in
+    # text such as "203.0.113.10은". Use numeric boundaries instead.
+    ip_pattern = r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])"
     return set(re.findall(ip_pattern, text))
 
 
@@ -173,7 +175,7 @@ def extract_numbers_from_json(data: Any) -> Set[str]:
                 numbers.add(str(int(value)))
 
         elif isinstance(value, str):
-            found = re.findall(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])", value)
+            found = re.findall(r"(?<![\d.])-?\d+(?:\.\d+)?(?![\d.])", value)
             numbers.update(found)
 
     walk(data)
@@ -185,7 +187,7 @@ def extract_numbers_from_report(report: str) -> Set[str]:
     보고서에 등장하는 숫자를 수집한다.
     Markdown 섹션 번호 1~6은 보고서 형식상 허용한다.
     """
-    numbers = set(re.findall(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])", report))
+    numbers = set(re.findall(r"(?<![\d.])-?\d+(?:\.\d+)?(?![\d.])", report))
 
     allowed_section_numbers = {"1", "2", "3", "4", "5", "6"}
     numbers -= allowed_section_numbers
