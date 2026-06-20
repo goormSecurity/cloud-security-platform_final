@@ -13,8 +13,15 @@ from langchain_core.output_parsers import StrOutputParser
 from prompts import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE
 
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
+
 DEFAULT_MODEL = "llama3.1:8b"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
+MAX_GENERATION_ATTEMPTS = 2
 
 
 REQUIRED_SECTIONS = [
@@ -298,15 +305,25 @@ def generate_report(
 
     facts = build_facts_block(data)
 
-    report = call_ollama_with_langchain(
-        facts=facts,
-        model=model,
-        ollama_base_url=ollama_base_url
-    )
+    validation_error = None
+    report = ""
+    for _ in range(MAX_GENERATION_ATTEMPTS):
+        report = call_ollama_with_langchain(
+            facts=facts,
+            model=model,
+            ollama_base_url=ollama_base_url
+        )
+        report = clean_markdown(report)
 
-    report = clean_markdown(report)
+        try:
+            validate_report(report, data)
+            validation_error = None
+            break
+        except ValueError as error:
+            validation_error = error
 
-    validate_report(report, data)
+    if validation_error is not None:
+        raise validation_error
 
     output_path = save_report(report, output_dir)
 
