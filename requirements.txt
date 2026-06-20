@@ -15,6 +15,10 @@ python-dotenv>=1.0.0        # .env 파일 읽기
 flask>=2.3.0                # 웹 프레임워크
 flask-cors>=4.0.0           # CORS 설정
 
+# --- Compliance (감사 보고서) ---
+jinja2>=3.1                 # HTML 템플릿 렌더링
+playwright>=1.40            # HTML/PDF 보고서 생성
+
 # --- Testing ---
 pytest>=7.0.0               # 테스트 프레임워크
 
