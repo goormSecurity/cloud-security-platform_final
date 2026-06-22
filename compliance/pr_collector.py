@@ -111,11 +111,23 @@ def main():
         print(f"  [{flag:7}] #{rec['pr_number']} {rec['head_branch']} → {rec['base_branch']}")
 
     records.sort(key=lambda r: r["pr_number"] or 0)
+
+    # 1) 기존 output 경로 저장
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump(records, f, ensure_ascii=False, indent=2)
 
+    # 2) compliance/input/에도 저장 (build_data.py Adapter가 읽는 위치)
+    from pathlib import Path
+    input_dir = Path(__file__).resolve().parent / "input"
+    input_dir.mkdir(parents=True, exist_ok=True)
+    compliance_out = input_dir / "github_pr.json"
+    compliance_out.write_text(
+        json.dumps(records, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
     merged = sum(1 for r in records if r["merged"])
     print(f"\n[*] 저장: {args.output}  (총 {len(records)}건 / 머지 {merged}건)")
+    print(f"[*] 복사: {compliance_out}")
     return 0
 
 

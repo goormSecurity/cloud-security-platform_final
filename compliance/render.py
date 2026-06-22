@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import os
 from datetime import datetime
@@ -17,6 +18,35 @@ DATA_FILE = BASE_DIR / "dummy_data.json"
 HTML_FILE = OUTPUT_DIR / "report.html"
 PDF_FILE = OUTPUT_DIR / "report.pdf"
 PLACEHOLDER = "[ ]"
+
+
+def _resolve_data_file(override: str | None) -> Path:
+    if override:
+        p = Path(override)
+        if p.exists():
+            return p
+        raise FileNotFoundError(f"[render] 지정한 데이터 파일 없음: {override}")
+    # --data 없으면 real_data.json 자동 탐색
+    real = BASE_DIR / "real_data.json"
+    if real.exists():
+        return real
+    raise FileNotFoundError(
+        "[render] 데이터 파일 없음. "
+        "run_pipeline.py 또는 'python compliance/build_data.py' 를 먼저 실행하세요."
+    )
+
+
+def _compute_final_verdict(data: dict) -> str:
+    """분석 데이터 기반 최종 판정 자동 결정."""
+    risk = data.get("risk", {}).get("ai", {})
+    if risk.get("needs_action"):
+        score = risk.get("final_score", 1)
+        if score >= 4:
+            return "미흡"
+        return "부분 적정"
+    if risk.get("needs_review"):
+        return "재검토 필요"
+    return "적정"
 
 
 def get_path(data: dict[str, Any], path: str, default: Any = PLACEHOLDER) -> Any:
@@ -146,9 +176,24 @@ def build_attachment_rows(data: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
-def render() -> None:
+def render(data_file: str | None = None) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    data = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+    resolved = _resolve_data_file(data_file)
+    data = json.loads(resolved.read_text(encoding="utf-8"))
+    print(f"[render] 데이터 소스: {resolved.name}")
+
+    # meta에 final_verdict 자동 주입 (없으면 계산)
+    if "meta" not in data:
+        data["meta"] = {}
+    if "final_verdict" not in data["meta"]:
+        data["meta"]["final_verdict"] = _compute_final_verdict(data)
+    # analyzer_summary 호환 (구 포맷은 없을 수 있음)
+    if "analyzer_summary" not in data:
+        data["analyzer_summary"] = {
+            "total_requests": data.get("meta", {}).get("total_requests", 0),
+            "high_risk_ips": 0,
+            "attack_type_counts": {},
+        }
 
     env = Environment(
         loader=FileSystemLoader(BASE_DIR),
@@ -223,5 +268,17 @@ def render() -> None:
     print(PDF_FILE)
 
 
+def main() -> None:
+    p = argparse.ArgumentParser(description="컴플라이언스 감사 보고서 생성")
+    p.add_argument("--data", default=None,
+                   help="데이터 JSON 경로 (생략 시 compliance/real_data.json 자동 탐색)")
+    args = p.parse_args()
+    try:
+        render(data_file=args.data)
+    except FileNotFoundError as e:
+        print(e)
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
-    render()
+    main()

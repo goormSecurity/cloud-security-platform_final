@@ -15,847 +15,574 @@
       --accent: #0f5f76;
       --accent-soft: #e8f3f6;
     }
-
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       background: #e5e7eb;
       color: var(--ink);
-      font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", Arial, sans-serif;
+      font-family: "Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",Arial,sans-serif;
       font-size: 13px;
       line-height: 1.52;
     }
-
     .page {
       width: min(1120px, calc(100% - 32px));
       margin: 28px auto;
       background: var(--paper);
       border: 1px solid #c7cdd6;
-      box-shadow: 0 16px 42px rgba(15, 23, 42, 0.12);
+      box-shadow: 0 16px 42px rgba(15,23,42,0.12);
     }
-
-    .form-frame {
-      margin: 24px;
-      border: 2px solid var(--line);
-    }
-
-    .document-head {
-      padding: 18px 20px 16px;
-      border-bottom: 2px solid var(--line);
-    }
-
+    .form-frame { margin: 24px; border: 2px solid var(--line); }
+    .document-head { padding: 18px 20px 16px; border-bottom: 2px solid var(--line); }
     .eyebrow {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      color: var(--muted);
-      font-size: 12px;
+      display: flex; justify-content: space-between; gap: 16px;
+      color: var(--muted); font-size: 12px;
     }
-
     h1 {
-      margin: 14px 0 8px;
-      text-align: center;
-      font-size: 25px;
-      line-height: 1.25;
-      letter-spacing: 0;
-      font-weight: 800;
+      margin: 14px 0 8px; text-align: center;
+      font-size: 25px; line-height: 1.25; font-weight: 800;
     }
-
-    .subtitle {
-      margin: 0;
-      text-align: center;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
+    .subtitle { margin: 0; text-align: center; color: var(--muted); font-size: 12px; }
     .notice {
-      margin-top: 14px;
-      padding: 10px 12px;
-      border: 1px solid var(--line-soft);
-      background: #fbfdff;
-      font-size: 12px;
+      margin-top: 14px; padding: 10px 12px;
+      border: 1px solid var(--line-soft); background: #fbfdff; font-size: 12px;
     }
-
     .meta-strip {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      border-top: 1px solid var(--line);
-      border-bottom: 2px solid var(--line);
+      display: grid; grid-template-columns: repeat(3,1fr);
+      border-top: 1px solid var(--line); border-bottom: 2px solid var(--line);
     }
-
     .meta-cell {
-      min-height: 42px;
-      padding: 8px 10px;
-      border-right: 1px solid var(--line);
-      display: grid;
-      grid-template-columns: 92px 1fr;
-      gap: 8px;
-      align-items: center;
+      min-height: 42px; padding: 8px 10px; border-right: 1px solid var(--line);
+      display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: center;
     }
-
     .meta-cell:last-child { border-right: 0; }
     .meta-label { font-weight: 700; }
     .meta-value { color: var(--muted); }
-
-    main {
-      padding: 18px 20px 24px;
-    }
-
-    .section {
-      margin: 0 0 20px;
-      break-inside: avoid-page;
-      page-break-inside: avoid;
-    }
-
-    .section-gap {
-      display: block;
-      height: 30px;
-      break-before: auto;
-      break-after: auto;
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .subsection-gap {
-      display: block;
-      height: 10px;
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .hint-line {
-      display: block;
-    }
-
-    .freeform-response-space {
-      min-height: 118px;
-      margin: 10px 0 12px;
-      border: 1px dashed var(--line-soft);
-      background: var(--field);
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .signature-grid strong,
-    .signature-grid span {
-      display: block;
-    }
-
+    main { padding: 18px 20px 24px; }
+    .section { margin: 0 0 20px; break-inside: avoid; }
     .section h2 {
-      margin: 0 0 8px;
-      padding: 8px 10px;
-      border: 1px solid var(--line);
-      background: var(--accent-soft);
-      color: #0b3d4d;
-      font-size: 15px;
-      line-height: 1.35;
-      font-weight: 800;
+      margin: 0 0 8px; padding: 8px 10px;
+      border: 1px solid var(--line); background: var(--accent-soft);
+      color: #0b3d4d; font-size: 15px; font-weight: 800;
     }
-
-    .subsection {
-      margin: 12px 0 14px;
-      break-inside: avoid-page;
-      page-break-inside: avoid;
-    }
-
+    .subsection { margin: 12px 0 14px; break-inside: avoid; }
     .subsection h3 {
-      margin: 0 0 8px;
-      padding: 7px 9px;
+      margin: 0 0 8px; padding: 7px 9px;
       border-left: 4px solid var(--accent);
       border-top: 1px solid var(--line-soft);
       border-bottom: 1px solid var(--line-soft);
-      background: #f9fafb;
-      font-size: 13px;
-      font-weight: 800;
+      background: #f9fafb; font-size: 13px; font-weight: 800;
     }
-
-    .body-text {
-      margin: 8px 0;
-      white-space: normal;
-    }
-
-    /* 설계 근거/주석: 편집 시 그대로 두거나 삭제 가능 */
-    .hint {
-      margin: 4px 0 12px;
-      padding: 7px 11px;
-      background: #f1f5f9;
-      border-left: 3px solid var(--line-soft);
-      color: var(--muted);
-      font-size: 11.5px;
-      line-height: 1.5;
-    }
-    .hint strong { color: #334155; }
-
-    /* 증적 평면(Plane) 범례 */
-    .plane-legend {
-      margin: 8px 0 12px;
-      border: 1px solid var(--line-soft);
-      background: #fbfdff;
-      font-size: 12px;
-    }
-    .plane-legend div {
-      padding: 7px 11px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .plane-legend div:last-child { border-bottom: 0; }
-    .plane-tag {
-      display: inline-block;
-      min-width: 64px;
-      font-weight: 800;
-      color: var(--accent);
-    }
-
-    /* 증적 포맷 예시 (JSON) */
-    .code-caption {
-      margin: 10px 0 4px;
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--muted);
-    }
-    .code-sample {
-      margin: 0 0 12px;
-      padding: 10px 12px;
-      background: #0f172a;
-      color: #e2e8f0;
-      border: 1px solid var(--line);
-      font-family: "D2Coding", "Consolas", "Menlo", monospace;
-      font-size: 11.5px;
-      line-height: 1.5;
-      overflow-x: auto;
-      white-space: pre;
-    }
-
-    /* 사양서에 없는 항목 표시 (필요 없으면 삭제) */
-    .optional-note {
-      color: #b45309;
-      font-size: 11px;
-      font-weight: 700;
-    }
-
+    .body-text { margin: 8px 0; white-space: normal; }
     .report-table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      margin: 8px 0 14px;
-      border: 1px solid var(--line);
-      break-inside: avoid;
+      width: 100%; border-collapse: collapse; table-layout: fixed;
+      margin: 8px 0 14px; border: 1px solid var(--line); break-inside: avoid;
     }
-
-    .report-table th,
-    .report-table td {
-      border: 1px solid var(--line);
-      padding: 7px 8px;
-      vertical-align: top;
-      word-break: keep-all;
-      overflow-wrap: anywhere;
+    .report-table th, .report-table td {
+      border: 1px solid var(--line); padding: 7px 8px;
+      vertical-align: top; word-break: keep-all; overflow-wrap: anywhere;
     }
-
-    .report-table th {
-      background: #eef2f7;
-      text-align: center;
-      font-weight: 800;
-    }
-
-    .report-table td {
-      background: #fff;
-    }
-
+    .report-table th { background: #eef2f7; text-align: center; font-weight: 800; }
+    .report-table td { background: #fff; }
     .report-table.key-value th:first-child,
     .report-table.key-value td:first-child {
-      width: 190px;
-      text-align: center;
-      background: #f5f7fa;
-      font-weight: 700;
+      width: 190px; text-align: center; background: #f5f7fa; font-weight: 700;
     }
-
-    .report-table.dense {
-      font-size: 12px;
-    }
-
-    .report-table.dense th,
-    .report-table.dense td {
-      padding: 6px;
-    }
-
+    .report-table.dense { font-size: 12px; }
+    .report-table.dense th, .report-table.dense td { padding: 6px; }
     .box {
-      display: inline-block;
-      width: 11px;
-      height: 11px;
-      margin: 0 3px 0 4px;
-      border: 1.5px solid #111827;
-      vertical-align: -1px;
-      background: #fff;
+      display: inline-block; width: 11px; height: 11px;
+      margin: 0 3px 0 4px; border: 1.5px solid #111827;
+      vertical-align: -1px; background: #fff;
     }
-
-    .box.checked {
-      position: relative;
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-
-    .box.checked::after {
-      content: "✓";
-      position: absolute;
-      left: 1px;
-      top: -5px;
-      color: #fff;
-      font-size: 13px;
-      font-weight: 800;
-      line-height: 1;
-    }
-
-    .ai-generated { color: #1d4ed8; }
-
+    .box.on { background: var(--accent); border-color: var(--accent); }
+    .slash { color: #6b7280; }
+    .val { color: var(--ink); font-weight: 600; }
     .placeholder {
-      display: inline-block;
-      min-width: min(220px, 100%);
-      max-width: 100%;
-      color: #475569;
-      background: var(--field);
-      border-bottom: 1px dotted #64748b;
-      padding: 0 2px;
-      overflow-wrap: anywhere;
+      color: #475569; background: var(--field);
+      border-bottom: 1px dotted #64748b; padding: 0 2px;
     }
-
-    .slash {
-      color: #6b7280;
-    }
-
     .signature-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      border-top: 1px solid var(--line);
-      margin-top: 18px;
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      border-top: 1px solid var(--line); margin-top: 18px;
     }
-
     .signature-grid div {
-      min-height: 54px;
-      padding: 10px;
+      min-height: 54px; padding: 10px;
       border-right: 1px solid var(--line);
     }
-
     .signature-grid div:last-child { border-right: 0; }
-
     @media (max-width: 760px) {
-      .page {
-        width: 100%;
-        margin: 0;
-        border: 0;
-        box-shadow: none;
-      }
-
-      .form-frame {
-        margin: 10px;
-      }
-
-      .meta-strip {
-        grid-template-columns: 1fr;
-      }
-
-      .meta-cell {
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-        grid-template-columns: 120px 1fr;
-      }
-
+      .page { width: 100%; margin: 0; border: 0; box-shadow: none; }
+      .form-frame { margin: 10px; }
+      .meta-strip { grid-template-columns: 1fr; }
+      .meta-cell { border-right: 0; border-bottom: 1px solid var(--line); grid-template-columns: 120px 1fr; }
       .meta-cell:last-child { border-bottom: 0; }
       main { padding: 14px 12px 18px; }
       h1 { font-size: 20px; }
-
-      .report-table {
-        display: block;
-        overflow-x: auto;
-        table-layout: auto;
-      }
-
-      .report-table th,
-      .report-table td {
-        min-width: 150px;
-      }
+      .report-table { display: block; overflow-x: auto; table-layout: auto; }
+      .report-table th, .report-table td { min-width: 150px; }
     }
-
     @media print {
-      body {
-        background: #fff;
-        font-size: 11px;
-      }
-
-      .page {
-        width: 210mm;
-        margin: 0;
-        border: 0;
-        box-shadow: none;
-      }
-
-      .form-frame {
-        margin: 8mm;
-      }
-
-      .section {
-        break-inside: avoid-page;
-        page-break-inside: avoid;
-      }
-
-      .section-gap {
-        height: 16px;
-      }
-
-      .subsection-gap {
-        height: 6px;
-      }
-
-      .freeform-response-space {
-        min-height: 82px;
-      }
-
-      .code-sample {
-        background: #f8fafc;
-        color: #0f172a;
-        border: 1px solid #cbd5e1;
-      }
+      body { background: #fff; font-size: 11px; }
+      .page { width: 210mm; margin: 0; border: 0; box-shadow: none; }
+      .form-frame { margin: 8mm; }
+      .section { page-break-inside: avoid; }
     }
   </style>
 </head>
+
+{%- macro cb(condition) -%}
+<span class="box {{ 'on' if condition else '' }}" aria-hidden="true"></span>
+{%- endmacro %}
+
 <body>
-  {% macro ck(label, checked) %}
-    <span class="box {{ 'checked' if checked else '' }}" aria-hidden="true"></span> {{ label }}
-  {% endmacro %}
-  {% macro ck_ai(label, checked) %}
-    <span class="box {{ 'checked' if checked else '' }}" aria-hidden="true"></span> <span class="ai-generated">{{ label }}</span>
-  {% endmacro %}
-  <div class="page">
-    <div class="form-frame">
-      <header class="document-head">
-        
-        <h1>WAF 운영 증적 자동화 및 컴플라이언스 매핑 감사 리포트</h1>
-        <div class="notice">
-          본 보고서는 WAF 운영 증적, 탐지 이벤트, CTI 교차검증, AWS 보안 상태 및 변경 이력을 컴플라이언스 항목에 자동 매핑하기 위한 내부 감사용 서식입니다.
-        </div>
-      </header>
+<div class="page">
+<div class="form-frame">
 
-        
-      <div class="meta-strip" aria-label="문서 메타 정보">
-        <div class="meta-cell"><span class="meta-label">문서번호</span><span class="meta-value">{{ code.document_id }}</span></div>
-        <div class="meta-cell"><span class="meta-label">생성일시</span><span class="meta-value">{{ code.generated_at }}</span></div>
-        <div class="meta-cell"><span class="meta-label">관점</span><span class="meta-value">감사 / 컴플라이언스</span></div>
-      </div>
-
-      <main>
-
-        <!-- ===================== 표제부 ===================== -->
-        <section class="section"><h2>표제부</h2>
-          <table class="report-table key-value">
-            <thead><tr><th>항목</th><th>내용</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>문서번호</td>
-                <td>{{ code.document_id }}</td>
-              </tr>
-              <tr>
-                <td>보고서 생성일시</td>
-                <td>{{ code.generated_at }} <span class="slash"></span></td>
-              </tr>
-              <tr>
-                <td>감사 기준</td>
-                <td>PCI DSS 6.4.2 <span class="slash">/</span> ISMS-P 2.5, 2.6, 2.7, 2.9, 2.10, 2.11</td>
-              </tr>
-              <tr>
-                <td>점검 대상 기간</td>
-                <td>{{ get("meta.period_start") }} ~ {{ get("meta.period_end") }}</td>
-              </tr>
-              <tr>
-                <td>점검 대상 환경</td>
-                <td>{% for label in environment_labels %}{{ ck(label, label in meta.environment_touched) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>보고서 유형</td>
-                <td>{{ ck("정기 감사", meta.report_type == "periodic") }} {{ ck("변경 후 감사", meta.report_type == "change") }} {{ ck("사고 후 감사", meta.report_type == "incident") }}</td>
-              </tr> 
-              <tr>
-                <td>생성 주체</td>
-                <td>Compliance Mapper 자동 생성</td>
-              </tr>
-              <tr>
-                <td>검토 책임자</td>
-                <td><span class="placeholder">[책임자명]</span></td>
-              </tr>
-            </tbody>
-          </table>
-         
-        </section>
-
-        <div class="section-gap" aria-hidden="true"></div>
-
-      
-        <!-- ===================== I장 ===================== -->
-        <section class="section"><h2>I. 감사 대상 시스템에 관한 정보</h2>
-          <table class="report-table key-value">
-            <thead><tr><th>항목</th><th>내용</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>서비스명</td>
-                <td>WAF 운영 증적 자동화 + 컴플라이언스 매핑 PoC</td>
-              </tr>
-              <tr>
-                <td>대상 애플리케이션</td>
-                <td>{{ ck("DVWA", event.target_app == "DVWA") }} {{ ck("Juice Shop", event.target_app == "Juice Shop") }} {{ ck("Ghost CMS", event.target_app == "Ghost CMS") }} 기타: <span class="placeholder"></span></td>
-              </tr>
-              <tr>
-                <td>보호 구간</td>
-                <td>CloudFront 뒤 / ALB 앞단 / CloudFront 앞단 / API Gateway 앞단</td>
-              </tr>
-              <tr>
-                <td>WAF 배치 상태</td>
-                <td>{{ ck("배치 확인", get("posture.waf_describe.status") == "배치 확인") }} {{ ck("일부 배치", get("posture.waf_describe.status") == "일부 배치") }} {{ ck("미배치", get("posture.waf_describe.status") == "미배치") }} {{ ck("확인 불가", get("posture.waf_describe.status") == "확인 불가") }}</td>
-              </tr>
-              <tr>
-                <td>적용 룰셋</td>
-                <td>AWS Managed Rule / Custom Rule / Rate-based Rule 등 (추후에 확정되면 추가함)</td>
-              </tr>
-              <tr>
-                <td>로그 수집 경로</td>
-                <td>WAF Logs → S3 → Loki/Athena → Python Analyzer → Compliance Mapper</td>
-              </tr>
-              <tr>
-                <td>증적 저장소</td>
-                <td>S3 Bucket: {{ get("meta.evidence_bucket") }}</td>
-              </tr>
-              <tr>
-                <td>증적 무결성 설정</td>
-                <td>{{ ck("S3 Object Lock", get("integrity.log_integrity_check.object_lock.all_evidence_locked", false) == true) }} {{ ck("CloudTrail log validation", get("integrity.change_integrity.cloudtrail.eventID", "") != "") }} {{ ck("KMS 암호화", get("integrity.log_integrity_check.encryption.all_evidence_encrypted", false) == true) }} {{ ck("미설정", get("integrity.log_integrity_check.integrity_result", "") != "PASS") }}</td>
-              </tr>
-            </tbody>
-          </table>
-          
-        </section>
-
-        <div class="section-gap" aria-hidden="true"></div>
-        
-        <!-- ===================== II장 ===================== -->
-        <section class="section"><h2>II. 탐지 이벤트 및 공격 매핑 정보</h2>
-          <table class="report-table key-value">
-            <thead><tr><th>항목</th><th>내용</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>이벤트 ID</td>
-                <td>{{ code.event_id }}</td>
-              </tr>
-              <tr>
-                <td>공격 발생 시각</td>
-                <td>{{ get("event.attack_time") }}</td>
-              </tr>
-              <tr>
-                <td>소스 IP</td>
-                <td>{{ get("event.source_ip") }}</td>
-              </tr>
-              <tr>
-                <td>대상 앱</td>
-                <td>{{ ck("DVWA", event.target_app == "DVWA") }} {{ ck("Juice Shop", event.target_app == "Juice Shop") }} {{ ck("Ghost CMS", event.target_app == "Ghost CMS") }}</td>
-              </tr>
-              <tr>
-                <td>대상 URI <span class="slash">/</span> API</td>
-                <td>{{ get("event.target_uri") }} / {{ get("event.target_args") }}</td>
-              </tr>
-              <tr>
-                <td>공격 유형</td>
-                <td>{% for label in attack_type_labels %}{{ ck_ai(label, event.ai.attack_type == label) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>OWASP 분류</td>
-                <td><span class="ai-generated">{{ get("event.ai.owasp") }}</span></td>
-              </tr>
-              <tr>
-                <td>WAF 처리 결과</td>
-                <td>{% for label in waf_action_labels %}{{ ck(label, event.waf_action == label) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>Analyzer 판단</td>
-                <td>{% for label in analyzer_labels %}{{ ck_ai(label, event.ai.analyzer_judgment == label) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>탐지 근거</td>
-                <td><span class="ai-generated">{{ get("event.ai.detection_basis") }}</span></td>
-              </tr>
-              <tr>
-                <td>CTI 교차검증</td>
-                <td>{% for label in cti_labels %}{{ ck_ai(label, cti_value == label) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>최종 신뢰도</td>
-                <td>{% for label in confidence_labels %}{{ ck_ai(label, event.ai.confidence == label) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>관련 증적 ID</td>
-                <td>{{ code.primary_evidence_id }}</td>
-              </tr>
-            </tbody>
-          </table>
-          <p class="hint">
-            <span class="hint-line"><strong>ID 계층 구조</strong> — AUD(감사 리포트) ▸ EVT(이벤트 탐지 묶음) ▸ EVD(개별 첨부 증적).</span>
-            <span class="hint-line">예: AUD-WAF-20260618-001 ▸ EVT-20260618-001 ▸ EVD-20260618-001-001(WAF 로그) / -002(Athena 결과) / -003(Analyzer 결과).</span>
-            <span class="hint-line"><strong>Analyzer 판단</strong>은 WAF가 적절히 막았는지를 평가(예: WAF=Allow인데 Command Injection 신뢰도 높음 → "차단 필요"). 룰 기반/AI 판단 중 구현 방식은 추후 확정.</span>
-          </p>
-        </section>
-
-
-        <div class="section-gap" aria-hidden="true"></div>
-
-        <!-- ===================== III장 ===================== -->
-        <section class="section"><h2>III. 컴플라이언스 통제 매핑 결과</h2>
-
-          <section class="subsection"><h3>III-1. PCI DSS 6.4.2 매핑</h3>
-            <table class="report-table dense">
-              <thead><tr><th>점검 항목</th><th>자동 판정</th><th>증적</th><th>증적 출처(JSON 필드)</th><th>감사자 확인</th></tr></thead>
-              <tbody>
-                <tr>
-                  <td>e1. 공개 웹 애플리케이션 앞단에 탐지·방어 수단이 존재하는가</td>
-                  <td>{% for label in pci_verdict_labels %}{{ ck(label, get("compliance.pci.e1.verdict") == label) }}{% endfor %}</td>
-                  <td>WAF 배치 describe <span class="slash">/</span> 룰셋 버전</td>
-                  <td>WAF get-web-acl: Web ACL 존재, 연결 리소스 목록</td>
-                  <td><span class="box" aria-hidden="true"></span> 확인</td>
-                </tr>
-                <tr>
-                  <td>e2. 웹 애플리케이션 트래픽이 보호 구간을 통과하는가</td>
-                  <td>{% for label in pci_verdict_labels %}{{ ck(label, get("compliance.pci.e2.verdict") == label) }}{% endfor %}</td>
-                  <td>ALB/CloudFront/WAF 연결 정보</td>
-                  <td>WAF get-web-acl-for-resource + ALB describe: association 여부</td>
-                  <td><span class="box" aria-hidden="true"></span> 확인</td>
-                </tr>
-                <tr>
-                  <td>e3. WAF 또는 동등 솔루션이 상시 활성화되어 있는가</td>
-                  <td>{% for label in pci_verdict_labels %}{{ ck(label, get("compliance.pci.e3.verdict") == label) }}{% endfor %}</td>
-                  <td>Config snapshot <span class="slash">/</span> WAF status</td>
-                  <td>Config config_diff.json / Prowler: WAF 상태, 기간 내 disable 이벤트</td>
-                  <td><span class="box" aria-hidden="true"></span> 확인</td>
-                </tr>
-                <tr>
-                  <td>e4. 탐지·차단 룰이 최신 상태로 관리되는가</td>
-                  <td>{% for label in pci_verdict_labels %}{{ ck(label, get("compliance.pci.e4.verdict") == label) }}{% endfor %}</td>
-                  <td>Rule version <span class="slash">/</span> GitHub PR <span class="slash">/</span> 변경이력</td>
-                  <td>GitHub /pulls + CloudTrail Records[]: PR merge 이력 vs 실제 변경 API 콜 일치 검증</td>
-                  <td><span class="box" aria-hidden="true"></span> 확인</td>
-                </tr>
-                <tr>
-                  <td>e5. 차단 또는 경고 후 조사 절차가 존재하는가</td>
-                  <td>{% for label in pci_verdict_labels %}{{ ck(label, get("compliance.pci.e5.verdict") == label) }}{% endfor %}</td>
-                  <td>Count/Block 로그 <span class="slash">/</span> 조사 기록 <span class="slash">/</span> 담당자 코멘트</td>
-                  <td>II장 Analyzer 판단 재사용</td>
-                  <td><span class="box" aria-hidden="true"></span> 확인</td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-
-          <div class="subsection-gap" aria-hidden="true"></div>
-          <section class="subsection"><h3>III-2. ISMS-P 매핑</h3>
-            <table class="report-table dense">
-              <thead><tr><th>ISMS-P 항목</th><th>통제 목적</th><th>자동 판정</th><th>증적</th></tr></thead>
-              <tbody>
-                <tr>
-                  <td>2.5 인증 및 권한관리</td>
-                  <td>관리자 접근 통제, MFA 확인</td>
-                  <td>{% for label in ismsp_verdict_labels %}{{ ck(label, get("compliance.ismsp.2.5.verdict") == label) }}{% endfor %}</td>
-                  <td>Prowler <span class="slash">/</span> Config managed rule</td>
-                </tr>
-                <tr>
-                  <td>2.6 접근통제</td>
-                  <td>비인가 접근 및 반복 인증 차단</td>
-                  <td>{% for label in ismsp_verdict_labels %}{{ ck(label, get("compliance.ismsp.2.6.verdict") == label) }}{% endfor %}</td>
-                  <td>Rate-based rule <span class="slash">/</span> IPSet</td>
-                </tr>
-                <tr>
-                  <td>2.7 암호화 적용</td>
-                  <td>로그 및 증적 암호화</td>
-                  <td>{% for label in ismsp_verdict_labels %}{{ ck(label, get("compliance.ismsp.2.7.verdict") == label) }}{% endfor %}</td>
-                  <td>S3 SSE-KMS <span class="slash">/</span> CMK 정책</td>
-                </tr>
-               
-                <tr>
-                  <td>2.9 시스템 및 서비스 운영관리</td>
-                  <td>로그 보관, 변경이력, 폐기</td>
-                  <td>{% for label in ismsp_verdict_labels %}{{ ck(label, get("compliance.ismsp.2.9.verdict") == label) }}{% endfor %}</td>
-                  <td>S3 lifecycle <span class="slash">/</span> GitHub PR <span class="slash">/</span> CloudTrail</td>
-                </tr>
-                <tr>
-                  <td>2.10 시스템 및 서비스 보안관리</td>
-                  <td>설정 오류 및 drift 탐지</td>
-                  <td>{% for label in ismsp_verdict_labels %}{{ ck(label, get("compliance.ismsp.2.10.verdict") == label) }}{% endfor %}</td>
-                  <td>AWS Config diff <span class="slash">/</span> Prowler</td>
-                </tr>
-                <tr>
-                  <td>2.11 사고 예방 및 대응</td>
-                  <td>공격 탐지·분석·차단 증적</td>
-                  <td>{% for label in ismsp_verdict_labels %}{{ ck(label, get("compliance.ismsp.2.11.verdict") == label) }}{% endfor %}</td>
-                  <td>WAF logs <span class="slash">/</span> Analyzer result <span class="slash">/</span> 조사 의견</td>
-                </tr>
-              </tbody>
-            </table>
-          </section>
-        </section>
-
-        <div class="section-gap" aria-hidden="true"></div>
-
-        <!-- ===================== IV장 ===================== -->
-        <section class="section"><h2>IV. 증적 수집 및 무결성 정보</h2>
-          <div class="plane-legend">
-            <div><span class="plane-tag">Plane A</span> 정적 자세(Posture): "지금 어떻게 설정돼 있나" — WAF 설정·암호화·drift·posture. 공격과 무관하게 상시 점검.</div>
-            <div><span class="plane-tag">Plane B</span> 동적 트래픽(Traffic): "무슨 일이 들어왔나" — WAF 탐지 로그·기준선·Analyzer 판단·CTI. 실제 요청/공격 흐름.</div>
-            <div><span class="plane-tag">Plane C</span> 변경·추적(Change): "누가 어떻게 바꿨나" — GitHub PR·CloudTrail. 변경 이력과 비부인.</div>
-          </div>
-
-          <table class="report-table dense">
-            <thead><tr><th>증적 항목</th><th>데이터 소스</th><th>평면</th><th>증적 위치</th><th>무결성 확인</th></tr></thead>
-            <tbody>
-              {% for row in evidence_rows %}
-              <tr>
-                <td>{{ row.name }}</td>
-                <td>{{ row.source }}</td>
-                <td>{{ row.plane }}</td>
-                <td>{{ row.s3_uri }}</td>
-                <td>{{ ck("확인", row.check_result == "PASS") }}</td>
-              </tr>
-              {% endfor %}
-              <tr>
-                <td>변경 이력</td>
-                <td>GitHub PR <span class="slash">/</span> CloudTrail</td>
-                <td>C</td>
-                <td>{{ get("integrity.change_integrity.github.pr_url") }} <span class="slash">/</span> {{ get("integrity.change_integrity.cloudtrail.eventID") }}</td>
-                <td>{{ get("integrity.change_integrity.github.merge_commit_sha") }} <span class="slash">/</span> {{ get("integrity.change_integrity.cloudtrail.eventTime") }}</td>
-              </tr>
-              <tr>
-                <td>로그 무결성</td>
-                <td>S3 Object Lock <span class="slash">/</span> CloudTrail validation</td>
-                <td>A + C</td>
-                <td>s3://{{ get("meta.evidence_bucket") }}/integrity/</td>
-                <td>{{ ck("확인", get("integrity.log_integrity_check.integrity_result") == "PASS") }}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <p class="hint">본 PoC에서는 증적 무결성의 핵심을 <strong>S3 Object Lock COMPLIANCE 모드</strong>와 <strong>SSE-KMS 암호화 확인</strong>으로 정의한다. Object Lock으로 증적 object version의 삭제·덮어쓰기를 방지하고, KMS로 암호화 저장 상태를 확인한다.</p>
-          
-        </section>
-
-        <div class="section-gap" aria-hidden="true"></div>
-
-        <!-- ===================== V장 ===================== -->
-        <section class="section"><h2>V. 감사 판단 및 위험도 평가</h2>
-          <table class="report-table key-value">
-            <thead><tr><th>항목</th><th>내용</th></tr></thead>
-            <tbody>
-              <tr>
-                <td>주요 탐지 결과</td>
-                <td><span class="ai-generated">{{ get("risk.ai.summary") }}</span></td>
-              </tr>
-              <tr>
-                <td>오탐 가능성</td>
-                <td>{% for label in likelihood_labels %}{{ ck_ai(label, get("risk.ai.false_positive") == label) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>미탐 가능성</td>
-                <td>{% for label in likelihood_labels %}{{ ck_ai(label, get("risk.ai.false_negative") == label) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>컴플라이언스 영향도</td>
-                <td>{% for label in impact_labels %}{{ ck_ai(label, get("risk.ai.compliance_impact") == label) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>운영 영향도</td>
-                <td>{% for label in ops_impact_labels %}{{ ck_ai(label, get("risk.ai.ops_impact") == label) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>최종 위험도</td>
-                <td>{% for label in score_labels %}{{ ck_ai(label, get("risk.ai.final_score") == label) }}{% endfor %}</td>
-              </tr>
-              <tr>
-                <td>감사자 재검토 필요 여부</td>
-                <td>{{ ck_ai("예", get("risk.ai.needs_review", false) == true) }} {{ ck_ai("아니오", get("risk.ai.needs_review", false) == false) }}</td>
-              </tr>
-              <tr>
-                <td>후속 조치 필요 여부</td>
-                <td>{{ ck_ai("예", get("risk.ai.needs_action", false) == true) }} {{ ck_ai("아니오", get("risk.ai.needs_action", false) == false) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-
-        <div class="section-gap" aria-hidden="true"></div>
-
-        <!-- ===================== VI장 ===================== -->
-        <section class="section"><h2>VI. 조치 권고 및 책임자 지정</h2>
-          <table class="report-table dense">
-            <thead><tr><th>조치 항목</th><th>권고 내용</th><th>담당자</th><th>기한</th></tr></thead>
-            <tbody>
-              {% for recommendation in recommendations %}
-              <tr>
-                <td>{{ recommendation.item | default("[ ]", true) }}</td>
-                <td><span class="ai-generated">{{ recommendation.text | default("[ ]", true) }}</span></td>
-                <td><span class="placeholder">{{ recommendation.owner | default("[담당자]", true) }}</span></td>
-                <td><span class="placeholder">{{ recommendation.due | default("[_________년 _____월 _____일]", true) }}</span></td>
-              </tr>
-              {% else %}
-              <tr><td><span class="placeholder">[ ]</span></td><td><span class="placeholder">[ ]</span></td><td><span class="placeholder">[담당자]</span></td><td><span class="placeholder">[_________년 _____월 _____일]</span></td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </section>
-
-        <div class="section-gap" aria-hidden="true"></div>
-
-
-        <!-- ===================== VII장 ===================== -->
-        <section class="section"><h2>VII. 첨부 증적 목록</h2>
-          <table class="report-table dense">
-            <thead><tr><th>첨부번호(EVD)</th><th>첨부파일명</th><th>설명</th><th>저장 위치</th></tr></thead>
-            <tbody>
-              {% for attachment in attachment_rows %}
-              <tr>
-                <td>{{ attachment.evidence_id }}</td>
-                <td>{{ attachment.file_name }}</td>
-                <td>{{ attachment.description }}</td>
-                <td>{{ attachment.location }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </section>
-
-        <div class="section-gap" aria-hidden="true"></div>
-
-        <!-- ===================== VIII장 ===================== -->
-        <section class="section"><h2>VIII. 최종 감사 의견</h2>
-          <p class="body-text">본 보고서는 WAF 로그, Analyzer 결정값, CTI 교차검증 결과, AWS posture 점검 결과, GitHub 변경이력 및 CloudTrail 조작 이력을 기반으로 자동 생성되었다. 감사 관점에서 본 건은 다음과 같이 판단한다.</p>
-          <div class="freeform-response-space" aria-hidden="true"><p class="body-text"><span class="ai-generated">{{ final_opinion | default("[ ]", true) }}</span></p></div>
-
-
-          <section class="subsection"><h3>감사자 확인</h3>
-            <table class="report-table key-value">
-              <thead><tr><th>항목</th><th>내용</th></tr></thead>
-              <tbody>
-                <tr><td>감사자명</td><td><span class="placeholder"></span></td></tr>
-                <tr><td>소속 <span class="slash">/</span> 역할</td><td><span class="placeholder"></span></td></tr>
-                <tr><td>검토일시</td><td><span class="placeholder"></span></td></tr>
-                <tr><td>서명 또는 승인</td><td><span class="placeholder"></span></td></tr>
-              </tbody>
-            </table>
-          </section>
-        </section>
-
-        <div class="section-gap" aria-hidden="true"></div>
-
-        <!-- ===================== 확인 및 승인 ===================== -->
-        <section class="section">
-          <h2>확인 및 승인</h2>
-          <div class="signature-grid">
-            <div><strong>작성</strong><span>Compliance Mapper</span></div>
-            <div><strong>검토</strong><span>[감사자 또는 보안책임자명]</span></div>
-            <div><strong>승인</strong><span>[서명 또는 승인]</span></div>
-          </div>
-        </section>
-
-      </main>
-    </div>
+<header class="document-head">
+  <div class="eyebrow">
+    <span>&lt;STR 참고형 컴플라이언스 서식&gt;</span>
+    <span>자동 생성 리포트</span>
   </div>
+  <h1>WAF 운영 증적 자동화 및 컴플라이언스 매핑 감사 리포트</h1>
+  <p class="subtitle">Suspicious Transaction Report의 표제부 및 구획형 보고 구조를 참고한 감사 관점 산출물</p>
+  <div class="notice">
+    본 보고서는 WAF 운영 증적, 탐지 이벤트, CTI 교차검증, AWS 보안 상태 및 변경 이력을
+    컴플라이언스 항목에 자동 매핑하기 위한 내부 감사용 서식입니다.
+    실제 데이터 기반으로 자동 생성되었으며, 감사자 검토 후 최종 확정합니다.
+  </div>
+</header>
+
+<div class="meta-strip">
+  <div class="meta-cell"><span class="meta-label">문서번호</span><span class="meta-value val">{{ code.document_id }}</span></div>
+  <div class="meta-cell"><span class="meta-label">생성일시</span><span class="meta-value val">{{ code.generated_at }}</span></div>
+  <div class="meta-cell"><span class="meta-label">관점</span><span class="meta-value">감사 / 컴플라이언스</span></div>
+</div>
+
+<main>
+
+{# ── 표제부 #}
+<section class="section"><h2>표제부</h2>
+<table class="report-table key-value"><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody>
+<tr><td>문서번호</td><td class="val">{{ code.document_id }}</td></tr>
+<tr><td>보고서 생성일시</td><td class="val">{{ code.generated_at }}</td></tr>
+<tr><td>감사 기준</td><td>PCI DSS 6.4.2 <span class="slash">/</span> ISMS-P 2.5, 2.6, 2.7, 2.8, 2.9, 2.10, 2.11</td></tr>
+<tr><td>점검 대상 기간</td><td class="val">{{ meta.period_start }} ~ {{ meta.period_end }}</td></tr>
+<tr><td>점검 대상 환경</td><td>AWS WAF <span class="slash">/</span> ALB 또는 CloudFront <span class="slash">/</span> S3 <span class="slash">/</span> KMS <span class="slash">/</span> CloudTrail <span class="slash">/</span> Config <span class="slash">/</span> Prowler <span class="slash">/</span> GitHub</td></tr>
+<tr><td>보고서 유형</td><td>
+  {{ cb(meta.report_type == "regular") }} 정기 감사
+  {{ cb(meta.report_type == "post_change") }} 변경 후 감사
+  {{ cb(meta.report_type == "incident") }} 사고 후 감사
+  {{ cb(meta.report_type == "manual") }} 수동 재검토
+</td></tr>
+<tr><td>최종 판정</td><td>
+  {{ cb(meta.final_verdict == "적정") }} 적정
+  {{ cb(meta.final_verdict == "부분 적정") }} 부분 적정
+  {{ cb(meta.final_verdict == "미흡") }} 미흡
+  {{ cb(meta.final_verdict == "재검토 필요") }} 재검토 필요
+</td></tr>
+<tr><td>생성 주체</td><td>Compliance Mapper 자동 생성</td></tr>
+<tr><td>검토 책임자</td><td><span class="placeholder">{{ meta.reviewer | default("[ ]") }}</span></td></tr>
+</tbody></table>
+</section>
+
+{# ── I. 감사 대상 시스템 #}
+<section class="section"><h2>I. 감사 대상 시스템에 관한 정보</h2>
+<table class="report-table key-value"><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody>
+<tr><td>서비스명</td><td>WAF 운영 증적 자동화 + 컴플라이언스 매핑 PoC</td></tr>
+<tr><td>대상 애플리케이션</td><td>
+  {{ cb(True) }} DVWA
+  {{ cb(False) }} Juice Shop
+  {{ cb(True) }} Ghost CMS
+  {{ cb(False) }} 기타
+</td></tr>
+<tr><td>보호 구간</td><td>
+  {{ cb(True) }} ALB 앞단
+  {{ cb(False) }} CloudFront 앞단
+  {{ cb(False) }} API Gateway 앞단
+</td></tr>
+<tr><td>WAF 배치 상태</td><td>
+  {{ cb(posture.waf_describe.web_acl_exists) }} 배치 확인
+  {{ cb(False) }} 일부 배치
+  {{ cb(not posture.waf_describe.web_acl_exists) }} 미배치
+</td></tr>
+<tr><td>적용 룰셋</td><td>
+  {{ cb(True) }} AWS Managed Rule
+  {{ cb(False) }} Custom Rule
+  {{ cb(False) }} Rate-based Rule
+  {{ cb(True) }} IPSet
+</td></tr>
+<tr><td>로그 수집 경로</td><td>WAF Logs → S3 → Loki <span class="slash">/</span> Python Analyzer → Compliance Mapper</td></tr>
+<tr><td>증적 저장소</td><td class="val">S3 Bucket: {{ meta.evidence_bucket }}</td></tr>
+<tr><td>증적 무결성 설정</td><td>
+  {{ cb(True) }} S3 Object Lock
+  {{ cb(True) }} CloudTrail log validation
+  {{ cb(True) }} KMS 암호화
+  {{ cb(False) }} 미설정
+</td></tr>
+</tbody></table>
+</section>
+
+{# ── II. 탐지 이벤트 및 공격 매핑 #}
+<section class="section"><h2>II. 탐지 이벤트 및 공격 매핑 정보</h2>
+<table class="report-table key-value"><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody>
+<tr><td>이벤트 ID</td><td class="val">{{ code.event_id }}</td></tr>
+<tr><td>공격 발생 시각</td><td class="val">{{ event.attack_time }}</td></tr>
+<tr><td>소스 IP</td><td class="val">{{ event.source_ip }} ({{ event.source_country | default("??") }})</td></tr>
+<tr><td>요청 건수</td><td class="val">{{ event.request_count | default(0) }}건</td></tr>
+<tr><td>대상 앱</td><td>
+  {{ cb(True) }} DVWA
+  {{ cb(False) }} Juice Shop
+  {{ cb(False) }} Ghost CMS
+</td></tr>
+<tr><td>공격 유형</td><td>
+  {% set types = event.ai.attack_types_all | default([]) %}
+  {{ cb("SQLi" in types) }} SQLi
+  {{ cb("XSS" in types) }} XSS
+  {{ cb("CommandInjection" in types) }} Command Injection
+  {{ cb("PathTraversal" in types) }} LFI/RFI
+  {{ cb(False) }} File Upload
+  {{ cb(False) }} Brute Force
+  {{ cb(False) }} API Abuse
+  {{ cb(False) }} JWT 조작
+  {{ cb(False) }} CSRF
+  {{ cb("Scanner" in types) }} Scanner UA
+  {{ cb("정상 트래픽" in types) }} 정상 트래픽
+</td></tr>
+<tr><td>OWASP 분류</td><td class="val">{{ event.ai.owasp | default("N/A") }}</td></tr>
+<tr><td>WAF 처리 결과</td><td>
+  {{ cb(event.waf_action == "Allow") }} Allow
+  {{ cb(event.waf_action == "Count") }} Count
+  {{ cb(event.waf_action == "Block") }} Block
+  {{ cb(event.waf_action == "CAPTCHA") }} CAPTCHA
+  {{ cb(event.waf_action == "Challenge") }} Challenge
+</td></tr>
+<tr><td>Analyzer 판단</td><td>
+  {{ cb(event.ai.analyzer_judgment == "정상") }} 정상
+  {{ cb(event.ai.analyzer_judgment == "탐지만") }} 탐지만
+  {{ cb(event.ai.analyzer_judgment == "차단 필요") }} 차단 필요
+  {{ cb(event.ai.analyzer_judgment == "재검토 필요") }} 재검토 필요
+</td></tr>
+<tr><td>탐지 근거</td><td class="val">{{ event.ai.detection_basis | default("N/A") }}</td></tr>
+<tr><td>CTI 교차검증</td><td>
+  {% set cti_c = event.cti.consensus | default("해당 없음") %}
+  {{ cb(cti_c == "해당 없음") }} 해당 없음
+  {{ cb(cti_c == "AbuseIPDB 일치") }} AbuseIPDB 일치
+  {{ cb(cti_c == "OTX 일치") }} OTX 일치
+  {{ cb(cti_c == "2개 소스 합의") }} 2개 소스 합의
+  {{ cb(cti_c == "불일치") }} 불일치
+</td></tr>
+<tr><td>최종 신뢰도</td><td>
+  {% set conf = event.ai.confidence | default("낮음") %}
+  {{ cb(conf == "낮음") }} 낮음
+  {{ cb(conf == "보통") }} 보통
+  {{ cb(conf == "높음") }} 높음
+  {{ cb(conf == "매우 높음") }} 매우 높음
+</td></tr>
+<tr><td>관련 증적 ID</td><td class="val">{{ code.primary_evidence_id }}</td></tr>
+</tbody></table>
+</section>
+
+{# ── III. 컴플라이언스 통제 매핑 #}
+<section class="section"><h2>III. 컴플라이언스 통제 매핑 결과</h2>
+
+<section class="subsection"><h3>III-1. PCI DSS 6.4.2 매핑</h3>
+<table class="report-table dense"><thead><tr>
+  <th>점검 항목</th><th>자동 판정</th><th>증적</th><th>감사자 확인</th>
+</tr></thead><tbody>
+<tr>
+  <td>e1. 공개 웹 애플리케이션 앞단에 탐지·방어 수단이 존재하는가</td>
+  <td>
+    {{ cb(compliance.pci.e1.verdict == "충족") }} 충족
+    {{ cb(compliance.pci.e1.verdict == "부분충족") }} 부분충족
+    {{ cb(compliance.pci.e1.verdict == "미충족") }} 미충족
+  </td>
+  <td>WAF 배치 describe <span class="slash">/</span> 룰셋 버전</td>
+  <td>{{ cb(False) }} 확인</td>
+</tr>
+<tr>
+  <td>e2. 웹 애플리케이션 트래픽이 보호 구간을 통과하는가</td>
+  <td>
+    {{ cb(compliance.pci.e2.verdict == "충족") }} 충족
+    {{ cb(compliance.pci.e2.verdict == "부분충족") }} 부분충족
+    {{ cb(compliance.pci.e2.verdict == "미충족") }} 미충족
+  </td>
+  <td>ALB/CloudFront/WAF 연결 정보</td>
+  <td>{{ cb(False) }} 확인</td>
+</tr>
+<tr>
+  <td>e3. WAF 또는 동등 솔루션이 상시 활성화되어 있는가</td>
+  <td>
+    {{ cb(compliance.pci.e3.verdict == "충족") }} 충족
+    {{ cb(compliance.pci.e3.verdict == "부분충족") }} 부분충족
+    {{ cb(compliance.pci.e3.verdict == "미충족") }} 미충족
+  </td>
+  <td>Config snapshot <span class="slash">/</span> WAF status</td>
+  <td>{{ cb(False) }} 확인</td>
+</tr>
+<tr>
+  <td>e4. 탐지·차단 룰이 최신 상태로 관리되는가</td>
+  <td>
+    {{ cb(compliance.pci.e4.verdict == "충족") }} 충족
+    {{ cb(compliance.pci.e4.verdict == "부분충족") }} 부분충족
+    {{ cb(compliance.pci.e4.verdict == "미충족") }} 미충족
+  </td>
+  <td>Rule version <span class="slash">/</span> GitHub PR <span class="slash">/</span> 변경이력</td>
+  <td>{{ cb(False) }} 확인</td>
+</tr>
+<tr>
+  <td>e5. 차단 또는 경고 후 조사 절차가 존재하는가</td>
+  <td>
+    {{ cb(compliance.pci.e5.verdict == "충족") }} 충족
+    {{ cb(compliance.pci.e5.verdict == "부분충족") }} 부분충족
+    {{ cb(compliance.pci.e5.verdict == "미충족") }} 미충족
+  </td>
+  <td>Count/Block 로그 <span class="slash">/</span> 조사 기록 <span class="slash">/</span> 담당자 코멘트</td>
+  <td>{{ cb(False) }} 확인</td>
+</tr>
+</tbody></table>
+</section>
+
+<section class="subsection"><h3>III-2. ISMS-P 매핑</h3>
+<table class="report-table dense"><thead><tr>
+  <th>ISMS-P 항목</th><th>통제 목적</th><th>자동 판정</th><th>증적</th>
+</tr></thead><tbody>
+{% set ismsp = compliance.ismsp %}
+<tr>
+  <td>2.5 인증 및 권한관리</td><td>관리자 접근 통제, MFA 확인</td>
+  <td>
+    {{ cb(ismsp["2.5"].verdict == "적정") }} 적정
+    {{ cb(ismsp["2.5"].verdict == "미흡") }} 미흡
+  </td>
+  <td>Prowler <span class="slash">/</span> Config managed rule</td>
+</tr>
+<tr>
+  <td>2.6 접근통제</td><td>비인가 접근 및 반복 인증 차단</td>
+  <td>
+    {{ cb(ismsp["2.6"].verdict == "적정") }} 적정
+    {{ cb(ismsp["2.6"].verdict == "미흡") }} 미흡
+  </td>
+  <td>Rate-based rule <span class="slash">/</span> IPSet</td>
+</tr>
+<tr>
+  <td>2.7 암호화 적용</td><td>로그 및 증적 암호화</td>
+  <td>
+    {{ cb(ismsp["2.7"].verdict == "적정") }} 적정
+    {{ cb(ismsp["2.7"].verdict == "미흡") }} 미흡
+  </td>
+  <td>S3 SSE-KMS <span class="slash">/</span> CMK 정책</td>
+</tr>
+<tr>
+  <td>2.8 정보시스템 도입 및 개발보안</td><td>이미지 취약점 점검</td>
+  <td>
+    {{ cb(ismsp["2.8"].verdict == "적정") }} 적정
+    {{ cb(ismsp["2.8"].verdict == "미흡") }} 미흡
+    {{ cb(ismsp["2.8"].verdict == "조건부") }} 조건부
+  </td>
+  <td>ECR scan-on-push</td>
+</tr>
+<tr>
+  <td>2.9 시스템 및 서비스 운영관리</td><td>로그 보관, 변경이력, 폐기</td>
+  <td>
+    {{ cb(ismsp["2.9"].verdict == "적정") }} 적정
+    {{ cb(ismsp["2.9"].verdict == "미흡") }} 미흡
+  </td>
+  <td>S3 lifecycle <span class="slash">/</span> GitHub PR <span class="slash">/</span> CloudTrail</td>
+</tr>
+<tr>
+  <td>2.10 시스템 및 서비스 보안관리</td><td>설정 오류 및 drift 탐지</td>
+  <td>
+    {{ cb(ismsp["2.10"].verdict == "적정") }} 적정
+    {{ cb(ismsp["2.10"].verdict == "미흡") }} 미흡
+  </td>
+  <td>AWS Config diff <span class="slash">/</span> Prowler</td>
+</tr>
+<tr>
+  <td>2.11 사고 예방 및 대응</td><td>공격 탐지·분석·차단 증적</td>
+  <td>
+    {{ cb(ismsp["2.11"].verdict == "적정") }} 적정
+    {{ cb(ismsp["2.11"].verdict == "미흡") }} 미흡
+  </td>
+  <td>WAF logs <span class="slash">/</span> Analyzer result <span class="slash">/</span> 조사 의견</td>
+</tr>
+</tbody></table>
+</section>
+</section>
+
+{# ── IV. 증적 수집 및 무결성 #}
+<section class="section"><h2>IV. 증적 수집 및 무결성 정보</h2>
+{% set bucket = meta.evidence_bucket %}
+<table class="report-table dense"><thead><tr>
+  <th>증적 항목</th><th>데이터 소스</th><th>평면</th><th>증적 위치</th><th>무결성 확인</th>
+</tr></thead><tbody>
+<tr><td>WAF 탐지 로그</td><td>AWS WAF Logs</td><td>B</td>
+  <td class="val">s3://{{ bucket }}/waf/</td><td>{{ cb(True) }} 확인</td></tr>
+<tr><td>정상 트래픽 기준선</td><td>Ghost CMS 요청 로그</td><td>B</td>
+  <td class="val">s3://{{ bucket }}/baseline/</td><td>{{ cb(True) }} 확인</td></tr>
+<tr><td>Analyzer 결정값</td><td>Python Analyzer output</td><td>B</td>
+  <td class="val">s3://{{ bucket }}/analysis/</td><td>{{ cb(True) }} 확인</td></tr>
+<tr><td>CTI 조회 결과</td><td>AbuseIPDB <span class="slash">/</span> OTX</td><td>B</td>
+  <td class="val">s3://{{ bucket }}/cti/</td><td>{{ cb(True) }} 확인</td></tr>
+<tr><td>WAF 설정 상태</td><td>AWS WAF describe</td><td>A</td>
+  <td class="val">s3://{{ bucket }}/posture/waf/</td><td>{{ cb(True) }} 확인</td></tr>
+<tr><td>암호화 설정</td><td>KMS <span class="slash">/</span> S3 SSE-KMS</td><td>A</td>
+  <td class="val">s3://{{ bucket }}/posture/kms/</td><td>{{ cb(True) }} 확인</td></tr>
+<tr><td>로그 무결성</td><td>S3 Object Lock <span class="slash">/</span> CloudTrail validation</td><td>A+C</td>
+  <td class="val">s3://{{ bucket }}/integrity/</td><td>{{ cb(True) }} 확인</td></tr>
+<tr><td>변경 이력</td><td>GitHub PR <span class="slash">/</span> CloudTrail</td><td>C</td>
+  <td class="val">{{ integrity.change_integrity.github.pr_url | default("N/A") }}</td>
+  <td>{{ cb(True) }} 확인</td></tr>
+<tr><td>drift 점검</td><td>AWS Config snapshot diff</td><td>A</td>
+  <td class="val">s3://{{ bucket }}/drift/</td><td>{{ cb(True) }} 확인</td></tr>
+<tr><td>posture 점검</td><td>Prowler report</td><td>A</td>
+  <td class="val">s3://{{ bucket }}/prowler/</td><td>{{ cb(True) }} 확인</td></tr>
+</tbody></table>
+</section>
+
+{# ── V. 감사 판단 및 위험도 #}
+<section class="section"><h2>V. 감사 판단 및 위험도 평가</h2>
+{% set risk = risk.ai %}
+{% set asum = analyzer_summary %}
+<table class="report-table key-value"><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody>
+<tr><td>주요 탐지 결과</td><td class="val">
+  총 {{ asum.total_requests | default(meta.total_requests, true) | default(0) }}건 요청,
+  고위험 IP {{ asum.high_risk_ips | default(0) }}개,
+  공격 패턴: {{ asum.attack_type_counts.keys() | list | join(", ") or "없음" }}
+</td></tr>
+<tr><td>오탐 가능성</td><td>
+  {{ cb(risk.false_positive == "낮음") }} 낮음
+  {{ cb(risk.false_positive == "보통") }} 보통
+  {{ cb(risk.false_positive == "높음") }} 높음
+  {{ cb(risk.false_positive == "판단 불가") }} 판단 불가
+</td></tr>
+<tr><td>미탐 가능성</td><td>
+  {{ cb(risk.false_negative == "낮음") }} 낮음
+  {{ cb(risk.false_negative == "보통") }} 보통
+  {{ cb(risk.false_negative == "높음") }} 높음
+  {{ cb(risk.false_negative == "판단 불가") }} 판단 불가
+</td></tr>
+<tr><td>컴플라이언스 영향도</td><td>
+  {{ cb(risk.compliance_impact == "낮음") }} 낮음
+  {{ cb(risk.compliance_impact == "중간") }} 중간
+  {{ cb(risk.compliance_impact == "높음") }} 높음
+  {{ cb(risk.compliance_impact == "중대") }} 중대
+</td></tr>
+<tr><td>운영 영향도</td><td>
+  {{ cb(risk.ops_impact == "낮음") }} 낮음
+  {{ cb(risk.ops_impact == "중간") }} 중간
+  {{ cb(risk.ops_impact == "높음") }} 높음
+</td></tr>
+<tr><td>최종 위험도</td><td>
+  {% for i in [1,2,3,4,5] %}{{ cb(risk.final_score == i) }} {{ i }} {% endfor %}
+</td></tr>
+<tr><td>감사자 재검토 필요 여부</td><td>
+  {{ cb(risk.needs_review) }} 예
+  {{ cb(not risk.needs_review) }} 아니오
+</td></tr>
+<tr><td>후속 조치 필요 여부</td><td>
+  {{ cb(risk.needs_action) }} 예
+  {{ cb(not risk.needs_action) }} 아니오
+</td></tr>
+</tbody></table>
+</section>
+
+{# ── VI. 6하 원칙 서술부 #}
+<section class="section"><h2>VI. 감사 서술부: 6하 원칙 기반 판단 근거</h2>
+<table class="report-table key-value"><thead><tr><th>구분</th><th>내용</th></tr></thead><tbody>
+<tr><td>1. 누가</td><td class="val">
+  소스 IP: {{ event.source_ip }} ({{ event.source_country | default("??") }}) —
+  CTI 평판: {{ event.cti.consensus | default("해당 없음") }}
+</td></tr>
+<tr><td>2. 언제</td><td class="val">{{ event.attack_time }}</td></tr>
+<tr><td>3. 어디서</td><td class="val">
+  대상: {{ event.target_app | default("N/A") }} /
+  WAF → ALB → {{ event.target_app | default("Backend") }}
+</td></tr>
+<tr><td>4. 무엇을</td><td class="val">
+  {{ event.ai.attack_type | default("Unknown") }} ({{ event.ai.owasp | default("N/A") }})
+</td></tr>
+<tr><td>5. 어떻게</td><td class="val">{{ event.ai.detection_basis | default("N/A") }}</td></tr>
+<tr><td>6. 왜 의심 또는 위반으로 판단했는가</td><td class="val">
+  WAF 룰 탐지 기반, 반복 요청 패턴 확인, 위험도 점수: {{ event.risk_score | default("N/A") }}.
+  현재 Count 모드로 미차단 — 정책 전환 근거로 활용.
+</td></tr>
+<tr><td>7. 종합의견</td><td class="val">{{ final_opinion }}</td></tr>
+</tbody></table>
+</section>
+
+{# ── VII. 조치 권고 #}
+<section class="section"><h2>VII. 조치 권고 및 책임자 지정</h2>
+<table class="report-table dense"><thead><tr>
+  <th>조치 항목</th><th>권고 내용</th><th>담당자</th><th>기한</th><th>상태</th>
+</tr></thead><tbody>
+{% for rec in recommendations %}
+<tr>
+  <td>{{ rec.item }}</td>
+  <td>{{ rec.text }}</td>
+  <td><span class="placeholder">{{ rec.owner | default("[ ]") }}</span></td>
+  <td><span class="placeholder">{{ rec.due | default("[ ]") }}</span></td>
+  <td>{{ cb(False) }} 예정 {{ cb(False) }} 진행 {{ cb(False) }} 완료</td>
+</tr>
+{% endfor %}
+</tbody></table>
+</section>
+
+{# ── VIII. 첨부 증적 목록 #}
+<section class="section"><h2>VIII. 첨부 증적 목록</h2>
+{% set bucket = meta.evidence_bucket %}
+<table class="report-table dense"><thead><tr>
+  <th>첨부번호</th><th>첨부파일명</th><th>설명</th><th>저장 위치</th>
+</tr></thead><tbody>
+<tr><td>1</td><td>waf_log_sample.json</td><td>WAF 탐지 원본 로그</td><td>s3://{{ bucket }}/waf/</td></tr>
+<tr><td>2</td><td>analyzer_result.json</td><td>Analyzer 결정값</td><td>s3://{{ bucket }}/analysis/</td></tr>
+<tr><td>3</td><td>cti_lookup_result.json</td><td>AbuseIPDB <span class="slash">/</span> OTX 조회 결과</td><td>s3://{{ bucket }}/cti/</td></tr>
+<tr><td>4</td><td>prowler_report.json</td><td>posture 점검 결과</td><td>s3://{{ bucket }}/prowler/</td></tr>
+<tr><td>5</td><td>config_diff.json</td><td>WAF drift 점검 결과</td><td>s3://{{ bucket }}/drift/</td></tr>
+<tr><td>6</td><td>cloudtrail_events.json</td><td>변경 이력 및 키 사용 이력</td><td>s3://{{ bucket }}/cloudtrail/</td></tr>
+<tr><td>7</td><td>github_pr_link.txt</td><td>정책 변경 PR 링크</td>
+  <td class="val">{{ integrity.change_integrity.github.pr_url | default("N/A") }}</td></tr>
+<tr><td>8</td><td>object_lock_status.json</td><td>증적 WORM 설정 확인</td><td>s3://{{ bucket }}/integrity/</td></tr>
+</tbody></table>
+</section>
+
+{# ── IX. 최종 감사 의견 #}
+<section class="section"><h2>IX. 최종 감사 의견</h2>
+<p class="body-text">
+  본 보고서는 WAF 로그, Analyzer 결정값, CTI 교차검증 결과, AWS posture 점검 결과,
+  GitHub 변경이력 및 CloudTrail 조작 이력을 기반으로 자동 생성되었다.
+</p>
+<p class="body-text">감사 관점에서 본 건은 다음과 같이 판단한다.</p>
+<p class="body-text">
+  {{ cb(meta.final_verdict == "적정") }} 적정
+  {{ cb(meta.final_verdict == "부분 적정") }} 부분 적정
+  {{ cb(meta.final_verdict == "미흡") }} 미흡
+  {{ cb(meta.final_verdict == "재검토 필요") }} 재검토 필요
+</p>
+
+<section class="subsection"><h3>종합의견</h3>
+<p class="body-text val">{{ final_opinion }}</p>
+</section>
+
+<section class="subsection"><h3>감사자 확인</h3>
+<table class="report-table key-value"><thead><tr><th>항목</th><th>내용</th></tr></thead><tbody>
+<tr><td>감사자명</td><td><span class="placeholder">[ ]</span></td></tr>
+<tr><td>소속 / 역할</td><td><span class="placeholder">[ ]</span></td></tr>
+<tr><td>검토일시</td><td><span class="placeholder">[ ]</span></td></tr>
+<tr><td>서명 또는 승인</td><td><span class="placeholder">[ ]</span></td></tr>
+</tbody></table>
+</section>
+</section>
+
+<section class="section">
+  <h2>확인 및 승인</h2>
+  <div class="signature-grid">
+    <div><strong>작성</strong><br>Compliance Mapper</div>
+    <div><strong>검토</strong><br>{{ meta.reviewer | default("[감사자 또는 보안책임자명]") }}</div>
+    <div><strong>승인</strong><br><span class="placeholder">[ ]</span></div>
+  </div>
+</section>
+
+</main>
+</div>
+</div>
 </body>
 </html>

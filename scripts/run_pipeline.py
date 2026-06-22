@@ -41,15 +41,32 @@ def _step(n, title):
     print(f"{C.GRAY}{'─' * 50}{C.RESET}")
 
 
+def _has_aws_creds() -> bool:
+    """환경변수 또는 ~/.aws/credentials 어느 쪽이든 있으면 True."""
+    if os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE"):
+        return True
+    creds = Path.home() / ".aws" / "credentials"
+    config = Path.home() / ".aws" / "config"
+    return creds.exists() or config.exists()
+
+
 def _run(cmd: list, cwd=None, env=None) -> tuple[int, str, str]:
-    env_full = {**os.environ, **(env or {})}
-    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, env=env_full)
-    return r.returncode, r.stdout, r.stderr
+    env_full = {**os.environ, **(env or {}), "PYTHONIOENCODING": "utf-8"}
+    if env:
+        env_full.update(env)
+    r = subprocess.run(
+        cmd, cwd=cwd, capture_output=True, text=True, env=env_full,
+        encoding="utf-8", errors="replace",
+    )
+    return r.returncode, r.stdout or "", r.stderr or ""
 
 
 def _check_docker() -> bool:
-    code, _, _ = _run(["docker", "info"])
-    return code == 0
+    try:
+        r = subprocess.run("docker info", capture_output=True, timeout=20, shell=True)
+        return r.returncode == 0
+    except Exception:
+        return False
 
 
 def _check_ollama() -> bool:
@@ -160,7 +177,10 @@ def step_ai_report(analysis_json: str | None) -> bool:
         return False
 
     _info(f"입력: {Path(analysis_json).name}")
-    cmd = [sys.executable, str(ROOT / "ai" / "report_generator.py"), analysis_json]
+    ai_output = ROOT / "ai" / "output"
+    cmd = [sys.executable, str(ROOT / "ai" / "report_generator.py"),
+           "--input", analysis_json,
+           "--output-dir", str(ai_output)]
     code, out, err = _run(cmd, cwd=str(ROOT / "ai"))
     if code == 0:
         _ok("AI 보고서 생성 완료")
@@ -170,18 +190,87 @@ def step_ai_report(analysis_json: str | None) -> bool:
         return False
 
 
-def step_compliance_report() -> bool:
-    _step(6, "컴플라이언스 감사 보고서 생성 (compliance/render.py)")
-    cmd = [sys.executable, str(ROOT / "compliance" / "render.py")]
+def step_compliance_report(analysis_json: str | None) -> bool:
+    _step(6, "컴플라이언스 감사 보고서 생성")
+
+    real_data = str(ROOT / "compliance" / "real_data.json")
+
+    # 6-a: 실제 분석 데이터 → compliance 포맷 변환
+    if not analysis_json:
+        _fail("분석 JSON 없음 — analyzer 단계가 실패했거나 --log-dir이 지정되지 않았습니다")
+        return False
+
+    _info("실제 분석 데이터 변환 중 (build_data.py)")
+    cmd = [sys.executable, str(ROOT / "compliance" / "build_data.py"),
+           "--analysis", analysis_json, "--out", real_data]
     code, out, err = _run(cmd, cwd=str(ROOT))
-    output_lines = [l for l in (out + err).splitlines() if l.strip()]
+    if code != 0:
+        _fail(f"build_data 실패:\n{(err or out)[:300]}")
+        return False
+    _ok(f"데이터 변환 완료 → {Path(real_data).name}")
+
+    # 6-b: HTML/PDF 렌더링
+    cmd = [sys.executable, str(ROOT / "compliance" / "render.py"), "--data", real_data]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    output_lines = [ln for ln in (out + err).splitlines() if ln.strip()]
     for line in output_lines[-5:]:
         print(f"  {line}")
     if code == 0:
         _ok("컴플라이언스 보고서 생성 완료")
         return True
     else:
-        _fail(f"실패: {(err or out)[:300]}")
+        _fail(f"render 실패: {(err or out)[:300]}")
+        return False
+
+
+def step_collect_waf() -> bool:
+    _step("3b", "WAF describe 수집 (scripts/collect_waf.py)")
+    if not _has_aws_creds():
+        _skip("AWS 자격증명 없음 — WAF describe 스킵 (~/.aws/credentials 또는 AWS_ACCESS_KEY_ID 설정)")
+        return False
+    cmd = [sys.executable, str(ROOT / "scripts" / "collect_waf.py")]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    for line in (out + err).splitlines()[-5:]:
+        print(f"  {line}")
+    if code == 0:
+        _ok("WAF describe 수집 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
+def step_collect_cloudtrail() -> bool:
+    _step("3c", "CloudTrail 변경 이력 수집 (scripts/collect_cloudtrail.py)")
+    if not _has_aws_creds():
+        _skip("AWS 자격증명 없음 — CloudTrail 수집 스킵")
+        return False
+    cmd = [sys.executable, str(ROOT / "scripts" / "collect_cloudtrail.py")]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    for line in (out + err).splitlines()[-5:]:
+        print(f"  {line}")
+    if code == 0:
+        _ok("CloudTrail 수집 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
+def step_collect_prowler() -> bool:
+    _step("3d", "Prowler 보안 점검 수집 (scripts/collect_prowler.py)")
+    if not _has_aws_creds():
+        _skip("AWS 자격증명 없음 — Prowler 스킵")
+        return False
+    cmd = [sys.executable, str(ROOT / "scripts" / "collect_prowler.py")]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    for line in (out + err).splitlines()[-5:]:
+        print(f"  {line}")
+    if code == 0:
+        _ok("Prowler 점검 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
         return False
 
 
@@ -239,11 +328,33 @@ def main():
     p.add_argument("--target",    default=None,  help="공격 대상 URL (예: http://localhost:5000)")
     p.add_argument("--log-dir",   default=str(ROOT / "analyzer" / "sample_logs"),
                    help="WAF 로그 디렉토리")
+    p.add_argument("--live",      action="store_true",
+                   help="S3에서 최신 WAF 로그 다운로드 후 분석 (--log-dir 무시)")
+    p.add_argument("--live-hours", default=1, type=int,
+                   help="--live 사용 시 수집 시간 범위 (기본: 1시간)")
     p.add_argument("--dry-run",   action="store_true", help="실제 요청/PR 없이 시뮬레이션")
     p.add_argument("--skip-zap",  action="store_true", help="ZAP 스캔 스킵")
     p.add_argument("--skip-ai",   action="store_true", help="AI 보고서 생성 스킵")
     p.add_argument("--skip-pr",   action="store_true", help="GitHub PR 자동 생성 스킵")
     args = p.parse_args()
+
+    # --live: S3에서 실시간 로그 다운로드
+    if args.live:
+        live_dir = str(ROOT / "analyzer" / "live_logs")
+        _step("0", f"S3 WAF 실시간 로그 수집 (최근 {args.live_hours}시간)")
+        code, out, err = _run(
+            [sys.executable, str(ROOT / "scripts" / "collect_waf_logs.py"),
+             "--hours", str(args.live_hours), "--out", live_dir],
+            cwd=str(ROOT)
+        )
+        for line in (out + err).splitlines()[-8:]:
+            print(f"  {line}")
+        if code == 0:
+            args.log_dir = live_dir
+            _ok(f"실시간 로그 준비 완료 → {live_dir}")
+        else:
+            _fail("S3 로그 수집 실패 — sample_logs로 폴백")
+            # log_dir은 기본값(sample_logs) 유지
 
     print(f"\n{C.BOLD}{C.CYAN}{'=' * 60}")
     print(f"  Cloud Security Platform — 로컬 파이프라인")
@@ -266,10 +377,19 @@ def main():
     analysis_json            = step_analyzer(args.log_dir)
     results["analyzer"]      = bool(analysis_json)
     results["ab_test"]       = step_ab_test(args.target, args.log_dir, args.dry_run)
+
+    # AWS 실데이터 수집기 (자격증명 있을 때만 실행)
+    results["waf_collect"]   = step_collect_waf()
+    results["ct_collect"]    = step_collect_cloudtrail()
+    results["prowler"]       = step_collect_prowler()
+
     results["zap"]           = False if args.skip_zap else step_zap(args.target)
     results["ai_report"]     = False if args.skip_ai  else step_ai_report(analysis_json)
-    results["compliance"]    = step_compliance_report()
+
+    # PR 수집은 compliance 빌드 전에 실행 (github_pr.json을 Adapter가 읽음)
     results["pr_collector"]  = step_pr_collector()
+
+    results["compliance"]    = step_compliance_report(analysis_json)
     results["auto_pr"]       = False if args.skip_pr  else step_auto_pr(analysis_json, args.dry_run)
 
     elapsed = time.time() - start
