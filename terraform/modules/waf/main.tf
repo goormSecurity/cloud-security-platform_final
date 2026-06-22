@@ -86,7 +86,7 @@ resource "aws_wafv2_ip_set" "blocklist" {
   name               = "${var.project_name}-blocklist"
   scope              = "REGIONAL"
   ip_address_version = "IPV4"
-  addresses          = []
+  addresses          = var.blocked_ips
 
   tags = {
     Name = "${var.project_name}-blocklist"
