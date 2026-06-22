@@ -15,10 +15,11 @@ on:
 env:
   PYTHON_VERSION: "3.11"
 
-# ================================================================
-# JOB 1: 코드 검증 — 모든 PR 및 push에서 실행
-# ================================================================
 jobs:
+  # ================================================================
+  # JOB 1: 코드 검증 — 모든 PR 및 push에서 실행
+  #   Python 전 모듈 문법·테스트 + Terraform fmt/validate + tfsec
+  # ================================================================
   validate:
     name: "[CI] Validate & Test"
     runs-on: ubuntu-latest
@@ -68,8 +69,54 @@ jobs:
           terraform -chdir=terraform init -backend=false
           terraform -chdir=terraform validate
 
+      - name: tfsec — Terraform 보안 취약점 검사
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform
+          soft_fail: true
+
   # ================================================================
-  # JOB 2: 보안 분석 파이프라인 — main 병합 시 자동 실행
+  # JOB 2: Infracost 비용 분석 — PR에서만 실행, 결과를 PR 댓글로 게시
+  #   기획서 4.5: "정책 변경 시 발생 가능한 월 비용 영향 분석"
+  #   GitHub repo secret에 INFRACOST_API_KEY 등록 필요
+  #   (https://www.infracost.io/docs/integrations/github_actions/)
+  # ================================================================
+  infracost:
+    name: "[CI] Infracost — WAF 정책 변경 비용 사전 분석"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Infracost breakdown (base branch)
+        run: |
+          infracost breakdown \
+            --path terraform \
+            --format json \
+            --out-file /tmp/infracost-base.json
+        env:
+          INFRACOST_TERRAFORM_WORKSPACE: default
+
+      - name: Post Infracost comment on PR
+        run: |
+          infracost comment github \
+            --path /tmp/infracost-base.json \
+            --repo ${{ github.repository }} \
+            --github-token ${{ secrets.GITHUB_TOKEN }} \
+            --pull-request ${{ github.event.pull_request.number }} \
+            --behavior update
+
+  # ================================================================
+  # JOB 3: 보안 분석 파이프라인 — main 병합 시 자동 실행
   #   analyzer → compliance 보고서 → PR 이력 수집 → artifact 저장
   # ================================================================
   security-pipeline:
@@ -95,13 +142,13 @@ jobs:
       - name: Install Playwright browsers
         run: playwright install chromium --with-deps
 
-      - name: "[1/3] WAF 로그 분석"
+      - name: "[1/3] WAF 로그 분석 (Python Analyzer + CTI)"
         run: python analyzer/main.py --source analyzer/sample_logs
 
       - name: "[2/3] 컴플라이언스 감사 보고서 생성 (HTML + PDF)"
         run: python compliance/render.py
 
-      - name: "[3/3] PR 이력 수집 (변경관리 증적 — 2.10.1)"
+      - name: "[3/3] PR 이력 수집 (변경관리 증적 — ISMS-P 2.10.1)"
         run: python compliance/pr_collector.py --merged-only
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -116,10 +163,11 @@ jobs:
           retention-days: 30
 
   # ================================================================
-  # JOB 3: AWS 인프라 배포 — 보안 파이프라인 완료 후 자동 실행
+  # JOB 4: AWS 인프라 배포 — 보안 파이프라인 완료 후 자동 실행
+  #   기획서 4.4: "승인된 정책은 GitHub Actions를 통해 Terraform 코드로 반영"
   # ================================================================
   deploy:
-    name: "[CD] Deploy to AWS (Terraform)"
+    name: "[CD] Deploy to AWS (Terraform Apply)"
     needs: security-pipeline
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -144,17 +192,17 @@ jobs:
       - name: Terraform plan
         run: terraform -chdir=terraform plan -out=tfplan
 
-      - name: Terraform apply
+      - name: Terraform apply → AWS WAF 정책 업데이트
         run: terraform -chdir=terraform apply -auto-approve tfplan
 
-# ================================================================
-# JOB 4 (수동): AI 보안 보고서 생성
-#   Ollama 로컬 LLM 의존 → workflow_dispatch로 수동 트리거
-#   사전 조건: self-hosted runner에 ollama + llama3.1:8b 설치 필요
-#   실행: Actions 탭 → "Run workflow" → analysis_json 경로 입력
-# ================================================================
+  # ================================================================
+  # JOB 5 (수동): AI 보안 보고서 생성
+  #   Ollama 로컬 LLM 의존 → workflow_dispatch로 수동 트리거
+  #   사전 조건: self-hosted runner에 ollama + llama3.1:8b 설치 필요
+  #   실행: Actions 탭 → "Run workflow" → analysis_json 경로 입력 (선택)
+  # ================================================================
   ai-report:
-    name: "[Manual] AI Security Report"
+    name: "[Manual] AI Security Report (Ollama)"
     if: github.event_name == 'workflow_dispatch'
     runs-on: self-hosted
 
@@ -175,7 +223,7 @@ jobs:
         if: github.event.inputs.analysis_json == ''
         run: python analyzer/main.py --source analyzer/sample_logs
 
-      - name: Generate AI security report
+      - name: Generate AI security report (LangChain + Ollama)
         run: |
           if [ -n "${{ github.event.inputs.analysis_json }}" ]; then
             INPUT="${{ github.event.inputs.analysis_json }}"
