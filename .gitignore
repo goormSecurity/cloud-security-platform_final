@@ -91,6 +91,18 @@ monitoring/data/
 monitoring/grafana-data/
 monitoring/loki-data/
 
+# ===========================================
+# 파이프라인 런타임 생성 파일
+# ===========================================
+analyzer/live_logs/
+raw/
+compliance/real_data.json
+compliance/input/cloudtrail_events.json
+compliance/input/prowler_report.json
+compliance/input/github_pr.json
+github_pr.json
+compliance-audit-report.html
+
 # OS / Editor
 .DS_Store
 Thumbs.db
