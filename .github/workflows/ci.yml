@@ -1,35 +1,61 @@
-name: CI
+name: Cloud Security Platform — CI/CD
 
 on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, integration/team-branches]
+  workflow_dispatch:
+    inputs:
+      analysis_json:
+        description: "분석 결과 JSON 경로 (ai-report 수동 실행 시)"
+        required: false
+        default: ""
 
+env:
+  PYTHON_VERSION: "3.11"
+
+# ================================================================
+# JOB 1: 코드 검증 — 모든 PR 및 push에서 실행
+# ================================================================
 jobs:
-  ci:
-    name: Test & Validate
+  validate:
+    name: "[CI] Validate & Test"
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run pytest
-        run: pytest -q
-
-      - name: Python compile check
         run: |
-          python -m py_compile analyzer/main.py analyzer/waf_analyzer.py \
-            analyzer/cti_checker.py analyzer/config.py \
-            attack_simulation/attack_runner.py monitoring/json_server.py
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r compliance/requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Python syntax check — all modules
+        run: |
+          python -m py_compile \
+            analyzer/main.py \
+            analyzer/waf_analyzer.py \
+            analyzer/cti_checker.py \
+            analyzer/config.py \
+            attack_simulation/attack_runner.py \
+            monitoring/json_server.py \
+            compliance/render.py \
+            compliance/pr_collector.py \
+            ai/report_generator.py \
+            ai/prompts.py
+
+      - name: Run tests
+        run: pytest -q --tb=short
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -37,8 +63,132 @@ jobs:
       - name: Terraform fmt check
         run: terraform -chdir=terraform fmt -check -recursive
 
-      - name: Terraform init
-        run: terraform -chdir=terraform init -backend=false
+      - name: Terraform init & validate
+        run: |
+          terraform -chdir=terraform init -backend=false
+          terraform -chdir=terraform validate
 
-      - name: Terraform validate
-        run: terraform -chdir=terraform validate
+  # ================================================================
+  # JOB 2: 보안 분석 파이프라인 — main 병합 시 자동 실행
+  #   analyzer → compliance 보고서 → PR 이력 수집 → artifact 저장
+  # ================================================================
+  security-pipeline:
+    name: "[CD] Security Analysis Pipeline"
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r compliance/requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: "[1/3] WAF 로그 분석"
+        run: python analyzer/main.py --source analyzer/sample_logs
+
+      - name: "[2/3] 컴플라이언스 감사 보고서 생성 (HTML + PDF)"
+        run: python compliance/render.py
+
+      - name: "[3/3] PR 이력 수집 (변경관리 증적 — 2.10.1)"
+        run: python compliance/pr_collector.py --merged-only
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ github.run_number }}
+          path: |
+            output/
+            compliance/output/
+          retention-days: 30
+
+  # ================================================================
+  # JOB 3: AWS 인프라 배포 — 보안 파이프라인 완료 후 자동 실행
+  # ================================================================
+  deploy:
+    name: "[CD] Deploy to AWS (Terraform)"
+    needs: security-pipeline
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform -chdir=terraform init
+
+      - name: Terraform plan
+        run: terraform -chdir=terraform plan -out=tfplan
+
+      - name: Terraform apply
+        run: terraform -chdir=terraform apply -auto-approve tfplan
+
+# ================================================================
+# JOB 4 (수동): AI 보안 보고서 생성
+#   Ollama 로컬 LLM 의존 → workflow_dispatch로 수동 트리거
+#   사전 조건: self-hosted runner에 ollama + llama3.1:8b 설치 필요
+#   실행: Actions 탭 → "Run workflow" → analysis_json 경로 입력
+# ================================================================
+  ai-report:
+    name: "[Manual] AI Security Report"
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install AI dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run analyzer (입력 JSON 없을 때 샘플로 실행)
+        if: github.event.inputs.analysis_json == ''
+        run: python analyzer/main.py --source analyzer/sample_logs
+
+      - name: Generate AI security report
+        run: |
+          if [ -n "${{ github.event.inputs.analysis_json }}" ]; then
+            INPUT="${{ github.event.inputs.analysis_json }}"
+          else
+            INPUT=$(ls -t output/analysis_*.json | head -1)
+          fi
+          python ai/report_generator.py "$INPUT"
+        env:
+          OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
+
+      - name: Upload AI report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-report-${{ github.run_number }}
+          path: output/
+          retention-days: 30
