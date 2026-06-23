@@ -274,6 +274,58 @@ def step_collect_prowler() -> bool:
         return False
 
 
+def step_collect_cmk() -> bool:
+    _step("3e", "CMK + Object Lock 증적 수집 (scripts/collect_cmk.py)")
+    if not _has_aws_creds():
+        _skip("AWS 자격증명 없음 — CMK 수집 스킵")
+        return False
+    cmd = [sys.executable, str(ROOT / "scripts" / "collect_cmk.py")]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    for line in (out + err).splitlines()[-5:]:
+        print(f"  {line}")
+    if code == 0:
+        _ok("CMK 증적 수집 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
+def step_collect_config_diff() -> bool:
+    _step("3f", "AWS Config 드리프트 감지 (scripts/collect_config_diff.py)")
+    if not _has_aws_creds():
+        _skip("AWS 자격증명 없음 — Config 드리프트 스킵")
+        return False
+    cmd = [sys.executable, str(ROOT / "scripts" / "collect_config_diff.py")]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    for line in (out + err).splitlines()[-5:]:
+        print(f"  {line}")
+    if code == 0:
+        _ok("Config 드리프트 감지 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
+def step_generate_ai_json(analysis_json: str | None) -> bool:
+    _step("5b", "AI 분석 JSON 생성 (ai/generate_analysis_json.py)")
+    if not analysis_json:
+        _skip("분석 JSON 없음 — AI JSON 생성 스킵")
+        return False
+    cmd = [sys.executable, str(ROOT / "ai" / "generate_analysis_json.py"),
+           "--analysis", analysis_json]
+    code, out, err = _run(cmd, cwd=str(ROOT / "ai"))
+    for line in (out + err).splitlines()[-5:]:
+        print(f"  {line}")
+    if code == 0:
+        _ok("AI 분석 JSON 생성 완료 → compliance/input/ai_analysis.json")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
 def step_pr_collector() -> bool:
     _step(7, "PR 이력 수집 — ISMS-P 변경관리 증적 (compliance/pr_collector.py)")
     token = os.environ.get("GITHUB_TOKEN")
@@ -382,9 +434,12 @@ def main():
     results["waf_collect"]   = step_collect_waf()
     results["ct_collect"]    = step_collect_cloudtrail()
     results["prowler"]       = step_collect_prowler()
+    results["cmk_collect"]   = step_collect_cmk()
+    results["config_diff"]   = step_collect_config_diff()
 
     results["zap"]           = False if args.skip_zap else step_zap(args.target)
     results["ai_report"]     = False if args.skip_ai  else step_ai_report(analysis_json)
+    results["ai_json"]       = step_generate_ai_json(analysis_json)
 
     # PR 수집은 compliance 빌드 전에 실행 (github_pr.json을 Adapter가 읽음)
     results["pr_collector"]  = step_pr_collector()
