@@ -26,7 +26,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT / "compliance" / "input"
 
-DEFAULT_BUCKET = "aws-waf-logs-cloud-sec-dev"
+DEFAULT_BUCKET        = "aws-waf-logs-cloud-sec-dev"
+AUDIT_EVIDENCE_BUCKET = "cloud-sec-audit-evidence-dev"   # Object Lock COMPLIANCE 적용 버킷
 DEFAULT_REGION = "ap-northeast-2"
 DEFAULT_PREFIX  = "AWSLogs/677673473281/WAFLogs/ap-northeast-2/cloud-sec-web-acl/"
 
@@ -280,11 +281,13 @@ def collect_object_head(s3, bucket, prefix):
 # ── 메인 ─────────────────────────────────────────────────────────
 def collect(bucket=DEFAULT_BUCKET, region=DEFAULT_REGION, prefix=DEFAULT_PREFIX):
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"[collect_cmk] 버킷: {bucket} / 리전: {region}")
+    print(f"[collect_cmk] WAF 로그 버킷: {bucket}")
+    print(f"[collect_cmk] 증적 버킷   : {AUDIT_EVIDENCE_BUCKET}")
 
     s3  = _client("s3",  region)
     kms = _client("kms", region)
 
+    # WAF 로그 버킷: 암호화 + KMS 키 증적
     enc        = collect_bucket_encryption(s3, bucket)
     kms_key_id = enc.get("KMSMasterKeyID")
 
@@ -293,9 +296,11 @@ def collect(bucket=DEFAULT_BUCKET, region=DEFAULT_REGION, prefix=DEFAULT_PREFIX)
 
     collect_kms_rotation(kms, key_id)
     collect_kms_policy(kms, key_id)
-    collect_object_lock(s3, bucket)
-    collect_object_retention(s3, bucket, prefix)
-    collect_object_head(s3, bucket, prefix)
+
+    # audit-evidence 버킷: Object Lock COMPLIANCE 증적 (Terraform으로 별도 생성)
+    collect_object_lock(s3, AUDIT_EVIDENCE_BUCKET)
+    collect_object_retention(s3, AUDIT_EVIDENCE_BUCKET, "")
+    collect_object_head(s3, AUDIT_EVIDENCE_BUCKET, "")
 
     print("[collect_cmk] 완료")
 

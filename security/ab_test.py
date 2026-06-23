@@ -127,8 +127,16 @@ def _send_attacks(target: str, dry_run: bool) -> str:
         cmd.append("--dry-run")
     else:
         cmd += ["--target", target, "--count", "1"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    return result.stdout
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True,
+            encoding='utf-8', errors='replace', timeout=60
+        )
+        return result.stdout
+    except subprocess.TimeoutExpired:
+        return "[A/B] 공격 전송 타임아웃 (60s)\n"
+    except Exception as e:
+        return f"[A/B] 공격 전송 실패: {e}\n"
 
 
 def run_ab_test(

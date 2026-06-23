@@ -466,6 +466,12 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
     prowler_raw = _load_json(INPUT_DIR / "prowler_report.json", "Prowler 🔴")
     prowler = _parse_prowler(prowler_raw if isinstance(prowler_raw, list) else None)
 
+    # 🟡 CMK / Object Lock / Config (collect_cmk + collect_config_diff 출력)
+    enc_raw     = _load_json(INPUT_DIR / "bucket_encryption.json",  "S3 암호화 증적 🟡")
+    kms_raw     = _load_json(INPUT_DIR / "kms_key.json",            "KMS 키 증적 🟡")
+    objlock_raw = _load_json(INPUT_DIR / "object_lock_config.json", "Object Lock 증적 🟡")
+    cfgdiff_raw = _load_json(INPUT_DIR / "config_diff.json",        "Config 드리프트 🟡")
+
     # ── 조합 ────────────────────────────────────────────────────
     block_rate = ana["summary"].get("block_rate", 0)
     buckets = ana["time_buckets"]
@@ -558,12 +564,33 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
                 "rules_in_count_mode": waf["count_rules"],
             },
             "waf_association": {"associated": True},
-            "s3_encryption": {"ServerSideEncryption": "aws:kms"},
-            "kms_key": {"KeyState": "Enabled"},
+            "s3_encryption": {
+                "ServerSideEncryption": (enc_raw or {}).get("SSEAlgorithm", "AES256"),
+                "KMSMasterKeyID": (enc_raw or {}).get("KMSMasterKeyID"),
+                "status": (enc_raw or {}).get("status", "UNKNOWN"),
+            },
+            "kms_key": {
+                "KeyState": (kms_raw or {}).get("KeyState", "NOT_FOUND"),
+                "KeyArn": (kms_raw or {}).get("KeyArn"),
+                "status": (kms_raw or {}).get("status", "NOT_FOUND"),
+                "note": (kms_raw or {}).get("note", ""),
+            },
             "ipset": {"registered": True, "current_blocked_count": len(waf["ipset_addresses"])},
-            "s3_lifecycle": {"retention_days": 365},
+            "s3_lifecycle": {
+                "object_lock_enabled": (objlock_raw or {}).get("ObjectLockEnabled") == "Enabled",
+                "mode": (objlock_raw or {}).get("Mode"),
+                "retention_days": (objlock_raw or {}).get("Days"),
+                "retention_years": (objlock_raw or {}).get("Years"),
+                "status": (objlock_raw or {}).get("status", "UNKNOWN"),
+            },
             "prowler": prowler,
-            "config_diff": {"drift_detected": False},
+            "config_diff": {
+                "recorder_status": (cfgdiff_raw or {}).get("recorder_status", "NOT_CONFIGURED"),
+                "drift_detected": (cfgdiff_raw or {}).get("drift_detected", False),
+                "resource_changes": len((cfgdiff_raw or {}).get("resource_changes", [])),
+                "status": (cfgdiff_raw or {}).get("status", "WARN"),
+                "note": (cfgdiff_raw or {}).get("note", ""),
+            },
         },
         "change": change,
         "compliance": {"pci": pci, "ismsp": ismsp},
@@ -576,9 +603,16 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
                                "eventTime": ct_events[0]["eventTime"] if ct_events else now.isoformat()},
             },
             "log_integrity_check": {
-                "object_lock": {"all_evidence_locked": True, "mode": "COMPLIANCE"},
-                "encryption": {"all_evidence_encrypted": True, "sse": "aws:kms"},
-                "integrity_result": "PASS",
+                "object_lock": {
+                    "all_evidence_locked": (objlock_raw or {}).get("ObjectLockEnabled") == "Enabled",
+                    "mode": (objlock_raw or {}).get("Mode") or "NOT_CONFIGURED",
+                    "status": (objlock_raw or {}).get("status", "WARN"),
+                },
+                "encryption": {
+                    "all_evidence_encrypted": bool((enc_raw or {}).get("SSEAlgorithm")),
+                    "sse": (enc_raw or {}).get("SSEAlgorithm", "AES256"),
+                },
+                "integrity_result": "PASS" if (objlock_raw or {}).get("ObjectLockEnabled") == "Enabled" else "WARN",
             },
         },
         "analyzer_summary": {
@@ -607,6 +641,10 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
             "github_pr": str(pr_file) if pr_raw else None,
             "ai": str(ai_file) if ai_raw else None,
             "prowler": str(INPUT_DIR / "prowler_report.json") if prowler_raw else None,
+            "bucket_encryption": str(INPUT_DIR / "bucket_encryption.json") if enc_raw else None,
+            "kms_key": str(INPUT_DIR / "kms_key.json") if kms_raw else None,
+            "object_lock": str(INPUT_DIR / "object_lock_config.json") if objlock_raw else None,
+            "config_diff": str(INPUT_DIR / "config_diff.json") if cfgdiff_raw else None,
         },
     }
 
@@ -642,13 +680,17 @@ def main():
 
     print("\n  [소스 커버리지]")
     labels = {
-        "analyzer":    "Analyzer (수민)  🟢",
-        "attack_sim":  "Attack Sim       🟢",
-        "waf_raw":     "WAF describe     🟡",
-        "cloudtrail":  "CloudTrail (혜수) 🟡",
-        "github_pr":   "GitHub PR (혜수) 🔴",
-        "ai":          "AI 분석          🔴",
-        "prowler":     "Prowler          🔴",
+        "analyzer":          "Analyzer          🟢",
+        "attack_sim":        "Attack Sim        🟢",
+        "waf_raw":           "WAF describe      🟡",
+        "cloudtrail":        "CloudTrail        🟡",
+        "github_pr":         "GitHub PR         🔴",
+        "ai":                "AI 분석           🔴",
+        "prowler":           "Prowler           🔴",
+        "bucket_encryption": "S3 암호화 증적    🟡",
+        "kms_key":           "KMS 키 증적       🟡",
+        "object_lock":       "Object Lock 증적  🟡",
+        "config_diff":       "Config 드리프트   🟡",
     }
     for key, label in labels.items():
         mark = "+" if data["_sources"].get(key) else "-"
