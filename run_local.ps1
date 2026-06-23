@@ -3,21 +3,21 @@
     로컬 환경에서 전체 파이프라인 실행 (AWS·GitHub 자격증명 자동 로드)
 
 .DESCRIPTION
-    .env 파일에서 환경변수를 읽어 파이프라인을 실행합니다.
+    기본값: S3 실시간 로그 기반 실행.
     AWS/GitHub 자격증명이 없는 항목은 자동으로 스킵됩니다.
 
 .EXAMPLE
-    .\run_local.ps1                              # 기본 실행 (ZAP/AI 스킵)
-    .\run_local.ps1 -SkipPR                      # PR 수집도 스킵
-    .\run_local.ps1 -LogDir "analyzer/sample_logs" -Target ""
+    .\run_local.ps1                              # 기본 실행 (S3 실시간 로그, 최근 1시간)
+    .\run_local.ps1 -LiveHours 3                 # 최근 3시간 로그
+    .\run_local.ps1 -Sample                      # 샘플 로그로 실행 (테스트용)
+    .\run_local.ps1 -SkipZap -SkipAI            # ZAP·AI 단계 건너뜀
 #>
 param(
-    [string]$LogDir    = "analyzer/sample_logs",
     [string]$Target    = "http://cloud-sec-alb-664622103.ap-northeast-2.elb.amazonaws.com",
     [switch]$SkipZap   = $false,
     [switch]$SkipAI    = $false,
     [switch]$SkipPR    = $false,
-    [switch]$Live      = $false,   # S3 실시간 로그 사용
+    [switch]$Sample    = $false,   # 샘플 로그 사용 (테스트 전용)
     [int]$LiveHours    = 1
 )
 
@@ -51,8 +51,8 @@ if (Test-Path ".env") {
 # ── 파이프라인 커맨드 빌드 ────────────────────────────────────────────
 $cmd = @("python", "-X", "utf8", "scripts/run_pipeline.py")
 
-if ($Live)    { $cmd += "--live"; $cmd += @("--live-hours", "$LiveHours") }
-elseif ($LogDir) { $cmd += @("--log-dir", $LogDir) }
+if ($Sample) { $cmd += @("--log-dir", "analyzer/sample_logs") }
+else         { $cmd += "--live"; $cmd += @("--live-hours", "$LiveHours") }
 if ($Target)  { $cmd += @("--target", $Target) }
 if ($SkipZap) { $cmd += "--skip-zap" }
 if ($SkipAI)  { $cmd += "--skip-ai"  }
