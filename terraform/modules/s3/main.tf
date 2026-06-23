@@ -84,7 +84,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "waf_logs" {
 # Audit Evidence 버킷 — Object Lock COMPLIANCE 모드 (ISMS-P 2.7 무결성)
 # Object Lock 은 버킷 생성 시에만 활성화 가능
 resource "aws_s3_bucket" "audit_evidence" {
-  bucket        = "${var.project_name}-audit-evidence-${var.environment}"
+  bucket              = "${var.project_name}-audit-evidence-${var.environment}"
   object_lock_enabled = true
 
   tags = {
