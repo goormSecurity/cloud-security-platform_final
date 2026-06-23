@@ -46,8 +46,9 @@ notepad .env
 $env:OLLAMA_MODELS = "C:\ollama\models"
 ollama pull llama3.1:8b
 
-# 5. 파이프라인 실행 (샘플 로그 기반, ZAP + AI 포함)
-.\run_local.ps1
+# 5. 파이프라인 실행 (S3 실시간 로그, ZAP + AI 포함)
+.\run_local.ps1                    # 실시간 S3 로그 기본
+.\run_local.ps1 -Sample            # AWS 없이 테스트할 때
 ```
 
 실행이 끝나면 아래 파일이 생성됩니다.
@@ -415,49 +416,35 @@ ABUSEIPDB_API_KEY=
 .\run_local.ps1
 ```
 
-`analyzer/sample_logs/` 폴더의 로컬 WAF 샘플 로그를 분석합니다.  
-ZAP과 AI 보고서는 기본 포함되며, `.env`에 키가 없는 항목은 자동 스킵됩니다.
-
-### 실시간 S3 로그 분석
-
-```powershell
-.\run_local.ps1 -Live
-.\run_local.ps1 -Live -LiveHours 2    # 최근 2시간 로그 수집
-```
-
-S3 버킷(`aws-waf-logs-cloud-sec-dev`)에서 실제 WAF 로그를 수집하여 분석합니다.  
+S3 버킷(`aws-waf-logs-cloud-sec-dev`)에서 최근 1시간 실시간 WAF 로그를 수집하여 분석합니다.  
 AWS 자격증명이 `.env`에 설정되어 있어야 합니다.
 
 ### 옵션 조합 예시
 
 ```powershell
+# 최근 3시간 로그 분석
+.\run_local.ps1 -LiveHours 3
+
 # ZAP 스킵 (Docker 없을 때)
 .\run_local.ps1 -SkipZap
 
 # AI 보고서 스킵 (Ollama 없을 때)
 .\run_local.ps1 -SkipAI
 
-# PR 수집 스킵 (GitHub 토큰 없을 때)
-.\run_local.ps1 -SkipPR
+# ZAP + AI 둘 다 스킵
+.\run_local.ps1 -SkipZap -SkipAI
 
-# 실시간 로그 + ZAP 스킵 + AI 스킵
-.\run_local.ps1 -Live -SkipZap -SkipAI
-
-# 대상 ALB 주소 변경
-.\run_local.ps1 -Target "http://your-alb-address.elb.amazonaws.com"
-
-# 로그 디렉터리 직접 지정
-.\run_local.ps1 -LogDir "analyzer/logs_merged"
+# 샘플 로그로 실행 (AWS 없이 테스트할 때)
+.\run_local.ps1 -Sample
 ```
 
 ### 전체 파라미터 목록
 
 | 파라미터 | 기본값 | 설명 |
 |---|---|---|
-| `-LogDir` | `analyzer/sample_logs` | 로컬 WAF 로그 디렉터리 |
+| `-LiveHours` | `1` | 실시간 S3 로그 수집 시간 범위 |
 | `-Target` | ALB DNS 주소 | 공격 시뮬레이션 대상 URL |
-| `-Live` | off | S3 실시간 로그 수집 활성화 |
-| `-LiveHours` | `1` | 실시간 수집 시간 범위 (시간) |
+| `-Sample` | off | 샘플 로그로 실행 (AWS 없이 테스트 전용) |
 | `-SkipZap` | off | OWASP ZAP 스캔 생략 |
 | `-SkipAI` | off | AI 보고서 생성 생략 |
 | `-SkipPR` | off | GitHub PR 이력 수집 생략 |
