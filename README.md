@@ -410,7 +410,7 @@ ABUSEIPDB_API_KEY=
 
 모든 실행은 저장소 루트(`cloud-security-platform/`)에서 합니다.
 
-### 기본 실행 (샘플 로그 분석)
+### 기본 실행 (S3 실시간 로그)
 
 ```powershell
 .\run_local.ps1
