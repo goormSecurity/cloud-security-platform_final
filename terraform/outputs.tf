@@ -17,3 +17,19 @@ output "waf_logs_bucket" {
   value       = module.s3.waf_logs_bucket
   description = "WAF 로그 S3 버킷 이름"
 }
+
+output "audit_evidence_bucket" {
+  value       = module.s3.audit_evidence_bucket
+  description = "ISMS-P 감사 증적 버킷 이름 (Object Lock COMPLIANCE)"
+}
+
+# KMS 출력 — 프리티어 종료 후 KMS 모듈 활성화 시 주석 해제
+# output "kms_key_id" {
+#   value       = module.kms.key_id
+#   description = "감사 증적 CMK Key ID"
+# }
+#
+# output "kms_alias" {
+#   value       = module.kms.alias_name
+#   description = "감사 증적 CMK 별칭"
+# }

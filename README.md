@@ -7,16 +7,68 @@
 ## 목차
 
 1. [프로젝트 개요](#1-프로젝트-개요)
-2. [전체 파이프라인 흐름](#2-전체-파이프라인-흐름)
-3. [기술 스택](#3-기술-스택)
-4. [실험 환경 구성](#4-실험-환경-구성)
-5. [환경 변수 설정](#5-환경-변수-설정)
-6. [전체 파이프라인 실행](#6-전체-파이프라인-실행)
-7. [개별 단계 실행](#7-개별-단계-실행)
-8. [선택: Grafana 모니터링 스택](#8-선택-grafana-모니터링-스택)
-9. [출력 파일 구조](#9-출력-파일-구조)
-10. [프로젝트 디렉터리 구조](#10-프로젝트-디렉터리-구조)
-11. [팀 구성](#11-팀-구성)
+2. [구현 현황](#2-구현-현황)
+3. [전체 파이프라인 흐름](#3-전체-파이프라인-흐름)
+4. [기술 스택](#4-기술-스택)
+5. [실험 환경 구성](#5-실험-환경-구성)
+6. [환경 변수 설정](#6-환경-변수-설정)
+7. [전체 파이프라인 실행](#7-전체-파이프라인-실행)
+8. [개별 단계 실행](#8-개별-단계-실행)
+9. [선택: Grafana 모니터링 스택](#9-선택-grafana-모니터링-스택)
+10. [출력 파일 구조](#10-출력-파일-구조)
+11. [프로젝트 디렉터리 구조](#11-프로젝트-디렉터리-구조)
+12. [팀 구성](#12-팀-구성)
+
+---
+
+## 2. 구현 현황
+
+### 완료된 항목
+
+| 분류 | 항목 | 비고 |
+|---|---|---|
+| **파이프라인** | WAF 로그 수집 (S3 실시간 / 샘플 로그) | `collect_waf_logs.py` |
+| **파이프라인** | 공격 시뮬레이션 12종 패턴 | `attack_runner.py` |
+| **파이프라인** | WAF 로그 분석 + CTI 위험도 산정 | `waf_analyzer.py` + AbuseIPDB |
+| **파이프라인** | WAF Count/Block A/B 테스트 | `ab_test.py` |
+| **파이프라인** | OWASP ZAP 자동 웹 취약점 스캔 | Docker 기반 |
+| **파이프라인** | AI 보안 보고서 생성 | LangChain + Ollama(llama3.1:8b) |
+| **파이프라인** | ISMS-P 컴플라이언스 보고서 HTML | Jinja2 렌더링 |
+| **파이프라인** | 고위험 IP → GitHub PR 자동 생성 | GitOps 기반 |
+| **증적 수집** | WAF WebACL·IPSet describe | `collect_waf.py` |
+| **증적 수집** | CloudTrail 변경 이력 14일 | `collect_cloudtrail.py` |
+| **증적 수집** | Prowler 보안 점검 (MFA·S3·CloudTrail) | `collect_prowler.py` (boto3 직접 구현) |
+| **증적 수집** | CMK + Object Lock 증적 수집기 코드 | `collect_cmk.py` ← 인프라 활성화 시 수집 가능 |
+| **증적 수집** | AWS Config 드리프트 감지 수집기 코드 | `collect_config_diff.py` ← 인프라 활성화 시 수집 가능 |
+| **증적 수집** | AI 분석 JSON 변환 | `generate_analysis_json.py` |
+| **증적 수집** | GitHub PR 이력 수집 | `pr_collector.py` |
+| **인프라** | WAF Block 모드 전환 | SQLiRuleSet·CommonRuleSet `none {}` 적용 완료 |
+| **인프라** | audit-evidence S3 버킷 생성 | Object Lock COMPLIANCE 365일, SSE-S3 |
+| **인프라** | WAF 로그 버킷 SSE-S3 암호화 명시 | 기존 버킷 암호화 설정 Terraform 관리 편입 |
+| **CI/CD** | GitHub Actions 자동 테스트 | `.github/workflows/ci.yml` |
+| **모니터링** | Grafana + Loki + Fluent Bit 스택 구성 | `monitoring/docker-compose.yml` (별도 실행) |
+
+### 비용 문제로 보류 중인 항목 (프리티어 종료 후 활성화)
+
+| 항목 | 예상 비용 | 활성화 방법 |
+|---|---|---|
+| **KMS CMK 생성** | ~$1/월 고정 | `terraform/main.tf`에서 `module "kms"` 주석 해제 후 apply |
+| **S3 SSE-KMS 전환** | KMS 종속 | `modules/s3/main.tf` SSE 알고리즘 `aws:kms`로 변경 |
+| **AWS Config Recorder** | $0.003/건 (리소스 변경 시마다) | `modules/logging/main.tf` 주석 해제 후 apply |
+
+> Terraform 코드는 모두 작성 완료(`modules/kms/`, `modules/logging/` 주석 처리 상태).  
+> 프리티어 종료 후 해당 주석만 해제하면 즉시 배포 가능.
+
+### 현재 인프라 상태 (AWS 배포 완료)
+
+| 리소스 | 이름 | 상태 |
+|---|---|---|
+| WAF WebACL | `cloud-sec-web-acl` | ✅ Block 모드 적용 |
+| ALB | `cloud-sec-alb-664622103.ap-northeast-2.elb.amazonaws.com` | ✅ 운영 중 |
+| S3 WAF 로그 버킷 | `aws-waf-logs-cloud-sec-dev` | ✅ SSE-S3 암호화 |
+| S3 audit-evidence 버킷 | `cloud-sec-audit-evidence-dev` | ✅ Object Lock COMPLIANCE |
+| EC2 앱 서버 | `43.203.205.203` (DVWA + Juice Shop) | ✅ 운영 중 |
+| CloudTrail | `cloud-sec-trail` | ✅ 로그 검증 활성화 |
 
 ---
 

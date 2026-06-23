@@ -4,6 +4,13 @@ module "networking" {
   vpc_cidr     = var.vpc_cidr
 }
 
+# KMS CMK 모듈 — 프리티어 종료 후 활성화 (modules/kms/ 코드 준비됨)
+# module "kms" {
+#   source       = "./modules/kms"
+#   project_name = var.project_name
+#   environment  = var.environment
+# }
+
 module "s3" {
   source       = "./modules/s3"
   project_name = var.project_name
@@ -44,4 +51,5 @@ module "logging" {
   source            = "./modules/logging"
   project_name      = var.project_name
   cloudtrail_bucket = module.s3.cloudtrail_bucket
+  depends_on        = [module.s3]
 }
