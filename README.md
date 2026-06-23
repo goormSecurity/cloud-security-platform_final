@@ -13,11 +13,54 @@
 5. [실험 환경 구성](#5-실험-환경-구성)
 6. [환경 변수 설정](#6-환경-변수-설정)
 7. [전체 파이프라인 실행](#7-전체-파이프라인-실행)
-8. [개별 단계 실행](#8-개별-단계-실행)
-9. [선택: Grafana 모니터링 스택](#9-선택-grafana-모니터링-스택)
-10. [출력 파일 구조](#10-출력-파일-구조)
-11. [프로젝트 디렉터리 구조](#11-프로젝트-디렉터리-구조)
-12. [팀 구성](#12-팀-구성)
+8. [실행 결과 확인](#8-실행-결과-확인)
+9. [개별 단계 실행](#9-개별-단계-실행)
+10. [자주 묻는 문제](#10-자주-묻는-문제)
+11. [선택: Grafana 모니터링 스택](#11-선택-grafana-모니터링-스택)
+12. [출력 파일 구조](#12-출력-파일-구조)
+13. [프로젝트 디렉터리 구조](#13-프로젝트-디렉터리-구조)
+14. [팀 구성](#14-팀-구성)
+
+---
+
+## 빠른 시작 (처음 실행하는 경우)
+
+처음 클론하는 팀원을 위한 최소 실행 경로입니다. 상세 설명은 각 섹션을 참고하세요.
+
+```powershell
+# 1. 클론
+git clone https://github.com/goormSecurity/cloud-security-platform.git
+cd cloud-security-platform
+
+# 2. 가상환경 + 의존성
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+playwright install chromium
+
+# 3. 환경 변수 (.env 파일 생성 후 AWS/GitHub 키 입력)
+copy .env.example .env
+notepad .env
+
+# 4. Ollama 모델 준비 (4.7 GB, 최초 1회)
+$env:OLLAMA_MODELS = "C:\ollama\models"
+ollama pull llama3.1:8b
+
+# 5. 파이프라인 실행 (샘플 로그 기반, ZAP + AI 포함)
+.\run_local.ps1
+```
+
+실행이 끝나면 아래 파일이 생성됩니다.
+
+| 파일 | 설명 |
+|---|---|
+| `compliance/output/report.pdf` | ISMS-P 감사 보고서 (제출용) |
+| `ai/output/report_*.md` | AI 생성 보안 분석 보고서 |
+| `output/analysis_*.json` | WAF 로그 분석 결과 |
+| `output/zap_report_*.json` | ZAP 웹 취약점 스캔 결과 |
+
+> **AWS 자격증명 없이도 실행 가능합니다** — `analyzer/sample_logs/`의 샘플 로그로 분석하며, AWS 관련 수집기는 자동으로 스킵됩니다.  
+> **Ollama 없이도 실행 가능합니다** — `.\run_local.ps1 -SkipAI`로 AI 보고서 단계를 건너뜁니다.
 
 ---
 
@@ -421,7 +464,66 @@ AWS 자격증명이 `.env`에 설정되어 있어야 합니다.
 
 ---
 
-## 7. 개별 단계 실행
+## 8. 실행 결과 확인
+
+파이프라인이 끝난 뒤 아래 명령으로 결과를 빠르게 점검할 수 있습니다.
+
+### 컴플라이언스 판정 상태 확인
+
+```powershell
+python -X utf8 compliance/check_output.py
+```
+
+출력 예시:
+```
+=== 최종 판정 ===
+판정: 부분 적정
+총 요청: 208 건
+최고위험 IP: 1.231.150.121 / Path Traversal
+
+=== PCI DSS (e1~e5) ===
+  e1: 충족  e2: 충족  e3: 충족  e4: 충족  e5: 부분충족
+
+=== ISMS-P (2.5~2.11) ===
+  2.5: 적정  2.6: 적정  2.7: 적정  2.8: 조건부  2.9: 적정  2.10: 적정  2.11: 적정
+
+=== 인프라 보안 현황 ===
+  S3 암호화: AES256 (PASS)
+  KMS CMK : NOT_FOUND          ← 프리티어 보류
+  Object Lock: True / COMPLIANCE / 365일 (PASS)
+  Config 드리프트: NOT_CONFIGURED  ← 프리티어 보류
+
+=== 소스 커버리지 ===
+  [+] analyzer / attack_sim / waf_raw / cloudtrail / github_pr
+  [+] ai / prowler / bucket_encryption / kms_key / object_lock / config_diff
+```
+
+### 보고서 열기
+
+```powershell
+# PDF 보고서 (제출/공유용)
+Start-Process compliance\output\report.pdf
+
+# HTML 보고서 (브라우저)
+Start-Process compliance\output\report.html
+
+# AI 분석 보고서 (Markdown)
+Get-ChildItem ai\output\report_*.md | Sort-Object LastWriteTime -Descending | Select-Object -First 1 | ForEach-Object { notepad $_.FullName }
+```
+
+### 출력 파일 생성 여부 확인
+
+```powershell
+# 오늘 생성된 파일 목록
+Get-ChildItem output\, ai\output\, compliance\output\ -Recurse |
+  Where-Object { $_.LastWriteTime -gt (Get-Date).Date } |
+  Select-Object Name, @{N='KB';E={[math]::Round($_.Length/1KB,1)}}, LastWriteTime |
+  Format-Table -AutoSize
+```
+
+---
+
+## 9. 개별 단계 실행
 
 파이프라인의 특정 단계만 실행할 수 있습니다.
 
@@ -516,7 +618,117 @@ python scripts/auto_pr.py
 
 ---
 
-## 8. 선택: Grafana 모니터링 스택
+## 10. 자주 묻는 문제
+
+### Ollama 관련
+
+**Q. AI 보고서 생성 단계에서 `Connection refused` 오류가 납니다.**
+
+Ollama 서버가 실행 중이지 않습니다.
+
+```powershell
+# 별도 터미널에서 실행 (백그라운드 유지)
+$env:OLLAMA_MODELS = "C:\ollama\models"
+ollama serve
+```
+
+---
+
+**Q. `llama3.1:8b` 모델을 찾을 수 없습니다.**
+
+```powershell
+$env:OLLAMA_MODELS = "C:\ollama\models"
+ollama pull llama3.1:8b    # 약 4.7 GB, 최초 1회
+ollama list                # 목록 확인
+```
+
+---
+
+**Q. Windows 한글 사용자 이름 경로 오류가 납니다.**
+
+`run_local.ps1`은 자동으로 `C:\ollama\models`로 우회합니다. 직접 실행할 때는 다음을 먼저 실행하세요.
+
+```powershell
+$env:OLLAMA_MODELS = "C:\ollama\models"
+```
+
+---
+
+### AWS / 자격증명 관련
+
+**Q. `NoCredentialsError` 또는 `Unable to locate credentials` 오류가 납니다.**
+
+`.env` 파일에 AWS 자격증명이 입력되어 있는지 확인하세요.
+
+```powershell
+cat .env | Select-String "AWS_ACCESS_KEY"
+```
+
+값이 비어 있으면 AWS 콘솔 → IAM → 보안 자격 증명 → 액세스 키에서 발급 후 `.env`에 입력합니다.
+
+---
+
+**Q. AWS 자격증명 없이도 실행할 수 있나요?**
+
+가능합니다. 샘플 로그(`analyzer/sample_logs/`)가 있으므로 분석·AI·ZAP·컴플라이언스 보고서 생성까지 가능합니다. AWS 수집기(CloudTrail, WAF describe, CMK 등)는 자동 스킵됩니다.
+
+```powershell
+.\run_local.ps1    # .env에 AWS 키 없어도 실행됨
+```
+
+---
+
+### ZAP / Docker 관련
+
+**Q. ZAP 단계에서 `docker: command not found` 오류가 납니다.**
+
+Docker Desktop이 설치·실행되어 있지 않습니다. ZAP 없이 실행하려면 `-SkipZap`을 사용하세요.
+
+```powershell
+.\run_local.ps1 -SkipZap
+```
+
+---
+
+**Q. ZAP 컨테이너가 오래 실행됩니다.**
+
+기본 타임아웃은 Spider + Active Scan 포함 최대 5분입니다. 빠르게 끝내려면 `security/zap_scanner.py`에서 스캔 레벨을 낮추세요.
+
+```bash
+python security/zap_scanner.py --level low
+```
+
+---
+
+### 파이프라인 / 결과 관련
+
+**Q. `compliance/output/report.pdf`가 생성되지 않습니다.**
+
+Playwright Chromium이 설치되어 있는지 확인하세요.
+
+```powershell
+playwright install chromium
+```
+
+---
+
+**Q. PCI e5가 "부분충족"으로 나옵니다.**
+
+샘플 로그에는 실제 차단(BLOCK) 기록이 없어 `block_rate = 0%`로 산정됩니다. 실제 S3 로그로 실행하면 정확한 판정이 나옵니다.
+
+```powershell
+.\run_local.ps1 -Live    # 실시간 S3 로그 사용 (AWS 자격증명 필요)
+```
+
+---
+
+**Q. auto_pr.py가 PR을 생성하지 않습니다.**
+
+정상 동작입니다. HIGH 위험 IP가 없으면 불필요한 PR을 생성하지 않습니다. 샘플 로그 기반 실행에서는 대부분 HIGH IP가 0개입니다.
+
+---
+
+## 11. 선택: Grafana 모니터링 스택
 
 파이프라인과는 별도로 실행하는 시각화 레이어입니다.  
 파이프라인 실행 후 생성된 `output/analysis_*.json` 파일을 Grafana 대시보드로 확인할 수 있습니다.
@@ -551,7 +763,7 @@ docker-compose down
 
 ---
 
-## 9. 출력 파일 구조
+## 12. 출력 파일 구조
 
 파이프라인 실행 후 생성되는 파일 목록입니다.
 
@@ -595,7 +807,7 @@ terraform/
 
 ---
 
-## 10. 프로젝트 디렉터리 구조
+## 13. 프로젝트 디렉터리 구조
 
 ```
 cloud-security-platform/
@@ -659,7 +871,7 @@ cloud-security-platform/
 
 ---
 
-## 11. 팀 구성
+## 14. 팀 구성
 
 | 역할 | 담당자 | 담당 영역 |
 |---|---|---|
