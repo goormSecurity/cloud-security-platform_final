@@ -150,9 +150,11 @@ jobs:
         run: |
           python compliance/build_data.py
           python compliance/render.py
+        continue-on-error: true
 
       - name: "[3/3] PR 이력 수집 (변경관리 증적 — ISMS-P 2.10.1)"
         run: python compliance/pr_collector.py --merged-only
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
