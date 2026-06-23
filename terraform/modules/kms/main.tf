@@ -9,25 +9,25 @@ resource "aws_kms_key" "audit" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "Enable IAM User Permissions"
-        Effect = "Allow"
+        Sid       = "Enable IAM User Permissions"
+        Effect    = "Allow"
         Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
-        Action   = "kms:*"
-        Resource = "*"
+        Action    = "kms:*"
+        Resource  = "*"
       },
       {
-        Sid    = "Allow S3 Service"
-        Effect = "Allow"
+        Sid       = "Allow S3 Service"
+        Effect    = "Allow"
         Principal = { Service = "s3.amazonaws.com" }
-        Action   = ["kms:GenerateDataKey", "kms:Decrypt"]
-        Resource = "*"
+        Action    = ["kms:GenerateDataKey", "kms:Decrypt"]
+        Resource  = "*"
       },
       {
-        Sid    = "Allow Config Service"
-        Effect = "Allow"
+        Sid       = "Allow Config Service"
+        Effect    = "Allow"
         Principal = { Service = "config.amazonaws.com" }
-        Action   = ["kms:GenerateDataKey", "kms:Decrypt"]
-        Resource = "*"
+        Action    = ["kms:GenerateDataKey", "kms:Decrypt"]
+        Resource  = "*"
       }
     ]
   })
