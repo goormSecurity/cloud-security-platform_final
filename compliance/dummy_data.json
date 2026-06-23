@@ -1,0 +1,296 @@
+{
+  "meta": {
+    "report_type": "incident",
+    "period_start": "2026-06-18T10:23:00Z",
+    "period_end": "2026-06-18T10:41:00Z",
+    "environment_touched": [
+      "AWS WAF",
+      "ALB",
+      "CloudFront",
+      "S3",
+      "KMS",
+      "CloudTrail",
+      "Config",
+      "Prowler",
+      "GitHub"
+    ],
+    "evidence_bucket": "audit-evidence"
+  },
+  "event": {
+    "attack_time": "2026-06-18T10:23:00Z",
+    "source_ip": "203.0.113.45",
+    "target_app": "DVWA",
+    "target_uri": "/vulnerabilities/sqli/",
+    "target_args": "id=1' OR '1'='1",
+    "waf_action": "Count",
+    "ai": {
+      "attack_type": "SQLi",
+      "owasp": "OWASP Top 10:2021 A03:2021 Injection",
+      "analyzer_judgment": "차단 필요",
+      "detection_basis": "동일 IP 5분 내 15회 SQLi 패턴 반복, 정상 기준선 대비 비정상 파라미터 증가",
+      "confidence": "높음"
+    },
+    "cti": {
+      "abuseipdb": true,
+      "otx": true,
+      "consensus": "2개 소스 합의"
+    }
+  },
+  "posture": {
+    "waf_describe": {
+      "status": "배치 확인",
+      "web_acl_exists": true,
+      "associated_resources": [
+        "alb/dvwa-public-alb"
+      ]
+    },
+    "waf_association": {
+      "associated": true
+    },
+    "s3_encryption": {
+      "ServerSideEncryption": "aws:kms"
+    },
+    "kms_key": {
+      "KeyState": "Enabled"
+    },
+    "ipset": {
+      "registered": true
+    },
+    "s3_lifecycle": {
+      "retention_days": 365
+    },
+    "prowler": {
+      "mfa_enabled": true,
+      "root_used": false,
+      "findings": []
+    },
+    "config_diff": {
+      "drift_detected": false
+    }
+  },
+  "change": {
+    "github_pulls": [],
+    "cloudtrail": []
+  },
+  "compliance": {
+    "pci": {
+      "e1": {
+        "verdict": "충족"
+      },
+      "e2": {
+        "verdict": "충족"
+      },
+      "e3": {
+        "verdict": "충족"
+      },
+      "e4": {
+        "verdict": "부분충족"
+      },
+      "e5": {
+        "verdict": "충족"
+      }
+    },
+    "ismsp": {
+      "2.5": {
+        "verdict": "적정"
+      },
+      "2.6": {
+        "verdict": "적정"
+      },
+      "2.7": {
+        "verdict": "적정"
+      },
+      "2.9": {
+        "verdict": "미흡"
+      },
+      "2.10": {
+        "verdict": "적정"
+      },
+      "2.11": {
+        "verdict": "적정"
+      }
+    }
+  },
+  "integrity": {
+    "evidence_checks": [
+      {
+        "evidence_id": "EVD-20260618-001-001",
+        "s3_uri": "s3://audit-evidence/posture/waf/waf_acl_describe.json",
+        "object_lock": {
+          "ObjectLockMode": "COMPLIANCE",
+          "ObjectLockRetainUntilDate": "2027-06-18T00:00:00Z",
+          "retain_until_valid": true
+        },
+        "encryption": {
+          "ServerSideEncryption": "aws:kms",
+          "SSEKMSKeyId": "arn:aws:kms:ap-northeast-2:111122223333:key/example-waf",
+          "kms_key_valid": true
+        },
+        "check_result": "PASS"
+      },
+      {
+        "evidence_id": "EVD-20260618-001-002",
+        "s3_uri": "s3://audit-evidence/posture/kms/kms_encryption_check.json",
+        "object_lock": {
+          "ObjectLockMode": "COMPLIANCE",
+          "ObjectLockRetainUntilDate": "2027-06-18T00:00:00Z",
+          "retain_until_valid": true
+        },
+        "encryption": {
+          "ServerSideEncryption": "aws:kms",
+          "SSEKMSKeyId": "arn:aws:kms:ap-northeast-2:111122223333:key/example-kms",
+          "kms_key_valid": true
+        },
+        "check_result": "PASS"
+      },
+      {
+        "evidence_id": "EVD-20260618-001-003",
+        "s3_uri": "s3://audit-evidence/drift/config_diff.json",
+        "object_lock": {
+          "ObjectLockMode": "COMPLIANCE",
+          "ObjectLockRetainUntilDate": "2027-06-18T00:00:00Z",
+          "retain_until_valid": true
+        },
+        "encryption": {
+          "ServerSideEncryption": "aws:kms",
+          "SSEKMSKeyId": "arn:aws:kms:ap-northeast-2:111122223333:key/example-drift",
+          "kms_key_valid": true
+        },
+        "check_result": "PASS"
+      },
+      {
+        "evidence_id": "EVD-20260618-001-004",
+        "s3_uri": "s3://audit-evidence/prowler/prowler_report.json",
+        "object_lock": {
+          "ObjectLockMode": "COMPLIANCE",
+          "ObjectLockRetainUntilDate": "2027-06-18T00:00:00Z",
+          "retain_until_valid": true
+        },
+        "encryption": {
+          "ServerSideEncryption": "aws:kms",
+          "SSEKMSKeyId": "arn:aws:kms:ap-northeast-2:111122223333:key/example-prowler",
+          "kms_key_valid": true
+        },
+        "check_result": "PASS"
+      },
+      {
+        "evidence_id": "EVD-20260618-001-005",
+        "s3_uri": "s3://audit-evidence/waf/waf_log_sample.json",
+        "object_lock": {
+          "ObjectLockMode": "COMPLIANCE",
+          "ObjectLockRetainUntilDate": "2027-06-18T00:00:00Z",
+          "retain_until_valid": true
+        },
+        "encryption": {
+          "ServerSideEncryption": "aws:kms",
+          "SSEKMSKeyId": "arn:aws:kms:ap-northeast-2:111122223333:key/example-waf-log",
+          "kms_key_valid": true
+        },
+        "check_result": "PASS"
+      },
+      {
+        "evidence_id": "EVD-20260618-001-006",
+        "s3_uri": "s3://audit-evidence/baseline/baseline_log.json",
+        "object_lock": {
+          "ObjectLockMode": "COMPLIANCE",
+          "ObjectLockRetainUntilDate": "2027-06-18T00:00:00Z",
+          "retain_until_valid": true
+        },
+        "encryption": {
+          "ServerSideEncryption": "aws:kms",
+          "SSEKMSKeyId": "arn:aws:kms:ap-northeast-2:111122223333:key/example-baseline",
+          "kms_key_valid": true
+        },
+        "check_result": "PASS"
+      },
+      {
+        "evidence_id": "EVD-20260618-001-007",
+        "s3_uri": "s3://audit-evidence/analysis/analyzer_result.json",
+        "object_lock": {
+          "ObjectLockMode": "COMPLIANCE",
+          "ObjectLockRetainUntilDate": "2027-06-18T00:00:00Z",
+          "retain_until_valid": true
+        },
+        "encryption": {
+          "ServerSideEncryption": "aws:kms",
+          "SSEKMSKeyId": "arn:aws:kms:ap-northeast-2:111122223333:key/example-analysis",
+          "kms_key_valid": true
+        },
+        "check_result": "PASS"
+      },
+      {
+        "evidence_id": "EVD-20260618-001-008",
+        "s3_uri": "s3://audit-evidence/cti/cti_lookup_result.json",
+        "object_lock": {
+          "ObjectLockMode": "COMPLIANCE",
+          "ObjectLockRetainUntilDate": "2027-06-18T00:00:00Z",
+          "retain_until_valid": true
+        },
+        "encryption": {
+          "ServerSideEncryption": "aws:kms",
+          "SSEKMSKeyId": "arn:aws:kms:ap-northeast-2:111122223333:key/example-cti",
+          "kms_key_valid": true
+        },
+        "check_result": "PASS"
+      }
+    ],
+    "change_integrity": {
+      "github": {
+        "merge_commit_sha": "abc123def456",
+        "pr_url": "https://github.com/goormSecurity/cloud-security-platform/pull/42"
+      },
+      "cloudtrail": {
+        "eventID": "11111111-2222-3333-4444-555555555555",
+        "eventTime": "2026-06-18T10:30:00Z"
+      }
+    },
+    "log_integrity_check": {
+      "object_lock": {
+        "all_evidence_locked": true,
+        "mode": "COMPLIANCE"
+      },
+      "encryption": {
+        "all_evidence_encrypted": true,
+        "sse": "aws:kms",
+        "kms_key_valid": true
+      },
+      "integrity_result": "PASS"
+    }
+  },
+  "risk": {
+    "ai": {
+      "summary": "SQLi 15건 탐지, WAF Count 처리로 미차단 상태 확인",
+      "false_positive": "낮음",
+      "false_negative": "보통",
+      "compliance_impact": "중간",
+      "ops_impact": "낮음",
+      "final_score": 3,
+      "needs_review": true,
+      "needs_action": true
+    }
+  },
+  "recommendations": [
+    {
+      "trigger": "5장",
+      "item": "WAF 룰 조정",
+      "text": "SQLi 탐지 전용 룰을 차단 룰로 전환하고 5분 반복 탐지 임계값을 재검토한다.",
+      "owner": "",
+      "due": ""
+    },
+    {
+      "trigger": "3장",
+      "item": "변경관리 반영",
+      "text": "WAF 룰 변경은 Terraform 변경, GitHub PR 리뷰, apply 순서로 추적 가능하게 남긴다.",
+      "owner": "",
+      "due": ""
+    },
+    {
+      "trigger": "4장",
+      "item": "증적 무결성 보강",
+      "text": "Object Lock COMPLIANCE 모드와 SSE-KMS 적용 여부를 증적 업로드 후 자동 검증한다.",
+      "owner": "",
+      "due": ""
+    }
+  ],
+  "final_opinion": "본 감사 보고서는 WAF 탐지 이벤트와 증적 무결성 확인 결과를 바탕으로 자동 생성되었다. 대상 이벤트는 SQLi 공격 가능성이 높고 현재 WAF가 Count로만 처리하고 있어 차단 정책 전환 검토가 필요하다. 컴플라이언스 관점에서는 주요 통제는 대체로 충족하나 변경관리 및 운영 증적 보완이 요구된다."
+}

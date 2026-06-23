@@ -37,6 +37,7 @@ module "waf" {
   project_name        = var.project_name
   alb_arn             = module.alb.alb_arn
   waf_logs_bucket_arn = module.s3.waf_logs_bucket_arn
+  blocked_ips         = var.blocked_ips
 }
 
 module "logging" {
