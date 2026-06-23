@@ -70,6 +70,81 @@ data "aws_iam_policy_document" "alb_logs" {
   }
 }
 
+# WAF 로그 버킷 — SSE-S3 암호화 (프리티어; CMK 전환 시 aws:kms로 변경)
+resource "aws_s3_bucket_server_side_encryption_configuration" "waf_logs" {
+  bucket = aws_s3_bucket.waf_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# Audit Evidence 버킷 — Object Lock COMPLIANCE 모드 (ISMS-P 2.7 무결성)
+# Object Lock 은 버킷 생성 시에만 활성화 가능
+resource "aws_s3_bucket" "audit_evidence" {
+  bucket        = "${var.project_name}-audit-evidence-${var.environment}"
+  object_lock_enabled = true
+
+  tags = {
+    Name    = "Audit Evidence Bucket"
+    Purpose = "ISMS-P audit evidence with Object Lock"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "audit_evidence" {
+  bucket = aws_s3_bucket.audit_evidence.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "audit_evidence" {
+  bucket                  = aws_s3_bucket.audit_evidence.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# audit-evidence 버킷 — SSE-S3 암호화 (프리티어; CMK 전환 시 aws:kms로 변경)
+resource "aws_s3_bucket_server_side_encryption_configuration" "audit_evidence" {
+  bucket = aws_s3_bucket.audit_evidence.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_object_lock_configuration" "audit_evidence" {
+  bucket = aws_s3_bucket.audit_evidence.id
+
+  rule {
+    default_retention {
+      mode = "COMPLIANCE"
+      days = 365
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "audit_evidence" {
+  bucket = aws_s3_bucket.audit_evidence.id
+
+  rule {
+    id     = "transition-to-ia"
+    status = "Enabled"
+    filter {}
+
+    transition {
+      days          = 90
+      storage_class = "STANDARD_IA"
+    }
+  }
+}
+
 # CloudTrail 로그 버킷
 resource "aws_s3_bucket" "cloudtrail_logs" {
   bucket = "${var.project_name}-cloudtrail-${var.environment}"
