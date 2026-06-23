@@ -124,6 +124,7 @@ jobs:
     needs: validate
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    continue-on-error: true  # AWS 자격증명 없는 환경에서는 실패 허용 (로컬 실행 우선)
 
     steps:
       - uses: actions/checkout@v4
@@ -146,7 +147,9 @@ jobs:
         run: python analyzer/main.py --source analyzer/tests/fixtures
 
       - name: "[2/3] 컴플라이언스 감사 보고서 생성 (HTML + PDF)"
-        run: python compliance/render.py --data compliance/dummy_data.json
+        run: |
+          python compliance/build_data.py
+          python compliance/render.py
 
       - name: "[3/3] PR 이력 수집 (변경관리 증적 — ISMS-P 2.10.1)"
         run: python compliance/pr_collector.py --merged-only
