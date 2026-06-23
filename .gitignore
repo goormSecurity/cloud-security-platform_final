@@ -111,3 +111,7 @@ Thumbs.db
 
 # Local installers
 Docker Desktop Installer.exe
+
+terraform/*.tfplan
+terraform/.terraform/
+*.tfplan
