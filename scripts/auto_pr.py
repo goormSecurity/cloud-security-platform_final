@@ -200,6 +200,10 @@ def run(analysis_path: str = None, dry_run: bool = False):
     TFVARS_PATH.write_text(tfvars_content, encoding="utf-8")
     print(f"[auto_pr] 로컬 파일 저장: {TFVARS_PATH.relative_to(ROOT)}")
 
+    if not ips:
+        print("[auto_pr] HIGH 위험 IP 없음 - PR 생성 생략 (차단 목록 변경 없음)")
+        return
+
     if dry_run:
         print("\n[auto_pr] --dry-run: PR 생성 생략")
         print("── PR 내용 미리보기 ─────────────────────────────────")

@@ -70,8 +70,9 @@ def _parse_attack_payloads() -> list[dict]:
 
     payloads = []
     category_re = re.compile(r'"(\w+)"\s*:\s*\[(.*?)\]', re.DOTALL)
+    # attack_runner.py는 튜플 포맷: ("name", "GET|POST|...", "/path", {})
     entry_re = re.compile(
-        r'\{\s*"name"\s*:\s*"([^"]+)".*?"path"\s*:\s*"([^"]+)"', re.DOTALL
+        r'\(\s*"([^"]+)"\s*,\s*"(?:GET|POST|PUT|DELETE)"\s*,\s*"([^"]+)"'
     )
     for cat_match in category_re.finditer(match.group(1)):
         category = cat_match.group(1)
