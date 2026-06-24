@@ -1,0 +1,247 @@
+name: Cloud Security Platform — CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, integration/team-branches]
+  workflow_dispatch:
+    inputs:
+      analysis_json:
+        description: "분석 결과 JSON 경로 (ai-report 수동 실행 시)"
+        required: false
+        default: ""
+
+env:
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # ================================================================
+  # JOB 1: 코드 검증 — 모든 PR 및 push에서 실행
+  #   Python 전 모듈 문법·테스트 + Terraform fmt/validate + tfsec
+  # ================================================================
+  validate:
+    name: "[CI] Validate & Test"
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r compliance/requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Python syntax check — all modules
+        run: |
+          python -m py_compile \
+            analyzer/main.py \
+            analyzer/waf_analyzer.py \
+            analyzer/cti_checker.py \
+            analyzer/config.py \
+            attack_simulation/attack_runner.py \
+            monitoring/json_server.py \
+            compliance/render.py \
+            compliance/pr_collector.py \
+            ai/report_generator.py \
+            ai/prompts.py
+
+      - name: Run tests
+        run: pytest -q --tb=short
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt check
+        run: terraform -chdir=terraform fmt -check -recursive
+
+      - name: Terraform init & validate
+        run: |
+          terraform -chdir=terraform init -backend=false
+          terraform -chdir=terraform validate
+
+      - name: tfsec — Terraform 보안 취약점 검사
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform
+          soft_fail: true
+
+  # ================================================================
+  # JOB 2: Infracost 비용 분석 — PR에서만 실행, 결과를 PR 댓글로 게시
+  #   기획서 4.5: "정책 변경 시 발생 가능한 월 비용 영향 분석"
+  #   GitHub repo secret에 INFRACOST_API_KEY 등록 필요
+  #   (https://www.infracost.io/docs/integrations/github_actions/)
+  # ================================================================
+  infracost:
+    name: "[CI] Infracost — WAF 정책 변경 비용 사전 분석"
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Infracost breakdown (base branch)
+        run: |
+          infracost breakdown \
+            --path terraform \
+            --format json \
+            --out-file /tmp/infracost-base.json
+        env:
+          INFRACOST_TERRAFORM_WORKSPACE: default
+
+      - name: Post Infracost comment on PR
+        run: |
+          infracost comment github \
+            --path /tmp/infracost-base.json \
+            --repo ${{ github.repository }} \
+            --github-token ${{ secrets.GITHUB_TOKEN }} \
+            --pull-request ${{ github.event.pull_request.number }} \
+            --behavior update
+
+  # ================================================================
+  # JOB 3: 보안 분석 파이프라인 — main 병합 시 자동 실행
+  #   analyzer → compliance 보고서 → PR 이력 수집 → artifact 저장
+  # ================================================================
+  security-pipeline:
+    name: "[CD] Security Analysis Pipeline"
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r compliance/requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: "[1/3] WAF 로그 분석 (Python Analyzer + CTI)"
+        run: python analyzer/main.py --source analyzer/tests/fixtures
+
+      - name: "[2/3] 컴플라이언스 감사 보고서 생성 (HTML + PDF)"
+        run: |
+          python compliance/build_data.py
+          python compliance/render.py
+
+      - name: "[3/3] PR 이력 수집 (변경관리 증적 — ISMS-P 2.10.1)"
+        run: python compliance/pr_collector.py --merged-only
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ github.run_number }}
+          path: |
+            output/
+            compliance/output/
+          retention-days: 30
+
+  # ================================================================
+  # JOB 4: AWS 인프라 배포 — 수동 실행 전용
+  #   기획서 4.4: "승인된 정책은 GitHub Actions를 통해 Terraform 코드로 반영"
+  #   Actions 탭 → "Run workflow" 버튼으로 수동 실행
+  # ================================================================
+  deploy:
+    name: "[CD] Deploy to AWS (Terraform Apply)"
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Terraform init
+        run: terraform -chdir=terraform init
+
+      - name: Terraform plan
+        run: terraform -chdir=terraform plan -out=tfplan
+
+      - name: Terraform apply → AWS WAF 정책 업데이트
+        run: terraform -chdir=terraform apply -auto-approve tfplan
+
+  # ================================================================
+  # JOB 5 (수동): AI 보안 보고서 생성
+  #   Ollama 로컬 LLM 의존 → workflow_dispatch로 수동 트리거
+  #   사전 조건: self-hosted runner에 ollama + llama3.1:8b 설치 필요
+  #   실행: Actions 탭 → "Run workflow" → analysis_json 경로 입력 (선택)
+  # ================================================================
+  ai-report:
+    name: "[Manual] AI Security Report (Ollama)"
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install AI dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run analyzer (입력 JSON 없을 때 샘플로 실행)
+        if: github.event.inputs.analysis_json == ''
+        run: python analyzer/main.py --source analyzer/tests/fixtures
+
+      - name: Generate AI security report (LangChain + Ollama)
+        run: |
+          if [ -n "${{ github.event.inputs.analysis_json }}" ]; then
+            INPUT="${{ github.event.inputs.analysis_json }}"
+          else
+            INPUT=$(ls -t output/analysis_*.json | head -1)
+          fi
+          python ai/report_generator.py "$INPUT"
+        env:
+          OLLAMA_BASE_URL: ${{ vars.OLLAMA_BASE_URL }}
+
+      - name: Upload AI report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-report-${{ github.run_number }}
+          path: output/
+          retention-days: 30

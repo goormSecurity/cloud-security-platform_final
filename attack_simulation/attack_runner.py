@@ -30,7 +30,8 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
 DEFAULT_TARGET = "http://cloud-sec-alb-664622103.ap-northeast-2.elb.amazonaws.com"
-DEFAULT_OUTPUT = os.path.join("output", "sent_attacks.jsonl")  # output/ 은 .gitignore 대상
+_SCRIPT_DIR    = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_OUTPUT = os.path.join(_SCRIPT_DIR, "output", "sent_attacks.jsonl")
 
 # 공격 카탈로그.
 # 각 항목: (이름, HTTP 메서드, 경로(쿼리 포함, 값은 인코딩 전), 추가 헤더)
