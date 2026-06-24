@@ -26,3 +26,9 @@ variable "ssh_public_key" {
   description = "SSH 퍼블릭 키"
   type        = string
 }
+
+variable "blocked_ips" {
+  description = "WAF IP 차단 목록 (auto_pr.py가 자동 갱신, CIDR 형식)"
+  type        = list(string)
+  default     = []
+}

@@ -7,20 +7,25 @@ from flask_cors import CORS
 import json
 import glob
 import os
+from pathlib import Path
 
 app = Flask(__name__)
 CORS(app)  # Grafana(다른 포트)에서 접근 허용
 
-DATA_DIR = "./data"
+# 프로젝트 루트의 output/ 디렉토리를 우선 탐색, 없으면 로컬 data/ 사용
+_HERE = Path(__file__).resolve().parent
+_ROOT_OUTPUT = _HERE.parent / "output"
+_LOCAL_DATA  = _HERE / "data"
 
 
 def load_latest_json():
-    """data 폴더에서 가장 최신 analysis_*.json 파일을 읽음"""
-    files = sorted(glob.glob(os.path.join(DATA_DIR, "analysis_*.json")))
-    if not files:
-        return None
-    with open(files[-1], encoding="utf-8") as f:
-        return json.load(f)
+    """output/ 또는 monitoring/data/ 에서 가장 최신 analysis_*.json 을 읽음"""
+    for search_dir in (_ROOT_OUTPUT, _LOCAL_DATA):
+        files = sorted(search_dir.glob("analysis_*.json"))
+        if files:
+            with open(files[-1], encoding="utf-8") as f:
+                return json.load(f)
+    return None
 
 
 @app.route("/")
