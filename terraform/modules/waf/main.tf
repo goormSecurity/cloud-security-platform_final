@@ -50,6 +50,29 @@ resource "aws_wafv2_web_acl" "main" {
     }
   }
 
+  # IP별 속도 제한: 5분 내 100회 초과 시 자동 차단
+  rule {
+    name     = "RateLimitPerIP"
+    priority = 3
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = 100
+        aggregate_key_type = "IP"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "RateLimitedIPs"
+      sampled_requests_enabled   = true
+    }
+  }
+
   rule {
     name     = "BlockMaliciousIPs"
     priority = 0
