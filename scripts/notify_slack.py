@@ -43,51 +43,15 @@ def _send_webhook(url: str, payload: dict) -> bool:
         return False
 
 
-def _build_payload(data: dict, filename: str) -> dict:
-    summary = data.get("summary", {})
-    total = summary.get("total_requests", 0)
-    high_risk = summary.get("high_risk_ips", 0)
-    block_rate = summary.get("block_rate", 0)
-    attack_counts = summary.get("attack_type_counts", {})
-    top_ips = data.get("top_ips", [])
+def _is_discord(url: str) -> bool:
+    return "discord.com/api/webhooks" in url or "discordapp.com/api/webhooks" in url
 
-    high_ips = [ip for ip in top_ips if ip.get("risk_level") == "HIGH"]
 
-    if high_risk > 0:
-        color = "#FF0000"
-        level = "🔴 HIGH 위험 IP 탐지"
-    elif attack_counts:
-        color = "#FFA500"
-        level = "🟡 공격 패턴 탐지"
-    else:
-        color = "#36A64F"
-        level = "🟢 이상 없음"
-
+def _build_slack_payload(data: dict, filename: str, level: str, color: str,
+                         fields_data: list) -> dict:
     fields = [
-        {"title": "총 요청 수",  "value": f"{total:,}건",                    "short": True},
-        {"title": "고위험 IP",   "value": f"{high_risk}개",                  "short": True},
-        {"title": "WAF 차단율",  "value": f"{block_rate * 100:.1f}%",        "short": True},
-        {"title": "공격 유형",   "value": ", ".join(attack_counts) or "없음", "short": True},
+        {"title": k, "value": v, "short": s} for k, v, s in fields_data
     ]
-
-    if high_ips:
-        top = high_ips[0]
-        fields.append({
-            "title": f"최고위험 IP [{top.get('country', '??')}]",
-            "value": (
-                f"`{top.get('ip')}` — 위험도 {top.get('risk_score', 0):.0f}점\n"
-                f"공격: {', '.join(top.get('attack_types', [])) or '없음'}"
-            ),
-            "short": False,
-        })
-
-    if block_rate == 0 and attack_counts:
-        fields.append({
-            "title": "⚠️ 주의",
-            "value": "WAF가 Count 모드. 공격이 차단되지 않고 있습니다. Block 전환을 검토하세요.",
-            "short": False,
-        })
-
     return {
         "attachments": [{
             "color": color,
@@ -98,6 +62,74 @@ def _build_payload(data: dict, filename: str) -> dict:
             "ts": int(datetime.now(timezone.utc).timestamp()),
         }]
     }
+
+
+def _build_discord_payload(data: dict, filename: str, level: str, color_hex: str,
+                           fields_data: list) -> dict:
+    # Discord color는 16진수 정수
+    color_int = int(color_hex.lstrip("#"), 16)
+    embed_fields = [
+        {"name": k, "value": v, "inline": s} for k, v, s in fields_data
+    ]
+    return {
+        "embeds": [{
+            "title": f"[Cloud Security Platform] WAF 분석 완료 — {level}",
+            "description": f"분석 파일: `{filename}`",
+            "color": color_int,
+            "fields": embed_fields,
+            "footer": {"text": "Cloud Security Platform | AWS WAF 자동 분석"},
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+        }]
+    }
+
+
+def _build_payload(data: dict, filename: str, url: str) -> dict:
+    summary = data.get("summary", {})
+    total = summary.get("total_requests", 0)
+    high_risk = summary.get("high_risk_ips", 0)
+    block_rate = summary.get("block_rate", 0)
+    attack_counts = summary.get("attack_type_counts", {})
+    top_ips = data.get("top_ips", [])
+
+    high_ips = [ip for ip in top_ips if ip.get("risk_level") == "HIGH"]
+
+    if high_risk > 0:
+        color = "FF0000"
+        level = "🔴 HIGH 위험 IP 탐지"
+    elif attack_counts:
+        color = "FFA500"
+        level = "🟡 공격 패턴 탐지"
+    else:
+        color = "36A64F"
+        level = "🟢 이상 없음"
+
+    # (이름, 값, inline/short) 공통 필드
+    fields_data = [
+        ("총 요청 수",  f"{total:,}건",                    True),
+        ("고위험 IP",   f"{high_risk}개",                  True),
+        ("WAF 차단율",  f"{block_rate * 100:.1f}%",        True),
+        ("공격 유형",   ", ".join(attack_counts) or "없음", True),
+    ]
+
+    if high_ips:
+        top = high_ips[0]
+        fields_data.append((
+            f"최고위험 IP [{top.get('country', '??')}]",
+            f"`{top.get('ip')}` — 위험도 {top.get('risk_score', 0):.0f}점\n"
+            f"공격: {', '.join(top.get('attack_types', [])) or '없음'}",
+            False,
+        ))
+
+    if block_rate == 0 and attack_counts:
+        fields_data.append((
+            "⚠️ 주의",
+            "WAF가 Count 모드. 공격이 차단되지 않고 있습니다. Block 전환을 검토하세요.",
+            False,
+        ))
+
+    if _is_discord(url):
+        return _build_discord_payload(data, filename, level, color, fields_data)
+    return _build_slack_payload(data, filename, level, f"#{color}", fields_data)
 
 
 def notify(analysis_path=None) -> bool:
@@ -117,7 +149,7 @@ def notify(analysis_path=None) -> bool:
         print(f"[notify_slack] 파일 읽기 실패: {e}")
         return False
 
-    payload = _build_payload(data, path.name)
+    payload = _build_payload(data, path.name, webhook_url)
     ok = _send_webhook(webhook_url, payload)
     if ok:
         high = data.get("summary", {}).get("high_risk_ips", 0)
