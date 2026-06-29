@@ -33,11 +33,14 @@ def _send_webhook(url: str, payload: dict) -> bool:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         req = urllib.request.Request(
             url, data=body,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "CloudSecurityPlatform/1.0",
+            },
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
-            return resp.status == 200
+            return resp.status in (200, 204)
     except Exception as e:
         print(f"[notify_slack] 전송 실패: {e}")
         return False
