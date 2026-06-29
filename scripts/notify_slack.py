@@ -1,0 +1,148 @@
+#!/usr/bin/env python3
+"""
+notify_slack.py — WAF 분석 완료 후 Slack Webhook 알림
+
+HIGH 위험 IP 탐지 시 즉시 알림. SLACK_WEBHOOK_URL 없으면 자동 스킵.
+파이프라인 완료 후 run_pipeline.py에서 자동 호출됨.
+
+환경변수:
+  SLACK_WEBHOOK_URL  — Slack Incoming Webhook URL (필수)
+
+사용 예:
+  python scripts/notify_slack.py
+  python scripts/notify_slack.py --analysis output/analysis_20260629.json
+"""
+import argparse
+import json
+import os
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def _latest_analysis():
+    candidates = sorted((ROOT / "output").glob("analysis_*.json"))
+    return candidates[-1] if candidates else None
+
+
+def _send_webhook(url: str, payload: dict) -> bool:
+    try:
+        import urllib.request
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(
+            url, data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.status == 200
+    except Exception as e:
+        print(f"[notify_slack] 전송 실패: {e}")
+        return False
+
+
+def _build_payload(data: dict, filename: str) -> dict:
+    summary = data.get("summary", {})
+    total = summary.get("total_requests", 0)
+    high_risk = summary.get("high_risk_ips", 0)
+    block_rate = summary.get("block_rate", 0)
+    attack_counts = summary.get("attack_type_counts", {})
+    top_ips = data.get("top_ips", [])
+
+    high_ips = [ip for ip in top_ips if ip.get("risk_level") == "HIGH"]
+
+    if high_risk > 0:
+        color = "#FF0000"
+        level = "🔴 HIGH 위험 IP 탐지"
+    elif attack_counts:
+        color = "#FFA500"
+        level = "🟡 공격 패턴 탐지"
+    else:
+        color = "#36A64F"
+        level = "🟢 이상 없음"
+
+    fields = [
+        {"title": "총 요청 수",  "value": f"{total:,}건",                    "short": True},
+        {"title": "고위험 IP",   "value": f"{high_risk}개",                  "short": True},
+        {"title": "WAF 차단율",  "value": f"{block_rate * 100:.1f}%",        "short": True},
+        {"title": "공격 유형",   "value": ", ".join(attack_counts) or "없음", "short": True},
+    ]
+
+    if high_ips:
+        top = high_ips[0]
+        fields.append({
+            "title": f"최고위험 IP [{top.get('country', '??')}]",
+            "value": (
+                f"`{top.get('ip')}` — 위험도 {top.get('risk_score', 0):.0f}점\n"
+                f"공격: {', '.join(top.get('attack_types', [])) or '없음'}"
+            ),
+            "short": False,
+        })
+
+    if block_rate == 0 and attack_counts:
+        fields.append({
+            "title": "⚠️ 주의",
+            "value": "WAF가 Count 모드. 공격이 차단되지 않고 있습니다. Block 전환을 검토하세요.",
+            "short": False,
+        })
+
+    return {
+        "attachments": [{
+            "color": color,
+            "title": f"[Cloud Security Platform] WAF 분석 완료 — {level}",
+            "text": f"분석 파일: `{filename}`",
+            "fields": fields,
+            "footer": "Cloud Security Platform | AWS WAF 자동 분석",
+            "ts": int(datetime.now(timezone.utc).timestamp()),
+        }]
+    }
+
+
+def notify(analysis_path=None) -> bool:
+    webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
+    if not webhook_url:
+        print("[notify_slack] SLACK_WEBHOOK_URL 없음 — 스킵 (.env에 추가하면 활성화)")
+        return False
+
+    path = Path(analysis_path) if analysis_path else _latest_analysis()
+    if not path or not path.exists():
+        print("[notify_slack] 분석 파일 없음 — 스킵")
+        return False
+
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[notify_slack] 파일 읽기 실패: {e}")
+        return False
+
+    payload = _build_payload(data, path.name)
+    ok = _send_webhook(webhook_url, payload)
+    if ok:
+        high = data.get("summary", {}).get("high_risk_ips", 0)
+        level = "HIGH 위험" if high > 0 else "완료"
+        print(f"[notify_slack] Slack 알림 전송 완료 ({level})")
+    return ok
+
+
+def main():
+    p = argparse.ArgumentParser(description="WAF 분석 결과 Slack Webhook 알림")
+    p.add_argument("--analysis", default=None, help="분석 JSON 경로 (생략 시 최신 자동 선택)")
+    args = p.parse_args()
+
+    # .env 로딩
+    env_file = ROOT / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, _, v = line.partition("=")
+                os.environ.setdefault(k.strip(), v.strip())
+
+    ok = notify(args.analysis)
+    sys.exit(0 if ok else 1)
+
+
+if __name__ == "__main__":
+    main()

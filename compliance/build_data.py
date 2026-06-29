@@ -283,7 +283,43 @@ def _parse_ai(data):
     }
 
 
-# ── 6. Prowler 🔴 미구현 ────────────────────────────────────────
+# ── 6. S3 전체 버킷 보안 감사 🟡 ────────────────────────────────
+def _parse_s3_security(data):
+    if not data:
+        return {"overall": "UNKNOWN", "total_buckets": 0, "buckets": [], "summary": "S3 보안 감사 미실행"}
+    overall = data.get("overall", "UNKNOWN")
+    buckets = data.get("buckets", [])
+    fail_buckets = [b["bucket"] for b in buckets if b.get("verdict") == "FAIL"]
+    warn_buckets = [b["bucket"] for b in buckets if b.get("verdict") == "WARN"]
+    issues_all = [issue for b in buckets for issue in b.get("issues", [])]
+    return {
+        "overall": overall,
+        "total_buckets": data.get("total_buckets", 0),
+        "pass": data.get("pass", 0),
+        "warn": data.get("warn", 0),
+        "fail": data.get("fail", 0),
+        "fail_buckets": fail_buckets,
+        "warn_buckets": warn_buckets,
+        "top_issues": list(dict.fromkeys(issues_all))[:5],
+        "buckets": [
+            {
+                "bucket": b["bucket"],
+                "verdict": b.get("verdict"),
+                "public_access_blocked": all(
+                    b.get("public_access_block", {}).get("config", {}).get(k, False)
+                    for k in ["BlockPublicAcls", "IgnorePublicAcls", "BlockPublicPolicy", "RestrictPublicBuckets"]
+                    if isinstance(b.get("public_access_block", {}).get("config"), dict)
+                ),
+                "encryption": b.get("encryption", {}).get("config", {}).get("SSEAlgorithm", "none"),
+                "versioning": b.get("versioning", {}).get("config", {}).get("Status", "Disabled"),
+                "logging_enabled": b.get("logging", {}).get("config", {}).get("enabled", False),
+            }
+            for b in buckets
+        ],
+    }
+
+
+# ── 7. Prowler 🔴 미구현 ────────────────────────────────────────
 def _parse_prowler(data):
     if not data:
         return {"mfa_enabled": True, "root_used": False, "findings": []}
@@ -476,6 +512,10 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
     objlock_raw = _load_json(INPUT_DIR / "object_lock_config.json", "Object Lock 증적 🟡")
     cfgdiff_raw = _load_json(INPUT_DIR / "config_diff.json",        "Config 드리프트 🟡")
 
+    # 🟡 S3 전체 버킷 보안 감사 (collect_s3_security 출력)
+    s3sec_raw = _load_json(INPUT_DIR / "s3_security.json", "S3 버킷 보안 감사 🟡")
+    s3_security = _parse_s3_security(s3sec_raw)
+
     # ── 조합 ────────────────────────────────────────────────────
     block_rate = ana["summary"].get("block_rate", 0)
     buckets = ana["time_buckets"]
@@ -595,6 +635,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
                 "status": (cfgdiff_raw or {}).get("status", "WARN"),
                 "note": (cfgdiff_raw or {}).get("note", ""),
             },
+            "s3_buckets": s3_security,
         },
         "change": change,
         "compliance": {"pci": pci, "ismsp": ismsp},
@@ -649,6 +690,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
             "kms_key": str(INPUT_DIR / "kms_key.json") if kms_raw else None,
             "object_lock": str(INPUT_DIR / "object_lock_config.json") if objlock_raw else None,
             "config_diff": str(INPUT_DIR / "config_diff.json") if cfgdiff_raw else None,
+            "s3_security": str(INPUT_DIR / "s3_security.json") if s3sec_raw else None,
         },
     }
 
@@ -695,6 +737,7 @@ def main():
         "kms_key":           "KMS 키 증적       🟡",
         "object_lock":       "Object Lock 증적  🟡",
         "config_diff":       "Config 드리프트   🟡",
+        "s3_security":       "S3 버킷 보안 감사 🟡",
     }
     for key, label in labels.items():
         mark = "+" if data["_sources"].get(key) else "-"

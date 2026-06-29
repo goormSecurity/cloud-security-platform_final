@@ -308,6 +308,44 @@ def step_collect_config_diff() -> bool:
         return False
 
 
+def step_collect_s3_security() -> bool:
+    _step("3g", "S3 버킷 보안 감사 (scripts/collect_s3_security.py)")
+    if not _has_aws_creds():
+        _skip("AWS 자격증명 없음 — S3 보안 감사 스킵")
+        return False
+    cmd = [sys.executable, str(ROOT / "scripts" / "collect_s3_security.py")]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    for line in (out + err).splitlines()[-8:]:
+        print(f"  {line}")
+    if code == 0:
+        _ok("S3 버킷 보안 감사 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
+def step_notify_slack(analysis_json: str | None) -> bool:
+    _step("9", "Slack 알림 전송 (scripts/notify_slack.py)")
+    if not os.environ.get("SLACK_WEBHOOK_URL"):
+        _skip("SLACK_WEBHOOK_URL 없음 — 알림 스킵 (.env에 추가하면 활성화)")
+        return False
+    if not analysis_json:
+        _skip("분석 JSON 없음 — 알림 스킵")
+        return False
+    cmd = [sys.executable, str(ROOT / "scripts" / "notify_slack.py"),
+           "--analysis", analysis_json]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    for line in (out + err).splitlines()[-3:]:
+        print(f"  {line}")
+    if code == 0:
+        _ok("Slack 알림 전송 완료")
+        return True
+    else:
+        _skip("Slack 전송 실패 (webhook URL 또는 네트워크 확인)")
+        return False
+
+
 def step_generate_ai_json(analysis_json: str | None) -> bool:
     _step("5b", "AI 분석 JSON 생성 (ai/generate_analysis_json.py)")
     if not analysis_json:
@@ -436,6 +474,7 @@ def main():
     results["prowler"]       = step_collect_prowler()
     results["cmk_collect"]   = step_collect_cmk()
     results["config_diff"]   = step_collect_config_diff()
+    results["s3_security"]   = step_collect_s3_security()
 
     results["zap"]           = False if args.skip_zap else step_zap(args.target)
     results["ai_report"]     = False if args.skip_ai  else step_ai_report(analysis_json)
@@ -446,6 +485,7 @@ def main():
 
     results["compliance"]    = step_compliance_report(analysis_json)
     results["auto_pr"]       = False if args.skip_pr  else step_auto_pr(analysis_json, args.dry_run)
+    results["slack_notify"]  = step_notify_slack(analysis_json)
 
     elapsed = time.time() - start
 
