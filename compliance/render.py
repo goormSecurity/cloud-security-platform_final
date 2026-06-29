@@ -14,7 +14,7 @@ from playwright.sync_api import sync_playwright
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
 TEMPLATE_NAME = "template.html"
-DATA_FILE = BASE_DIR / "dummy_data.json"
+DEFAULT_DATA_FILE = BASE_DIR / "real_data.json"
 HTML_FILE = OUTPUT_DIR / "report.html"
 PDF_FILE = OUTPUT_DIR / "report.pdf"
 PLACEHOLDER = "[ ]"
@@ -26,10 +26,8 @@ def _resolve_data_file(override: str | None) -> Path:
         if p.exists():
             return p
         raise FileNotFoundError(f"[render] 지정한 데이터 파일 없음: {override}")
-    # --data 없으면 real_data.json 자동 탐색
-    real = BASE_DIR / "real_data.json"
-    if real.exists():
-        return real
+    if DEFAULT_DATA_FILE.exists():
+        return DEFAULT_DATA_FILE
     raise FileNotFoundError(
         "[render] 데이터 파일 없음. "
         "run_pipeline.py 또는 'python compliance/build_data.py' 를 먼저 실행하세요."
