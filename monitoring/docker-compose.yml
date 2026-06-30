@@ -3,17 +3,13 @@ services:
   loki:
     image: grafana/loki:latest
     container_name: loki
+    user: "0"
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/loki-config.yml
     volumes:
       - ./loki-config.yml:/etc/loki/loki-config.yml
       - loki-data:/tmp/loki
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q --tries=1 -O- http://localhost:3100/ready || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # ── Fluent Bit: 로그 수집 에이전트 ───────────────────────────
   fluent-bit:
@@ -21,11 +17,11 @@ services:
     container_name: fluent-bit
     volumes:
       - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
-      - ../analyzer/sample_logs:/logs/sample_logs:ro
+      - ./parsers.conf:/fluent-bit/etc/parsers.conf
       - ../output:/logs/output:ro
     depends_on:
       loki:
-        condition: service_healthy
+        condition: service_started
     restart: unless-stopped
 
   # ── JSON API 서버: Analyzer 결과 노출 ───────────────────────
@@ -59,7 +55,7 @@ services:
       - ./dashboards:/var/lib/grafana/dashboards
     depends_on:
       loki:
-        condition: service_healthy
+        condition: service_started
       json-api:
         condition: service_started
     restart: unless-stopped
