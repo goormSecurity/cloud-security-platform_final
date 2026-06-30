@@ -19,7 +19,7 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 
-DEFAULT_MODEL = "llama3.2:3b"
+DEFAULT_MODEL = "qwen2.5:7b"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 MAX_GENERATION_ATTEMPTS = 3
 
