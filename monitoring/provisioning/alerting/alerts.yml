@@ -1,0 +1,144 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: WAF Security Alerts
+    folder: WAF Alerts
+    interval: 1m
+    rules:
+
+      # ── 알림 1: BLOCK 이벤트 급증 ──────────────────────────────
+      - uid: waf-block-spike
+        title: "WAF BLOCK 급증 감지"
+        condition: C
+        for: 2m
+        annotations:
+          summary: "WAF가 최근 5분간 다수의 요청을 차단했습니다"
+          description: "BLOCK 이벤트가 {{ $values.B.Value }}건 감지됨. 공격 시도 가능성이 있습니다."
+        labels:
+          severity: warning
+        data:
+          - refId: A
+            datasourceUid: loki-cloud-sec
+            queryType: range
+            relativeTimeRange:
+              from: 300
+              to: 0
+            model:
+              expr: 'count_over_time({job="waf_logs", action="BLOCK"}[5m])'
+              instant: false
+              range: true
+              legendFormat: "BLOCK count"
+              queryType: range
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: sum
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: sum
+              type: reduce
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 20
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              type: threshold
+
+      # ── 알림 2: HIGH 위험 IP 탐지 ──────────────────────────────
+      - uid: waf-high-risk-ip
+        title: "HIGH 위험 IP 탐지"
+        condition: C
+        for: 0s
+        annotations:
+          summary: "HIGH 위험도 IP가 탐지되었습니다"
+          description: "위험 IP 수: {{ $values.B.Value }}개. 즉각적인 확인이 필요합니다."
+        labels:
+          severity: critical
+        data:
+          - refId: A
+            datasourceUid: afot70vnoy7swf
+            relativeTimeRange:
+              from: 600
+              to: 0
+            model:
+              fields:
+                - name: high_risk_ips
+                  jsonPath: "$.high_risk_ips"
+                  type: number
+              method: GET
+              urlPath: /summary
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params: []
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              type: reduce
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - B
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              type: threshold
