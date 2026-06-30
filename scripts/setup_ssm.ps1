@@ -30,7 +30,7 @@ function Put-SSMParam([string]$name, [string]$value, [string]$desc) {
 }
 
 # .env 읽기
-$envFile = Join-Path $PSScriptRoot ".." ".env"
+$envFile = Join-Path (Split-Path $PSScriptRoot) ".env"
 $envVars = @{}
 if (Test-Path $envFile) {
     Get-Content $envFile | ForEach-Object {
