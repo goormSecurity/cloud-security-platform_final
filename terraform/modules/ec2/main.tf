@@ -63,88 +63,15 @@ resource "aws_instance" "app" {
 
 # 분석 서버 (Grafana + Loki)
 resource "aws_instance" "analysis" {
-  ami                    = data.aws_ami.amazon_linux.id
-  instance_type          = var.instance_type_analysis
-  key_name               = aws_key_pair.main.key_name
-  vpc_security_group_ids = [aws_security_group.analysis.id]
-  subnet_id              = var.public_subnet_ids[0]
-  iam_instance_profile   = aws_iam_instance_profile.analysis.name
+  ami                         = data.aws_ami.amazon_linux.id
+  instance_type               = var.instance_type_analysis
+  key_name                    = aws_key_pair.main.key_name
+  vpc_security_group_ids      = [aws_security_group.analysis.id]
+  subnet_id                   = var.public_subnet_ids[0]
+  iam_instance_profile        = aws_iam_instance_profile.analysis.name
+  user_data_replace_on_change = true
 
-  user_data = base64encode(<<-EOF
-    #!/bin/bash
-    exec >> /var/log/user-data.log 2>&1
-    set -x
-
-    # 1. 패키지
-    yum update -y
-    yum install -y docker python3 python3-pip git
-
-    # 2. Docker
-    systemctl start docker
-    systemctl enable docker
-    usermod -aG docker ec2-user
-    curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
-      -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
-
-    # 3. 리포지토리 클론
-    git clone https://github.com/goormSecurity/cloud-security-platform.git /opt/cloud-security-platform
-
-    # 4. Python 의존성
-    pip3 install -r /opt/cloud-security-platform/requirements.txt
-    python3 -m playwright install-deps chromium 2>/dev/null || true
-    python3 -m playwright install chromium 2>/dev/null || true
-
-    # 5. Ollama 설치 + 모델 다운로드 (llama3.1:8b — 약 4.7GB)
-    curl -fsSL https://ollama.com/install.sh | sh
-    systemctl enable ollama
-    systemctl start ollama
-    sleep 60
-    ollama pull llama3.1:8b
-
-    # 6. SSM에서 시크릿 가져와 .env 생성
-    SSM_GITHUB=$(aws ssm get-parameter --name /cloud-sec/github_token \
-      --with-decryption --query Parameter.Value --output text --region ap-northeast-2 2>/dev/null || echo "")
-    SSM_ABUSE=$(aws ssm get-parameter --name /cloud-sec/abuseipdb_api_key \
-      --with-decryption --query Parameter.Value --output text --region ap-northeast-2 2>/dev/null || echo "")
-    SSM_SLACK=$(aws ssm get-parameter --name /cloud-sec/slack_webhook_url \
-      --with-decryption --query Parameter.Value --output text --region ap-northeast-2 2>/dev/null || echo "")
-
-    printf 'AWS_DEFAULT_REGION=ap-northeast-2\nGITHUB_TOKEN=%s\nABUSEIPDB_API_KEY=%s\nSLACK_WEBHOOK_URL=%s\n' \
-      "$SSM_GITHUB" "$SSM_ABUSE" "$SSM_SLACK" > /opt/cloud-security-platform/.env
-    chmod 600 /opt/cloud-security-platform/.env
-
-    # 7. Grafana + Loki (docker-compose)
-    mkdir -p /opt/monitoring
-    cat > /opt/monitoring/docker-compose.yml << 'COMPOSE'
-version: '3'
-services:
-  loki:
-    image: grafana/loki:2.9.0
-    ports:
-      - "3100:3100"
-    restart: always
-  grafana:
-    image: grafana/grafana:10.2.0
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin123!
-    volumes:
-      - grafana-data:/var/lib/grafana
-    depends_on:
-      - loki
-    restart: always
-volumes:
-  grafana-data:
-COMPOSE
-    cd /opt/monitoring && docker-compose up -d
-
-    # 8. cron 등록 — 매일 오전 9시 KST (0시 UTC)
-    echo "0 0 * * * ec2-user cd /opt/cloud-security-platform && python3 scripts/run_pipeline.py >> /var/log/pipeline.log 2>&1" >> /etc/crontab
-  EOF
-  )
+  user_data = base64encode(file("${path.module}/templates/analysis_setup.sh"))
 
   root_block_device {
     volume_size = 20
@@ -205,6 +132,15 @@ resource "aws_iam_role_policy" "analysis_s3" {
           "arn:aws:s3:::aws-waf-logs-*/*",
           "arn:aws:s3:::${var.project_name}-*",
           "arn:aws:s3:::${var.project_name}-*/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = ["s3:PutObject", "s3:PutObjectAcl", "s3:ListAllMyBuckets"]
+        Resource = [
+          "arn:aws:s3:::${var.project_name}-audit-evidence-*",
+          "arn:aws:s3:::${var.project_name}-audit-evidence-*/*",
+          "arn:aws:s3:::*"
         ]
       },
       {
