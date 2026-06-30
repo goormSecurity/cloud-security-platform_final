@@ -85,7 +85,7 @@ function Run-EC2 {
     Write-Host "  파이프라인 실행 중 (출력 스트리밍)...`n" -ForegroundColor Cyan
     ssh -o StrictHostKeyChecking=no -o ConnectTimeout=15 -o ServerAliveInterval=60 `
         -i $sshKey "ec2-user@$ip" `
-        "cd /opt/cloud-security-platform && sudo python3.11 scripts/run_pipeline.py $pArgs 2>&1 | tee /tmp/pipeline-run.log"
+        "cd /opt/cloud-security-platform && sudo python3.11 scripts/run_pipeline.py $pArgs"
 
     Sync-Results
 }
