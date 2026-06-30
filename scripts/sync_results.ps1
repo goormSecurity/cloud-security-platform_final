@@ -13,8 +13,8 @@ param(
 
 $bucket  = "cloud-sec-audit-evidence-dev"
 $region  = "ap-northeast-2"
-$rootDir = Join-Path $PSScriptRoot ".."
-$localDir = Join-Path $rootDir "output" "s3-results"
+$rootDir = Split-Path $PSScriptRoot
+$localDir = Join-Path (Join-Path $rootDir "output") "s3-results"
 
 $s3Prefix = if ($Date) { "s3://$bucket/pipeline-results/$Date/" } `
             else       { "s3://$bucket/pipeline-results/" }
