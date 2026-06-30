@@ -4,7 +4,7 @@ set -x
 
 # 1. 패키지
 yum update -y
-yum install -y docker python3 python3-pip git
+yum install -y docker python3.11 python3.11-pip git
 
 # 2. Docker
 systemctl start docker
@@ -14,20 +14,26 @@ curl -SL "https://github.com/docker/compose/releases/latest/download/docker-comp
   -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# 3. 리포지토리 클론
+# 3. 리포지토리 클론 (public)
 git clone https://github.com/goormSecurity/cloud-security-platform.git /opt/cloud-security-platform
+cd /opt/cloud-security-platform
+git checkout feature/ec2-deploy
 
-# 4. Python 의존성
-pip3 install -r /opt/cloud-security-platform/requirements.txt
-python3 -m playwright install-deps chromium 2>/dev/null || true
-python3 -m playwright install chromium 2>/dev/null || true
+# 4. Python 3.11 의존성
+python3.11 -m pip install -r requirements.txt
 
-# 5. Ollama 설치 (t3.small은 llama3.1:8b 실행 불가 — 설치만 해둠)
+# 5. Playwright 브라우저 설치 (컴플라이언스 PDF 생성용)
+python3.11 -m playwright install-deps chromium 2>/dev/null || true
+python3.11 -m playwright install chromium 2>/dev/null || true
+
+# 6. Ollama 설치 + 모델 다운로드 (t3.xlarge 16GB — llama3.1:8b 실행 가능)
 curl -fsSL https://ollama.com/install.sh | sh
 systemctl enable ollama
 systemctl start ollama
+sleep 30
+ollama pull llama3.1:8b
 
-# 6. SSM에서 시크릿 가져와 .env 생성
+# 7. SSM에서 시크릿 가져와 .env 생성
 SSM_GITHUB=$(aws ssm get-parameter --name /cloud-sec/github_token \
   --with-decryption --query Parameter.Value --output text --region ap-northeast-2 2>/dev/null || echo "")
 SSM_ABUSE=$(aws ssm get-parameter --name /cloud-sec/abuseipdb_api_key \
@@ -39,7 +45,7 @@ printf 'AWS_DEFAULT_REGION=ap-northeast-2\nGITHUB_TOKEN=%s\nABUSEIPDB_API_KEY=%s
   "$SSM_GITHUB" "$SSM_ABUSE" "$SSM_SLACK" > /opt/cloud-security-platform/.env
 chmod 600 /opt/cloud-security-platform/.env
 
-# 7. Grafana + Loki
+# 8. Grafana + Loki
 mkdir -p /opt/monitoring
 cat > /opt/monitoring/docker-compose.yml << 'COMPOSE'
 version: '3'
@@ -66,7 +72,7 @@ volumes:
 COMPOSE
 cd /opt/monitoring && docker-compose up -d
 
-# 8. cron 등록 — 매일 오전 9시 KST (0시 UTC)
-echo "0 0 * * * ec2-user cd /opt/cloud-security-platform && python3 scripts/run_pipeline.py >> /var/log/pipeline.log 2>&1" >> /etc/crontab
+# 9. cron 등록 — 매일 오전 9시 KST (0시 UTC)
+echo "0 0 * * * ec2-user cd /opt/cloud-security-platform && python3.11 scripts/run_pipeline.py --live >> /var/log/pipeline.log 2>&1" >> /etc/crontab
 
 echo "=== user-data 완료 ==="
