@@ -333,6 +333,48 @@ def step_collect_s3_security() -> bool:
         return False
 
 
+def step_upload_s3() -> bool:
+    _step("10", "결과물 S3 업로드 (audit-evidence 버킷)")
+    if not _has_aws_creds():
+        _skip("AWS 자격증명 없음 — S3 업로드 스킵")
+        return False
+
+    try:
+        import boto3
+        s3 = boto3.client("s3", region_name="ap-northeast-2")
+        bucket = "cloud-sec-audit-evidence-dev"
+        today = datetime.now().strftime("%Y/%m/%d")
+        prefix = f"pipeline-results/{today}"
+
+        candidates = [
+            *sorted((ROOT / "output").glob("analysis_*.json"))[-1:],
+            *sorted((ROOT / "output").glob("ab_test_*.json"))[-1:],
+            ROOT / "compliance" / "real_data.json",
+            ROOT / "compliance" / "input" / "ai_analysis.json",
+            *sorted((ROOT / "compliance" / "output").glob("*.pdf"))[-1:],
+            ROOT / "compliance" / "report.html",
+        ]
+
+        uploaded, skipped = 0, 0
+        for path in candidates:
+            if not path.exists():
+                skipped += 1
+                continue
+            key = f"{prefix}/{path.name}"
+            try:
+                s3.upload_file(str(path), bucket, key)
+                print(f"  [upload] ✔ {path.name} → s3://{bucket}/{key}")
+                uploaded += 1
+            except Exception as e:
+                print(f"  [upload] ✘ {path.name}: {e}")
+
+        _ok(f"S3 업로드 완료 ({uploaded}개 / 스킵 {skipped}개)")
+        return uploaded > 0
+    except Exception as e:
+        _fail(f"S3 업로드 실패: {e}")
+        return False
+
+
 def step_notify_slack(analysis_json: str | None) -> bool:
     _step("9", "Slack 알림 전송 (scripts/notify_slack.py)")
     if not os.environ.get("SLACK_WEBHOOK_URL"):
@@ -494,6 +536,7 @@ def main():
     results["compliance"]    = step_compliance_report(analysis_json)
     results["auto_pr"]       = False if args.skip_pr  else step_auto_pr(analysis_json, args.dry_run)
     results["slack_notify"]  = step_notify_slack(analysis_json)
+    results["s3_upload"]     = step_upload_s3()
 
     elapsed = time.time() - start
 
