@@ -1,588 +1,485 @@
 {
-  "apiVersion": "dashboard.grafana.app/v2",
-  "kind": "Dashboard",
-  "metadata": {
-    "name": "adpr9nz",
-    "namespace": "default",
-    "uid": "e235d678-1d36-447f-b613-9d4867f99372",
-    "resourceVersion": "1781179380744986",
-    "generation": 4,
-    "creationTimestamp": "2026-06-11T11:58:56Z",
-    "labels": {
-      "grafana.app/deprecatedInternalID": "2392460744695808"
-    },
-    "annotations": {
-      "grafana.app/createdBy": "user:ffos4w1i0wiyof",
-      "grafana.app/folder": "",
-      "grafana.app/saved-from-ui": "Grafana v13.0.2 (3fcdbc5a)",
-      "grafana.app/updatedBy": "user:ffos4w1i0wiyof",
-      "grafana.app/updatedTimestamp": "2026-06-11T12:03:00Z"
-    }
-  },
-  "spec": {
-    "annotations": [
-      {
-        "kind": "AnnotationQuery",
-        "spec": {
-          "query": {
-            "kind": "DataQuery",
-            "group": "grafana",
-            "version": "v0",
-            "datasource": {
-              "name": "-- Grafana --"
-            },
-            "spec": {}
-          },
-          "enable": true,
-          "hide": true,
-          "iconColor": "rgba(0, 211, 255, 1)",
-          "name": "Annotations & Alerts",
-          "builtIn": true
-        }
-      }
-    ],
-    "cursorSync": "Off",
-    "editable": true,
-    "elements": {
-      "panel-1": {
-        "kind": "Panel",
-        "spec": {
-          "id": 1,
-          "title": "시간대별 공격 추이",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "marcusolsson-json-datasource",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "afot70vnoy7swf"
-                      },
-                      "spec": {
-                        "cacheDurationSeconds": 300,
-                        "fields": [
-                          {
-                            "jsonPath": "$.[*].hour",
-                            "name": "Time",
-                            "type": "time"
-                          },
-                          {
-                            "jsonPath": "$.[*].count",
-                            "language": "jsonpath",
-                            "name": "Requests",
-                            "type": "number"
-                          }
-                        ],
-                        "method": "GET",
-                        "queryParams": "",
-                        "urlPath": "/time-buckets"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "annotations": {
-                  "clustering": -1,
-                  "multiLane": false
-                },
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "hideZeros": false,
-                  "mode": "single",
-                  "sort": "none"
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "green"
-                      },
-                      {
-                        "value": 80,
-                        "color": "red"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "axisBorderShow": false,
-                    "axisCenteredZero": false,
-                    "axisColorMode": "text",
-                    "axisLabel": "",
-                    "axisPlacement": "auto",
-                    "barAlignment": 0,
-                    "barWidthFactor": 0.6,
-                    "drawStyle": "line",
-                    "fillOpacity": 0,
-                    "gradientMode": "none",
-                    "hideFrom": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": false
-                    },
-                    "insertNulls": false,
-                    "lineInterpolation": "linear",
-                    "lineWidth": 1,
-                    "pointSize": 5,
-                    "scaleDistribution": {
-                      "type": "linear"
-                    },
-                    "showPoints": "auto",
-                    "showValues": false,
-                    "spanNulls": false,
-                    "stacking": {
-                      "group": "A",
-                      "mode": "none"
-                    },
-                    "thresholdsStyle": {
-                      "mode": "off"
-                    }
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-2": {
-        "kind": "Panel",
-        "spec": {
-          "id": 2,
-          "title": "WAF 룰별 탐지 건수",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "marcusolsson-json-datasource",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "afot70vnoy7swf"
-                      },
-                      "spec": {
-                        "cacheDurationSeconds": 300,
-                        "fields": [
-                          {
-                            "jsonPath": "$.[*].rule",
-                            "name": "Rule",
-                            "type": "string"
-                          },
-                          {
-                            "jsonPath": "$.[*].count",
-                            "language": "jsonpath",
-                            "name": "Count",
-                            "type": "number"
-                          }
-                        ],
-                        "method": "GET",
-                        "queryParams": "",
-                        "urlPath": "/rule-hits"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "barchart",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "barRadius": 0,
-                "barWidth": 0.97,
-                "fullHighlight": false,
-                "groupWidth": 0.7,
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "orientation": "auto",
-                "showValue": "auto",
-                "stacking": "none",
-                "tooltip": {
-                  "hideZeros": false,
-                  "mode": "single",
-                  "sort": "none"
-                },
-                "xTickLabelRotation": 0,
-                "xTickLabelSpacing": 0
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "green"
-                      },
-                      {
-                        "value": 80,
-                        "color": "red"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "axisBorderShow": false,
-                    "axisCenteredZero": false,
-                    "axisColorMode": "text",
-                    "axisLabel": "",
-                    "axisPlacement": "auto",
-                    "fillOpacity": 80,
-                    "gradientMode": "none",
-                    "hideFrom": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": false
-                    },
-                    "lineWidth": 1,
-                    "scaleDistribution": {
-                      "type": "linear"
-                    },
-                    "thresholdsStyle": {
-                      "mode": "off"
-                    }
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-3": {
-        "kind": "Panel",
-        "spec": {
-          "id": 3,
-          "title": "공격 유형 분포",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "marcusolsson-json-datasource",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "afot70vnoy7swf"
-                      },
-                      "spec": {
-                        "cacheDurationSeconds": 300,
-                        "fields": [
-                          {
-                            "jsonPath": "$.[*].type",
-                            "name": "Attack Type",
-                            "type": "string"
-                          },
-                          {
-                            "jsonPath": "$.[*].count",
-                            "language": "jsonpath",
-                            "name": "Count",
-                            "type": "number"
-                          }
-                        ],
-                        "method": "GET",
-                        "queryParams": "",
-                        "urlPath": "/attack-types"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "piechart",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "displayLabels": [
-                  "percent"
-                ],
-                "legend": {
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "pieType": "pie",
-                "reduceOptions": {
-                  "calcs": [],
-                  "fields": "",
-                  "values": true
-                },
-                "sort": "desc",
-                "tooltip": {
-                  "hideZeros": false,
-                  "mode": "single",
-                  "sort": "none"
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "hideFrom": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": false
-                    }
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-4": {
-        "kind": "Panel",
-        "spec": {
-          "id": 4,
-          "title": "Action 비율",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "marcusolsson-json-datasource",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "afot70vnoy7swf"
-                      },
-                      "spec": {
-                        "cacheDurationSeconds": 300,
-                        "fields": [
-                          {
-                            "jsonPath": "$.[*].action",
-                            "name": "Action",
-                            "type": "string"
-                          },
-                          {
-                            "jsonPath": "$.[*].count",
-                            "language": "jsonpath",
-                            "name": "Count",
-                            "type": "number"
-                          }
-                        ],
-                        "method": "GET",
-                        "queryParams": "",
-                        "urlPath": "/action-counts"
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "piechart",
-            "version": "13.0.2",
-            "spec": {
-              "options": {
-                "displayLabels": [
-                  "percent"
-                ],
-                "legend": {
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "pieType": "pie",
-                "reduceOptions": {
-                  "calcs": [],
-                  "fields": "",
-                  "values": true
-                },
-                "sort": "desc",
-                "tooltip": {
-                  "hideZeros": false,
-                  "mode": "single",
-                  "sort": "none"
-                }
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "hideFrom": {
-                      "legend": false,
-                      "tooltip": false,
-                      "viz": false
-                    }
-                  }
-                },
-                "overrides": []
-              }
-            }
-          }
-        }
+  "title": "☁️ Cloud WAF 보안 모니터링",
+  "uid": "cloud-sec-waf-v2",
+  "schemaVersion": 38,
+  "version": 2,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "Asia/Seoul",
+  "tags": ["waf", "security", "cloud-sec"],
+  "panels": [
+
+    {
+      "id": 1,
+      "type": "text",
+      "title": "",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 2 },
+      "options": {
+        "mode": "html",
+        "content": "<div style='display:flex;align-items:center;gap:16px;padding:8px 16px;background:linear-gradient(90deg,#0d1f3c,#1a3a6b);border-radius:8px;'><span style='font-size:28px;'>🛡️</span><div><div style='font-size:20px;font-weight:700;color:#4fc3f7;'>AWS WAF 실시간 보안 모니터링 대시보드</div><div style='font-size:12px;color:#90a4ae;margin-top:2px;'>Cloud Security Platform — 6조 구름방범대 | WAF 로그 실시간 분석 · AI 위험도 평가 · 자동 차단</div></div></div>"
       }
     },
-    "layout": {
-      "kind": "GridLayout",
-      "spec": {
-        "items": [
+
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "총 요청 수",
+      "gridPos": { "x": 0, "y": 2, "w": 4, "h": 4 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#4fc3f7" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#4fc3f7", "value": 0 }] },
+          "unit": "short"
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [{
+        "refId": "A",
+        "fields": [{ "name": "total_requests", "jsonPath": "$.total_requests", "type": "number" }],
+        "method": "GET", "urlPath": "/summary"
+      }]
+    },
+
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "WAF 차단 수",
+      "gridPos": { "x": 4, "y": 2, "w": 4, "h": 4 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#ef5350" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#ef5350", "value": 0 }] },
+          "unit": "short"
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [{
+        "refId": "A",
+        "fields": [{ "name": "blocked", "jsonPath": "$.blocked", "type": "number" }],
+        "method": "GET", "urlPath": "/summary"
+      }]
+    },
+
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "WAF 차단률",
+      "gridPos": { "x": 8, "y": 2, "w": 4, "h": 4 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#66bb6a", "value": 0 },
+              { "color": "#ffa726", "value": 20 },
+              { "color": "#ef5350", "value": 50 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [{
+        "refId": "A",
+        "fields": [{ "name": "block_rate_pct", "jsonPath": "$.block_rate_pct", "type": "number" }],
+        "method": "GET", "urlPath": "/summary"
+      }]
+    },
+
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "HIGH 위험 IP",
+      "gridPos": { "x": 12, "y": 2, "w": 4, "h": 4 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#ff7043" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#ff7043", "value": 0 }] },
+          "unit": "short"
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [{
+        "refId": "A",
+        "fields": [{ "name": "high_risk_ips", "jsonPath": "$.high_risk_ips", "type": "number" }],
+        "method": "GET", "urlPath": "/summary"
+      }]
+    },
+
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "고유 IP 수",
+      "gridPos": { "x": 16, "y": 2, "w": 4, "h": 4 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#ab47bc" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#ab47bc", "value": 0 }] },
+          "unit": "short"
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [{
+        "refId": "A",
+        "fields": [{ "name": "unique_ips", "jsonPath": "$.unique_ips", "type": "number" }],
+        "method": "GET", "urlPath": "/summary"
+      }]
+    },
+
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "허용 요청",
+      "gridPos": { "x": 20, "y": 2, "w": 4, "h": 4 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#26a69a" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "#26a69a", "value": 0 }] },
+          "unit": "short"
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "targets": [{
+        "refId": "A",
+        "fields": [{ "name": "allowed", "jsonPath": "$.allowed", "type": "number" }],
+        "method": "GET", "urlPath": "/summary"
+      }]
+    },
+
+    {
+      "id": 20,
+      "type": "row",
+      "title": "📈 트래픽 분석",
+      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "시간대별 요청 추이",
+      "gridPos": { "x": 0, "y": 7, "w": 16, "h": 9 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#4fc3f7" },
+          "custom": { "lineWidth": 2, "fillOpacity": 20, "gradientMode": "opacity", "drawStyle": "line", "pointSize": 5 },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [{
+        "refId": "A",
+        "fields": [
+          { "name": "Time",    "jsonPath": "$.[*].hour",  "type": "time" },
+          { "name": "요청 수", "jsonPath": "$.[*].count", "type": "number" }
+        ],
+        "method": "GET", "urlPath": "/time-buckets"
+      }]
+    },
+
+    {
+      "id": 22,
+      "type": "piechart",
+      "title": "ALLOW / BLOCK 비율",
+      "gridPos": { "x": 16, "y": 7, "w": 8, "h": 9 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ALLOW" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#26a69a" } }] },
+          { "matcher": { "id": "byName", "options": "BLOCK" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ef5350" } }] }
+        ]
+      },
+      "options": {
+        "pieType": "donut",
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "values": ["value", "percent"] },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [{
+        "refId": "A",
+        "fields": [
+          { "name": "action", "jsonPath": "$.[*].action", "type": "string" },
+          { "name": "count",  "jsonPath": "$.[*].count",  "type": "number" }
+        ],
+        "method": "GET", "urlPath": "/action-counts"
+      }]
+    },
+
+    {
+      "id": 30,
+      "type": "row",
+      "title": "🔍 공격 유형 & WAF 룰 분석",
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 31,
+      "type": "barchart",
+      "title": "공격 유형 분포",
+      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 8 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#ff7043" },
+          "unit": "short",
+          "custom": { "fillOpacity": 80 }
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
+        "tooltip": { "mode": "single" },
+        "xField": "type"
+      },
+      "targets": [{
+        "refId": "A",
+        "fields": [
+          { "name": "type",  "jsonPath": "$.[*].type",  "type": "string" },
+          { "name": "count", "jsonPath": "$.[*].count", "type": "number" }
+        ],
+        "method": "GET", "urlPath": "/attack-types"
+      }]
+    },
+
+    {
+      "id": 32,
+      "type": "barchart",
+      "title": "WAF 룰셋 탐지 건수",
+      "gridPos": { "x": 12, "y": 17, "w": 12, "h": 8 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#7e57c2" },
+          "unit": "short",
+          "custom": { "fillOpacity": 80 }
+        }
+      },
+      "options": {
+        "orientation": "horizontal",
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
+        "tooltip": { "mode": "single" },
+        "xField": "rule"
+      },
+      "targets": [{
+        "refId": "A",
+        "fields": [
+          { "name": "rule",  "jsonPath": "$.[*].rule",  "type": "string" },
+          { "name": "count", "jsonPath": "$.[*].count", "type": "number" }
+        ],
+        "method": "GET", "urlPath": "/rule-hits"
+      }]
+    },
+
+    {
+      "id": 40,
+      "type": "row",
+      "title": "🌐 위험 IP 분석",
+      "gridPos": { "x": 0, "y": 25, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 41,
+      "type": "table",
+      "title": "TOP 10 위험 IP 목록",
+      "gridPos": { "x": 0, "y": 26, "w": 16, "h": 10 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
           {
-            "kind": "GridLayoutItem",
-            "spec": {
-              "x": 0,
-              "y": 0,
-              "width": 12,
-              "height": 8,
-              "element": {
-                "kind": "ElementReference",
-                "name": "panel-1"
-              }
-            }
+            "matcher": { "id": "byName", "options": "risk_level" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": 0 }] } },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": { "HIGH":    { "color": "#ef5350", "index": 0, "text": "HIGH" } } },
+                { "type": "value", "options": { "MEDIUM":  { "color": "#ffa726", "index": 1, "text": "MEDIUM" } } },
+                { "type": "value", "options": { "LOW":     { "color": "#66bb6a", "index": 2, "text": "LOW" } } }
+              ]}
+            ]
           },
           {
-            "kind": "GridLayoutItem",
-            "spec": {
-              "x": 12,
-              "y": 0,
-              "width": 12,
-              "height": 8,
-              "element": {
-                "kind": "ElementReference",
-                "name": "panel-2"
-              }
-            }
-          },
-          {
-            "kind": "GridLayoutItem",
-            "spec": {
-              "x": 0,
-              "y": 8,
-              "width": 12,
-              "height": 8,
-              "element": {
-                "kind": "ElementReference",
-                "name": "panel-3"
-              }
-            }
-          },
-          {
-            "kind": "GridLayoutItem",
-            "spec": {
-              "x": 12,
-              "y": 8,
-              "width": 12,
-              "height": 8,
-              "element": {
-                "kind": "ElementReference",
-                "name": "panel-4"
-              }
-            }
+            "matcher": { "id": "byName", "options": "block_rate_pct" },
+            "properties": [
+              { "id": "unit", "value": "percent" },
+              { "id": "custom.displayMode", "value": "gradient-gauge" },
+              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": 0 }, { "color": "red", "value": 50 }] } }
+            ]
           }
         ]
+      },
+      "options": { "footer": { "show": false } },
+      "targets": [{
+        "refId": "A",
+        "fields": [
+          { "name": "ip",            "jsonPath": "$.[*].ip",            "type": "string" },
+          { "name": "country",       "jsonPath": "$.[*].country",       "type": "string" },
+          { "name": "risk_level",    "jsonPath": "$.[*].risk_level",    "type": "string" },
+          { "name": "risk_score",    "jsonPath": "$.[*].risk_score",    "type": "number" },
+          { "name": "request_count", "jsonPath": "$.[*].request_count", "type": "number" },
+          { "name": "blocked",       "jsonPath": "$.[*].blocked",       "type": "number" },
+          { "name": "block_rate_pct","jsonPath": "$.[*].block_rate_pct","type": "number" },
+          { "name": "attack_types",  "jsonPath": "$.[*].attack_types",  "type": "string" }
+        ],
+        "method": "GET", "urlPath": "/top-ips"
+      }]
+    },
+
+    {
+      "id": 42,
+      "type": "piechart",
+      "title": "IP 위험 등급 분포",
+      "gridPos": { "x": 16, "y": 26, "w": 8, "h": 10 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "HIGH" },    "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ef5350" } }] },
+          { "matcher": { "id": "byName", "options": "MEDIUM" },  "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ffa726" } }] },
+          { "matcher": { "id": "byName", "options": "LOW" },     "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#66bb6a" } }] },
+          { "matcher": { "id": "byName", "options": "UNKNOWN" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#78909c" } }] }
+        ]
+      },
+      "options": {
+        "pieType": "pie",
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "values": ["value", "percent"] },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [{
+        "refId": "A",
+        "fields": [
+          { "name": "level", "jsonPath": "$.[*].level", "type": "string" },
+          { "name": "count", "jsonPath": "$.[*].count", "type": "number" }
+        ],
+        "method": "GET", "urlPath": "/risk-distribution"
+      }]
+    },
+
+    {
+      "id": 50,
+      "type": "row",
+      "title": "⚖️ WAF 룰셋 전/후 비교 — Count 모드 vs Block 모드",
+      "gridPos": { "x": 0, "y": 36, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 51,
+      "type": "text",
+      "title": "",
+      "gridPos": { "x": 0, "y": 37, "w": 24, "h": 2 },
+      "options": {
+        "mode": "html",
+        "content": "<div style='padding:8px 16px;background:rgba(79,195,247,0.08);border:1px solid rgba(79,195,247,0.3);border-radius:8px;font-size:13px;color:#b0bec5;'><b style='color:#4fc3f7;'>A/B 테스트란?</b>&nbsp; 동일한 11개 공격 패턴을 현재 WAF 설정(일부 Count 모드)과 전체 Block 전환 시 각각 시뮬레이션하여 탐지율·차단율 변화를 비교합니다.</div>"
       }
     },
-    "links": [],
-    "liveNow": false,
-    "preload": false,
-    "tags": [],
-    "timeSettings": {
-      "timezone": "browser",
-      "from": "2026-06-10T11:00:00.000Z",
-      "to": "2026-06-11T02:00:00.000Z",
-      "autoRefresh": "",
-      "autoRefreshIntervals": [
-        "5s",
-        "10s",
-        "30s",
-        "1m",
-        "5m",
-        "15m",
-        "30m",
-        "1h",
-        "2h",
-        "1d"
-      ],
-      "hideTimepicker": false,
-      "fiscalYearStartMonth": 0
+
+    {
+      "id": 52,
+      "type": "barchart",
+      "title": "Count 모드 vs Block 모드 — 공격 처리 결과 비교",
+      "gridPos": { "x": 0, "y": 39, "w": 14, "h": 9 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 75 } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "현재_Count모드" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ffa726" } }] },
+          { "matcher": { "id": "byName", "options": "제안_Block모드" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "#ef5350" } }] }
+        ]
+      },
+      "options": {
+        "orientation": "vertical",
+        "xField": "metric",
+        "groupWidth": 0.7,
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi" }
+      },
+      "targets": [{
+        "refId": "A",
+        "fields": [
+          { "name": "metric",        "jsonPath": "$.bars[*].metric",        "type": "string" },
+          { "name": "현재_Count모드", "jsonPath": "$.bars[*]['현재_Count모드']", "type": "number" },
+          { "name": "제안_Block모드", "jsonPath": "$.bars[*]['제안_Block모드']", "type": "number" }
+        ],
+        "method": "GET", "urlPath": "/ab-test"
+      }]
     },
-    "title": "Cloud Security WAF Dashboard",
-    "variables": [],
-    "preferences": {
-      "layout": {
-        "kind": "GridLayout",
-        "spec": {
-          "items": []
-        }
-      }
+
+    {
+      "id": 53,
+      "type": "table",
+      "title": "모드별 탐지율 / 차단율 요약",
+      "gridPos": { "x": 14, "y": 39, "w": 10, "h": 9 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "block_rate" },     "properties": [{ "id": "custom.displayMode", "value": "color-background" }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "orange", "value": 0 }] } }] },
+          { "matcher": { "id": "byName", "options": "detection_rate" }, "properties": [{ "id": "custom.displayMode", "value": "color-background" }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "#4fc3f7", "value": 0 }] } }] }
+        ]
+      },
+      "options": { "footer": { "show": false } },
+      "targets": [{
+        "refId": "A",
+        "fields": [
+          { "name": "mode",           "jsonPath": "$.rates[*].mode",           "type": "string" },
+          { "name": "block_rate",     "jsonPath": "$.rates[*].block_rate",     "type": "string" },
+          { "name": "detection_rate", "jsonPath": "$.rates[*].detection_rate", "type": "string" }
+        ],
+        "method": "GET", "urlPath": "/ab-test"
+      }]
+    },
+
+    {
+      "id": 60,
+      "type": "row",
+      "title": "📋 파이프라인 실행 이력",
+      "gridPos": { "x": 0, "y": 48, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+
+    {
+      "id": 61,
+      "type": "table",
+      "title": "최근 파이프라인 실행 결과",
+      "gridPos": { "x": 0, "y": 49, "w": 24, "h": 8 },
+      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "block_rate_pct" }, "properties": [{ "id": "unit", "value": "percent" }, { "id": "custom.displayMode", "value": "gradient-gauge" }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": 0 }, { "color": "red", "value": 50 }] } }] },
+          { "matcher": { "id": "byName", "options": "high_risk_ips" },  "properties": [{ "id": "custom.displayMode", "value": "color-background" }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": 0 }, { "color": "orange", "value": 1 }, { "color": "red", "value": 3 }] } }] }
+        ]
+      },
+      "options": { "footer": { "show": false } },
+      "targets": [{
+        "refId": "A",
+        "fields": [
+          { "name": "generated_at",   "jsonPath": "$.[*].generated_at",   "type": "string" },
+          { "name": "total_requests", "jsonPath": "$.[*].total_requests", "type": "number" },
+          { "name": "blocked",        "jsonPath": "$.[*].blocked",        "type": "number" },
+          { "name": "block_rate_pct", "jsonPath": "$.[*].block_rate_pct", "type": "number" },
+          { "name": "high_risk_ips",  "jsonPath": "$.[*].high_risk_ips",  "type": "number" }
+        ],
+        "method": "GET", "urlPath": "/pipeline-runs"
+      }]
     }
-  }
+
+  ],
+
+  "templating": { "list": [] },
+  "annotations": { "list": [] }
 }

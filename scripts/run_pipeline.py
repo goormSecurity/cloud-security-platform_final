@@ -353,6 +353,7 @@ def step_upload_s3() -> bool:
             ROOT / "compliance" / "input" / "ai_analysis.json",
             *sorted((ROOT / "compliance" / "output").glob("*.pdf"))[-1:],
             ROOT / "compliance" / "output" / "report.html",
+            *sorted((ROOT / "ai" / "output").glob("report_*.md"))[-1:],
         ]
 
         uploaded, skipped = 0, 0
