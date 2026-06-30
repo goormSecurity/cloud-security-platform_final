@@ -19,9 +19,9 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
 
-DEFAULT_MODEL = "llama3.1:8b"
+DEFAULT_MODEL = "llama3.2:3b"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
-MAX_GENERATION_ATTEMPTS = 2
+MAX_GENERATION_ATTEMPTS = 3
 
 
 REQUIRED_SECTIONS = [
@@ -71,10 +71,10 @@ def flatten_json(data: Any, prefix: str = "") -> List[str]:
     return lines
 
 
-def build_facts_block(data: Dict[str, Any]) -> str:
+def build_facts_block(data: Dict[str, Any]) -> tuple[str, str]:
     """
-    보고서 작성에 필요한 핵심 통계만 추출해 FACTS 블록으로 변환한다.
-    전체 JSON 플랫 변환 시 4096 컨텍스트 초과로 LLM 출력이 잘리는 문제를 방지.
+    보고서 작성에 필요한 핵심 통계를 FACTS 블록과 허용 숫자 목록으로 변환한다.
+    Returns: (facts_text, allowed_numbers_text)
     """
     lines: List[str] = []
 
@@ -83,26 +83,21 @@ def build_facts_block(data: Dict[str, Any]) -> str:
 
     summary = data.get("summary") or {}
 
-    # 기본 통계
     add("total_requests", summary.get("total_requests", 0))
     add("unique_ips",     summary.get("unique_ips", 0))
     add("high_risk_ips",  summary.get("high_risk_ips", 0))
     add("block_rate",     summary.get("block_rate", 0.0))
     add("generated_at",   data.get("generated_at", "unknown"))
 
-    # WAF 액션 집계
     for action, cnt in (summary.get("action_counts") or {}).items():
         add(f"action_counts.{action}", cnt)
 
-    # 공격 유형별 건수 (Analyzer 분류)
     for atype, cnt in (summary.get("attack_type_counts") or {}).items():
         add(f"attack_type_counts.{atype}", cnt)
 
-    # WAF 룰 히트
     for rule, cnt in (data.get("rule_hits") or {}).items():
         add(f"rule_hits.{rule}", cnt)
 
-    # 위험 IP 상위 10개
     top_ips = (data.get("top_ips") or [])[:10]
     for entry in top_ips:
         ip = entry.get("ip", "?")
@@ -114,13 +109,23 @@ def build_facts_block(data: Dict[str, Any]) -> str:
         add(f"top_ip.{ip}.block_rate",    entry.get("block_rate", 0.0))
 
     if not lines:
-        return "분석 데이터가 비어 있음"
+        return "분석 데이터가 비어 있음", "없음"
 
-    return "\n".join(lines)
+    facts_text = "\n".join(lines)
+
+    # FACTS 블록에서 실제로 등장하는 숫자만 추출 → LLM에게 명시적으로 전달
+    raw_numbers = extract_numbers_from_json(data)
+    # 섹션 번호 1~6은 항상 허용
+    allowed = sorted(raw_numbers | {"1", "2", "3", "4", "5", "6"},
+                     key=lambda x: float(x) if x.replace(".", "").lstrip("-").isdigit() else 0)
+    allowed_numbers_text = ", ".join(allowed) if allowed else "없음"
+
+    return facts_text, allowed_numbers_text
 
 
 def call_ollama_with_langchain(
     facts: str,
+    allowed_numbers: str,
     model: str,
     ollama_base_url: str
 ) -> str:
@@ -130,7 +135,7 @@ def call_ollama_with_langchain(
     llm = ChatOllama(
         model=model,
         base_url=ollama_base_url,
-        temperature=0.1,
+        temperature=0,
     )
 
     prompt = ChatPromptTemplate.from_messages([
@@ -142,7 +147,8 @@ def call_ollama_with_langchain(
 
     try:
         result = chain.invoke({
-            "facts": facts
+            "facts": facts,
+            "allowed_numbers": allowed_numbers,
         })
 
         return result.strip()
@@ -339,13 +345,14 @@ def generate_report(
     """
     data = load_json(input_path)
 
-    facts = build_facts_block(data)
+    facts, allowed_numbers = build_facts_block(data)
 
     validation_error = None
     report = ""
-    for _ in range(MAX_GENERATION_ATTEMPTS):
+    for attempt in range(MAX_GENERATION_ATTEMPTS):
         report = call_ollama_with_langchain(
             facts=facts,
+            allowed_numbers=allowed_numbers,
             model=model,
             ollama_base_url=ollama_base_url
         )
@@ -357,6 +364,8 @@ def generate_report(
             break
         except ValueError as error:
             validation_error = error
+            if attempt < MAX_GENERATION_ATTEMPTS - 1:
+                print(f"  [재시도 {attempt + 1}/{MAX_GENERATION_ATTEMPTS - 1}] {error}")
 
     if validation_error is not None:
         raise validation_error
