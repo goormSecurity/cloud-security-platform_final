@@ -42,12 +42,20 @@ def _step(n, title):
 
 
 def _has_aws_creds() -> bool:
-    """환경변수 또는 ~/.aws/credentials 어느 쪽이든 있으면 True."""
+    """환경변수, ~/.aws/credentials, 또는 EC2 IAM 역할(IMDS) 중 하나라도 있으면 True."""
     if os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE"):
         return True
     creds = Path.home() / ".aws" / "credentials"
     config = Path.home() / ".aws" / "config"
-    return creds.exists() or config.exists()
+    if creds.exists() or config.exists():
+        return True
+    # EC2 IAM 역할 — boto3 기본 자격증명 체인으로 확인
+    try:
+        import boto3
+        boto3.client("sts", region_name="ap-northeast-2").get_caller_identity()
+        return True
+    except Exception:
+        return False
 
 
 def _run(cmd: list, cwd=None, env=None) -> tuple[int, str, str]:
