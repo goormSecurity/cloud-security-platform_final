@@ -23,7 +23,8 @@ git checkout feature/ec2-deploy
 python3.11 -m pip install -r requirements.txt
 
 # 5. Playwright 브라우저 설치 (컴플라이언스 PDF 생성용)
-python3.11 -m playwright install-deps chromium 2>/dev/null || true
+dnf install -y nss atk at-spi2-atk cups-libs libXcomposite libXdamage libXext \
+  libXfixes libXrandr pango alsa-lib gtk3 2>/dev/null || true
 python3.11 -m playwright install chromium 2>/dev/null || true
 
 # 6. Ollama 설치 + 모델 다운로드 (t3.xlarge 16GB — llama3.1:8b 실행 가능)
