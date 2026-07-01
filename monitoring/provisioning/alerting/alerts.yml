@@ -87,17 +87,24 @@ groups:
           severity: critical
         data:
           - refId: A
-            datasourceUid: afot70vnoy7swf
+            datasourceUid: infinity-ds
             relativeTimeRange:
               from: 600
               to: 0
             model:
-              fields:
-                - name: high_risk_ips
-                  jsonPath: "$.high_risk_ips"
+              type: json
+              source: url
+              url: "http://json-api:5000/summary"
+              format: table
+              parser: backend
+              root_selector: ""
+              columns:
+                - selector: high_risk_ips
+                  text: high_risk_ips
                   type: number
-              method: GET
-              urlPath: /summary
+              url_options:
+                method: GET
+                data: ""
           - refId: B
             datasourceUid: __expr__
             model:
