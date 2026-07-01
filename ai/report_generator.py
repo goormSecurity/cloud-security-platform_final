@@ -4,7 +4,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Optional
 
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
@@ -116,8 +116,20 @@ def build_facts_block(data: Dict[str, Any]) -> tuple[str, str]:
 
     # FACTS 블록에서 실제로 등장하는 숫자만 추출 → LLM에게 명시적으로 전달
     raw_numbers = extract_numbers_from_json(data)
+
+    # block_rate 같은 소수(0.6)는 퍼센트(60)로도 쓸 수 있도록 % 버전 추가
+    pct_numbers: Set[str] = set()
+    for n in list(raw_numbers):
+        try:
+            v = float(n)
+            if 0 < v <= 1:
+                pct_numbers.add(str(round(v * 100, 1)))
+                pct_numbers.add(str(int(v * 100)))
+        except ValueError:
+            pass
+
     # 섹션 번호 1~6은 항상 허용
-    allowed = sorted(raw_numbers | {"1", "2", "3", "4", "5", "6"},
+    allowed = sorted(raw_numbers | pct_numbers | {"1", "2", "3", "4", "5", "6"},
                      key=lambda x: float(x) if x.replace(".", "").lstrip("-").isdigit() else 0)
     allowed_numbers_text = ", ".join(allowed) if allowed else "없음"
 
@@ -348,9 +360,10 @@ def generate_report(
 
     facts, allowed_numbers = build_facts_block(data)
 
-    validation_error = None
+    validation_error: Optional[ValueError] = None
     report = ""
     for attempt in range(MAX_GENERATION_ATTEMPTS):
+        print(f"  [생성 {attempt + 1}/{MAX_GENERATION_ATTEMPTS}] 모델 호출 중...")
         report = call_ollama_with_langchain(
             facts=facts,
             allowed_numbers=allowed_numbers,
@@ -362,14 +375,20 @@ def generate_report(
         try:
             validate_report(report, data)
             validation_error = None
+            print("  [검증 통과]")
             break
         except ValueError as error:
             validation_error = error
-            if attempt < MAX_GENERATION_ATTEMPTS - 1:
-                print(f"  [재시도 {attempt + 1}/{MAX_GENERATION_ATTEMPTS - 1}] {error}")
+            print(f"  [검증 실패 {attempt + 1}/{MAX_GENERATION_ATTEMPTS}] {error}")
 
     if validation_error is not None:
-        raise validation_error
+        # 3회 모두 실패해도 최선 결과를 경고 헤더와 함께 저장 (파이프라인 중단 방지)
+        warning_header = (
+            "> **[자동 검증 경고]** 이 보고서는 데이터 검증을 통과하지 못했습니다."
+            " 수치 정확성을 반드시 수동으로 확인하세요.\n\n"
+        )
+        report = warning_header + report
+        print(f"  [경고] 검증 실패 — 최선 결과로 저장: {validation_error}")
 
     output_path = save_report(report, output_dir)
 
