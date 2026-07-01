@@ -93,15 +93,16 @@ def _latest_file(pattern: str) -> str | None:
 
 # ── 단계별 실행 ──────────────────────────────────────────────────
 
-def step_attack_sim(target: str, dry_run: bool) -> bool:
-    _step(1, "공격 시뮬레이션 (attack_runner.py)")
-    cmd = [sys.executable, str(ROOT / "attack_simulation" / "attack_runner.py")]
+def step_attack_sim(target: str, dry_run: bool, app: str = "all") -> bool:
+    _step(1, f"공격 시뮬레이션 (attack_runner.py, app={app})")
+    cmd = [sys.executable, str(ROOT / "attack_simulation" / "attack_runner.py"),
+           "--app", app]
     if dry_run or not target:
         cmd.append("--dry-run")
         _info("dry-run 모드")
     else:
         cmd += ["--target", target]
-        _info(f"대상: {target}")
+        _info(f"대상: {target}  앱: {app}")
 
     code, out, err = _run(cmd)
     if code == 0:
@@ -146,6 +147,28 @@ def step_ab_test(target: str, log_dir: str, dry_run: bool) -> bool:
         return True
     else:
         _fail(f"실패: {err[:200]}")
+        return False
+
+
+def step_fp_fn(analysis_json: str | None, target: str | None) -> bool:
+    _step("3h", "오탐/미탐(FP/FN) 분석 (scripts/analyze_fp_fn.py)")
+    cmd = [sys.executable, str(ROOT / "scripts" / "analyze_fp_fn.py")]
+    if analysis_json:
+        cmd += ["--analysis", analysis_json]
+    ab = _latest_file("output/ab_test_*.json")
+    if ab:
+        cmd += ["--ab-test", ab]
+    if target:
+        cmd += ["--target", target]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    for line in (out + err).splitlines():
+        if "[fp_fn]" in line:
+            print(f"  {line.strip()}")
+    if code == 0:
+        _ok("오탐/미탐 분석 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
         return False
 
 
@@ -467,6 +490,8 @@ def step_auto_pr(analysis_json: str | None, dry_run: bool) -> bool:
 def main():
     p = argparse.ArgumentParser(description="클라우드 보안 플랫폼 — 전체 파이프라인 실행")
     p.add_argument("--target",    default=None,  help="공격 대상 URL (예: http://localhost:5000)")
+    p.add_argument("--app",       default="all", choices=["dvwa", "juiceshop", "all"],
+                   help="공격 시뮬레이션 대상 앱 (기본: all)")
     p.add_argument("--log-dir",   default=str(ROOT / "analyzer" / "sample_logs"),
                    help="WAF 로그 디렉토리")
     p.add_argument("--live",      action="store_true",
@@ -477,6 +502,7 @@ def main():
     p.add_argument("--skip-zap",  action="store_true", help="ZAP 스캔 스킵")
     p.add_argument("--skip-ai",   action="store_true", help="AI 보고서 생성 스킵")
     p.add_argument("--skip-pr",   action="store_true", help="GitHub PR 자동 생성 스킵")
+    p.add_argument("--skip-fp-fn", action="store_true", help="오탐/미탐 분석 스킵")
     args = p.parse_args()
 
     # --live: S3에서 실시간 로그 다운로드
@@ -514,10 +540,12 @@ def main():
                 k, _, v = line.partition("=")
                 os.environ.setdefault(k.strip(), v.strip())
 
-    results["attack_sim"]    = step_attack_sim(args.target, args.dry_run)
+    results["attack_sim"]    = step_attack_sim(args.target, args.dry_run, args.app)
     analysis_json            = step_analyzer(args.log_dir)
     results["analyzer"]      = bool(analysis_json)
     results["ab_test"]       = step_ab_test(args.target, args.log_dir, args.dry_run)
+    results["fp_fn"]         = (False if args.skip_fp_fn
+                                else step_fp_fn(analysis_json, args.target))
 
     # AWS 실데이터 수집기 (자격증명 있을 때만 실행)
     results["waf_collect"]   = step_collect_waf()
