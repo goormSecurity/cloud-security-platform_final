@@ -2,7 +2,7 @@
   "title": "Cloud WAF Security Dashboard",
   "uid": "cloud-sec-waf-v2",
   "schemaVersion": 38,
-  "version": 2,
+  "version": 3,
   "refresh": "30s",
   "time": { "from": "now-6h", "to": "now" },
   "timezone": "Asia/Seoul",
@@ -10,9 +10,7 @@
   "panels": [
 
     {
-      "id": 1,
-      "type": "text",
-      "title": "",
+      "id": 1, "type": "text", "title": "",
       "gridPos": { "x": 0, "y": 0, "w": 24, "h": 2 },
       "options": {
         "mode": "html",
@@ -21,11 +19,9 @@
     },
 
     {
-      "id": 10,
-      "type": "stat",
-      "title": "총 요청 수",
+      "id": 10, "type": "stat", "title": "총 요청 수",
       "gridPos": { "x": 0, "y": 2, "w": 4, "h": 4 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "fixed", "fixedColor": "#4fc3f7" },
@@ -33,20 +29,20 @@
           "unit": "short"
         }
       },
-      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "textMode": "auto", "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [{
-        "refId": "A",
-        "fields": [{ "name": "total_requests", "jsonPath": "$.total_requests", "type": "number" }],
-        "method": "GET", "urlPath": "/summary"
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/summary",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [{ "selector": "total_requests", "text": "total_requests", "type": "number" }],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 11,
-      "type": "stat",
-      "title": "WAF 차단 수",
+      "id": 11, "type": "stat", "title": "WAF 차단 수",
       "gridPos": { "x": 4, "y": 2, "w": 4, "h": 4 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "fixed", "fixedColor": "#ef5350" },
@@ -56,18 +52,18 @@
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [{
-        "refId": "A",
-        "fields": [{ "name": "blocked", "jsonPath": "$.blocked", "type": "number" }],
-        "method": "GET", "urlPath": "/summary"
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/summary",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [{ "selector": "blocked", "text": "blocked", "type": "number" }],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 12,
-      "type": "stat",
-      "title": "WAF 차단률",
+      "id": 12, "type": "stat", "title": "WAF 차단률",
       "gridPos": { "x": 8, "y": 2, "w": 4, "h": 4 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -84,18 +80,18 @@
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [{
-        "refId": "A",
-        "fields": [{ "name": "block_rate_pct", "jsonPath": "$.block_rate_pct", "type": "number" }],
-        "method": "GET", "urlPath": "/summary"
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/summary",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [{ "selector": "block_rate_pct", "text": "block_rate_pct", "type": "number" }],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 13,
-      "type": "stat",
-      "title": "HIGH 위험 IP",
+      "id": 13, "type": "stat", "title": "HIGH 위험 IP",
       "gridPos": { "x": 12, "y": 2, "w": 4, "h": 4 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "fixed", "fixedColor": "#ff7043" },
@@ -105,18 +101,18 @@
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [{
-        "refId": "A",
-        "fields": [{ "name": "high_risk_ips", "jsonPath": "$.high_risk_ips", "type": "number" }],
-        "method": "GET", "urlPath": "/summary"
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/summary",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [{ "selector": "high_risk_ips", "text": "high_risk_ips", "type": "number" }],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 14,
-      "type": "stat",
-      "title": "고유 IP 수",
+      "id": 14, "type": "stat", "title": "고유 IP 수",
       "gridPos": { "x": 16, "y": 2, "w": 4, "h": 4 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "fixed", "fixedColor": "#ab47bc" },
@@ -126,18 +122,18 @@
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [{
-        "refId": "A",
-        "fields": [{ "name": "unique_ips", "jsonPath": "$.unique_ips", "type": "number" }],
-        "method": "GET", "urlPath": "/summary"
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/summary",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [{ "selector": "unique_ips", "text": "unique_ips", "type": "number" }],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 15,
-      "type": "stat",
-      "title": "허용 요청",
+      "id": 15, "type": "stat", "title": "허용 요청",
       "gridPos": { "x": 20, "y": 2, "w": 4, "h": 4 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "fixed", "fixedColor": "#26a69a" },
@@ -147,26 +143,23 @@
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [{
-        "refId": "A",
-        "fields": [{ "name": "allowed", "jsonPath": "$.allowed", "type": "number" }],
-        "method": "GET", "urlPath": "/summary"
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/summary",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [{ "selector": "allowed", "text": "allowed", "type": "number" }],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 20,
-      "type": "row",
-      "title": "트래픽 분석",
-      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 1 },
-      "collapsed": false
+      "id": 20, "type": "row", "title": "트래픽 분석",
+      "gridPos": { "x": 0, "y": 6, "w": 24, "h": 1 }, "collapsed": false
     },
 
     {
-      "id": 21,
-      "type": "timeseries",
-      "title": "시간대별 요청 추이",
+      "id": 21, "type": "timeseries", "title": "시간대별 요청 추이",
       "gridPos": { "x": 0, "y": 7, "w": 16, "h": 9 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "fixed", "fixedColor": "#4fc3f7" },
@@ -179,21 +172,21 @@
         "tooltip": { "mode": "single" }
       },
       "targets": [{
-        "refId": "A",
-        "fields": [
-          { "name": "Time",    "jsonPath": "$.[*].hour",  "type": "time" },
-          { "name": "요청 수", "jsonPath": "$.[*].count", "type": "number" }
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/time-buckets",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [
+          { "selector": "hour",  "text": "Time",   "type": "time" },
+          { "selector": "count", "text": "요청 수", "type": "number" }
         ],
-        "method": "GET", "urlPath": "/time-buckets"
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 22,
-      "type": "piechart",
-      "title": "ALLOW / BLOCK 비율",
+      "id": 22, "type": "piechart", "title": "ALLOW / BLOCK 비율",
       "gridPos": { "x": 16, "y": 7, "w": 8, "h": 9 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": [
@@ -207,95 +200,87 @@
         "tooltip": { "mode": "single" }
       },
       "targets": [{
-        "refId": "A",
-        "fields": [
-          { "name": "action", "jsonPath": "$.[*].action", "type": "string" },
-          { "name": "count",  "jsonPath": "$.[*].count",  "type": "number" }
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/action-counts",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [
+          { "selector": "action", "text": "action", "type": "string" },
+          { "selector": "count",  "text": "count",  "type": "number" }
         ],
-        "method": "GET", "urlPath": "/action-counts"
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 30,
-      "type": "row",
-      "title": "공격 유형 / WAF 룰 분석",
-      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 1 },
-      "collapsed": false
+      "id": 30, "type": "row", "title": "공격 유형 / WAF 룰 분석",
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 1 }, "collapsed": false
     },
 
     {
-      "id": 31,
-      "type": "barchart",
-      "title": "공격 유형 분포",
+      "id": 31, "type": "barchart", "title": "공격 유형 분포",
       "gridPos": { "x": 0, "y": 17, "w": 12, "h": 8 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "fixed", "fixedColor": "#ff7043" },
-          "unit": "short",
-          "custom": { "fillOpacity": 80 }
+          "unit": "short", "custom": { "fillOpacity": 80 }
         }
       },
       "options": {
         "orientation": "horizontal",
+        "xField": "type",
         "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
-        "tooltip": { "mode": "single" },
-        "xField": "type"
+        "tooltip": { "mode": "single" }
       },
       "targets": [{
-        "refId": "A",
-        "fields": [
-          { "name": "type",  "jsonPath": "$.[*].type",  "type": "string" },
-          { "name": "count", "jsonPath": "$.[*].count", "type": "number" }
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/attack-types",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [
+          { "selector": "type",  "text": "type",  "type": "string" },
+          { "selector": "count", "text": "count", "type": "number" }
         ],
-        "method": "GET", "urlPath": "/attack-types"
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 32,
-      "type": "barchart",
-      "title": "WAF 룰셋 탐지 건수",
+      "id": 32, "type": "barchart", "title": "WAF 룰셋 탐지 건수",
       "gridPos": { "x": 12, "y": 17, "w": 12, "h": 8 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "fixed", "fixedColor": "#7e57c2" },
-          "unit": "short",
-          "custom": { "fillOpacity": 80 }
+          "unit": "short", "custom": { "fillOpacity": 80 }
         }
       },
       "options": {
         "orientation": "horizontal",
+        "xField": "rule",
         "legend": { "displayMode": "list", "placement": "bottom", "showLegend": false },
-        "tooltip": { "mode": "single" },
-        "xField": "rule"
+        "tooltip": { "mode": "single" }
       },
       "targets": [{
-        "refId": "A",
-        "fields": [
-          { "name": "rule",  "jsonPath": "$.[*].rule",  "type": "string" },
-          { "name": "count", "jsonPath": "$.[*].count", "type": "number" }
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/rule-hits",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [
+          { "selector": "rule",  "text": "rule",  "type": "string" },
+          { "selector": "count", "text": "count", "type": "number" }
         ],
-        "method": "GET", "urlPath": "/rule-hits"
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 40,
-      "type": "row",
-      "title": "위험 IP 분석",
-      "gridPos": { "x": 0, "y": 25, "w": 24, "h": 1 },
-      "collapsed": false
+      "id": 40, "type": "row", "title": "위험 IP 분석",
+      "gridPos": { "x": 0, "y": 25, "w": 24, "h": 1 }, "collapsed": false
     },
 
     {
-      "id": 41,
-      "type": "table",
-      "title": "TOP 10 위험 IP 목록",
+      "id": 41, "type": "table", "title": "TOP 10 위험 IP 목록",
       "gridPos": { "x": 0, "y": 26, "w": 16, "h": 10 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": [
@@ -303,11 +288,10 @@
             "matcher": { "id": "byName", "options": "risk_level" },
             "properties": [
               { "id": "custom.displayMode", "value": "color-background" },
-              { "id": "thresholds", "value": { "mode": "absolute", "steps": [{ "color": "green", "value": 0 }] } },
               { "id": "mappings", "value": [
-                { "type": "value", "options": { "HIGH":    { "color": "#ef5350", "index": 0, "text": "HIGH" } } },
-                { "type": "value", "options": { "MEDIUM":  { "color": "#ffa726", "index": 1, "text": "MEDIUM" } } },
-                { "type": "value", "options": { "LOW":     { "color": "#66bb6a", "index": 2, "text": "LOW" } } }
+                { "type": "value", "options": { "HIGH":   { "color": "#ef5350", "index": 0, "text": "HIGH" } } },
+                { "type": "value", "options": { "MEDIUM": { "color": "#ffa726", "index": 1, "text": "MEDIUM" } } },
+                { "type": "value", "options": { "LOW":    { "color": "#66bb6a", "index": 2, "text": "LOW" } } }
               ]}
             ]
           },
@@ -323,27 +307,27 @@
       },
       "options": { "footer": { "show": false } },
       "targets": [{
-        "refId": "A",
-        "fields": [
-          { "name": "ip",            "jsonPath": "$.[*].ip",            "type": "string" },
-          { "name": "country",       "jsonPath": "$.[*].country",       "type": "string" },
-          { "name": "risk_level",    "jsonPath": "$.[*].risk_level",    "type": "string" },
-          { "name": "risk_score",    "jsonPath": "$.[*].risk_score",    "type": "number" },
-          { "name": "request_count", "jsonPath": "$.[*].request_count", "type": "number" },
-          { "name": "blocked",       "jsonPath": "$.[*].blocked",       "type": "number" },
-          { "name": "block_rate_pct","jsonPath": "$.[*].block_rate_pct","type": "number" },
-          { "name": "attack_types",  "jsonPath": "$.[*].attack_types",  "type": "string" }
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/top-ips",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [
+          { "selector": "ip",            "text": "ip",            "type": "string" },
+          { "selector": "country",       "text": "country",       "type": "string" },
+          { "selector": "risk_level",    "text": "risk_level",    "type": "string" },
+          { "selector": "risk_score",    "text": "risk_score",    "type": "number" },
+          { "selector": "request_count", "text": "request_count", "type": "number" },
+          { "selector": "blocked",       "text": "blocked",       "type": "number" },
+          { "selector": "block_rate_pct","text": "block_rate_pct","type": "number" },
+          { "selector": "attack_types",  "text": "attack_types",  "type": "string" }
         ],
-        "method": "GET", "urlPath": "/top-ips"
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 42,
-      "type": "piechart",
-      "title": "IP 위험 등급 분포",
+      "id": 42, "type": "piechart", "title": "IP 위험 등급 분포",
       "gridPos": { "x": 16, "y": 26, "w": 8, "h": 10 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": [
@@ -359,40 +343,35 @@
         "tooltip": { "mode": "single" }
       },
       "targets": [{
-        "refId": "A",
-        "fields": [
-          { "name": "level", "jsonPath": "$.[*].level", "type": "string" },
-          { "name": "count", "jsonPath": "$.[*].count", "type": "number" }
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/risk-distribution",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [
+          { "selector": "level", "text": "level", "type": "string" },
+          { "selector": "count", "text": "count", "type": "number" }
         ],
-        "method": "GET", "urlPath": "/risk-distribution"
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 50,
-      "type": "row",
-      "title": "WAF 룰셋 비교 — Count 모드 vs Block 모드",
-      "gridPos": { "x": 0, "y": 36, "w": 24, "h": 1 },
-      "collapsed": false
+      "id": 50, "type": "row", "title": "WAF 룰셋 비교 — Count 모드 vs Block 모드",
+      "gridPos": { "x": 0, "y": 36, "w": 24, "h": 1 }, "collapsed": false
     },
 
     {
-      "id": 51,
-      "type": "text",
-      "title": "",
+      "id": 51, "type": "text", "title": "",
       "gridPos": { "x": 0, "y": 37, "w": 24, "h": 2 },
       "options": {
         "mode": "html",
-        "content": "<div style='padding:8px 16px;background:#1e293b;border-left:2px solid #334155;font-size:12px;color:#94a3b8;'>동일한 11개 공격 패턴을 현재 WAF 설정(일부 Count 모드)과 전체 Block 전환 시 각각 시뮬레이션하여 탐지율 · 차단율 변화를 비교합니다.</div>"
+        "content": "<div style='padding:8px 16px;background:#1e293b;border-left:2px solid #334155;font-size:12px;color:#94a3b8;'>동일한 공격 패턴을 현재 WAF 설정(일부 Count 모드)과 전체 Block 전환 시 각각 시뮬레이션하여 탐지율·차단율 변화를 비교합니다.</div>"
       }
     },
 
     {
-      "id": 52,
-      "type": "barchart",
-      "title": "Count 모드 vs Block 모드 — 공격 처리 결과 비교",
+      "id": 52, "type": "barchart", "title": "Count 모드 vs Block 모드 — 공격 처리 결과 비교",
       "gridPos": { "x": 0, "y": 39, "w": 14, "h": 9 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": { "unit": "short", "custom": { "fillOpacity": 75 } },
         "overrides": [
@@ -401,29 +380,27 @@
         ]
       },
       "options": {
-        "orientation": "vertical",
-        "xField": "metric",
-        "groupWidth": 0.7,
+        "orientation": "vertical", "xField": "metric", "groupWidth": 0.7,
         "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
         "tooltip": { "mode": "multi" }
       },
       "targets": [{
-        "refId": "A",
-        "fields": [
-          { "name": "metric",        "jsonPath": "$.bars[*].metric",        "type": "string" },
-          { "name": "현재_Count모드", "jsonPath": "$.bars[*]['현재_Count모드']", "type": "number" },
-          { "name": "제안_Block모드", "jsonPath": "$.bars[*]['제안_Block모드']", "type": "number" }
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/ab-test",
+        "format": "table", "parser": "backend", "root_selector": "$.bars",
+        "columns": [
+          { "selector": "metric",        "text": "metric",        "type": "string" },
+          { "selector": "현재_Count모드", "text": "현재_Count모드", "type": "number" },
+          { "selector": "제안_Block모드", "text": "제안_Block모드", "type": "number" }
         ],
-        "method": "GET", "urlPath": "/ab-test"
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 53,
-      "type": "table",
-      "title": "모드별 탐지율 / 차단율 요약",
+      "id": 53, "type": "table", "title": "모드별 탐지율 / 차단율 요약",
       "gridPos": { "x": 14, "y": 39, "w": 10, "h": 9 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": [
@@ -433,30 +410,27 @@
       },
       "options": { "footer": { "show": false } },
       "targets": [{
-        "refId": "A",
-        "fields": [
-          { "name": "mode",           "jsonPath": "$.rates[*].mode",           "type": "string" },
-          { "name": "block_rate",     "jsonPath": "$.rates[*].block_rate",     "type": "string" },
-          { "name": "detection_rate", "jsonPath": "$.rates[*].detection_rate", "type": "string" }
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/ab-test",
+        "format": "table", "parser": "backend", "root_selector": "$.rates",
+        "columns": [
+          { "selector": "mode",           "text": "mode",           "type": "string" },
+          { "selector": "block_rate",     "text": "block_rate",     "type": "string" },
+          { "selector": "detection_rate", "text": "detection_rate", "type": "string" }
         ],
-        "method": "GET", "urlPath": "/ab-test"
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
 
     {
-      "id": 60,
-      "type": "row",
-      "title": "파이프라인 실행 이력",
-      "gridPos": { "x": 0, "y": 48, "w": 24, "h": 1 },
-      "collapsed": false
+      "id": 60, "type": "row", "title": "파이프라인 실행 이력",
+      "gridPos": { "x": 0, "y": 48, "w": 24, "h": 1 }, "collapsed": false
     },
 
     {
-      "id": 61,
-      "type": "table",
-      "title": "최근 파이프라인 실행 결과",
+      "id": 61, "type": "table", "title": "최근 파이프라인 실행 결과",
       "gridPos": { "x": 0, "y": 49, "w": 24, "h": 8 },
-      "datasource": { "type": "marcusolsson-json-datasource", "uid": "afot70vnoy7swf" },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": { "unit": "short" },
         "overrides": [
@@ -466,32 +440,27 @@
       },
       "options": { "footer": { "show": false } },
       "targets": [{
-        "refId": "A",
-        "fields": [
-          { "name": "generated_at",   "jsonPath": "$.[*].generated_at",   "type": "string" },
-          { "name": "total_requests", "jsonPath": "$.[*].total_requests", "type": "number" },
-          { "name": "blocked",        "jsonPath": "$.[*].blocked",        "type": "number" },
-          { "name": "block_rate_pct", "jsonPath": "$.[*].block_rate_pct", "type": "number" },
-          { "name": "high_risk_ips",  "jsonPath": "$.[*].high_risk_ips",  "type": "number" }
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/pipeline-runs",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [
+          { "selector": "generated_at",   "text": "generated_at",   "type": "string" },
+          { "selector": "total_requests", "text": "total_requests", "type": "number" },
+          { "selector": "blocked",        "text": "blocked",        "type": "number" },
+          { "selector": "block_rate_pct", "text": "block_rate_pct", "type": "number" },
+          { "selector": "high_risk_ips",  "text": "high_risk_ips",  "type": "number" }
         ],
-        "method": "GET", "urlPath": "/pipeline-runs"
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
-    }
-
-  ],
-
-    {
-      "id": 70,
-      "type": "row",
-      "title": "실시간 WAF 로그 스트림 (Loki)",
-      "gridPos": { "x": 0, "y": 57, "w": 24, "h": 1 },
-      "collapsed": false
     },
 
     {
-      "id": 71,
-      "type": "timeseries",
-      "title": "BLOCK / ALLOW 실시간 추이 (LogQL)",
+      "id": 70, "type": "row", "title": "실시간 WAF 로그 스트림 (Loki)",
+      "gridPos": { "x": 0, "y": 57, "w": 24, "h": 1 }, "collapsed": false
+    },
+
+    {
+      "id": 71, "type": "timeseries", "title": "BLOCK / ALLOW 실시간 추이 (LogQL)",
       "gridPos": { "x": 0, "y": 58, "w": 12, "h": 9 },
       "datasource": { "type": "loki", "uid": "loki-cloud-sec" },
       "fieldConfig": {
@@ -508,41 +477,30 @@
         "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
         "tooltip": { "mode": "multi" }
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "loki", "uid": "loki-cloud-sec" },
-          "expr": "sum by (action) (count_over_time({job=\"waf_logs\"}[5m]))",
-          "legendFormat": "{{action}}",
-          "queryType": "range"
-        }
-      ]
+      "targets": [{
+        "refId": "A",
+        "datasource": { "type": "loki", "uid": "loki-cloud-sec" },
+        "expr": "sum by (action) (count_over_time({job=\"waf_logs\"}[5m]))",
+        "legendFormat": "{{action}}",
+        "queryType": "range"
+      }]
     },
 
     {
-      "id": 72,
-      "type": "logs",
-      "title": "WAF 로그 라이브 스트림",
+      "id": 72, "type": "logs", "title": "WAF 로그 라이브 스트림",
       "gridPos": { "x": 12, "y": 58, "w": 12, "h": 9 },
       "datasource": { "type": "loki", "uid": "loki-cloud-sec" },
       "options": {
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
-        "sortOrder": "Descending"
+        "showLabels": false, "showCommonLabels": false,
+        "wrapLogMessage": false, "prettifyLogMessage": false,
+        "enableLogDetails": true, "dedupStrategy": "none", "sortOrder": "Descending"
       },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "loki", "uid": "loki-cloud-sec" },
-          "expr": "{job=\"waf_logs\"}",
-          "queryType": "range",
-          "maxLines": 100
-        }
-      ]
+      "targets": [{
+        "refId": "A",
+        "datasource": { "type": "loki", "uid": "loki-cloud-sec" },
+        "expr": "{job=\"waf_logs\"}",
+        "queryType": "range", "maxLines": 100
+      }]
     }
 
   ],
