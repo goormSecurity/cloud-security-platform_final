@@ -72,11 +72,14 @@ def _run(cmd: list, cwd=None, env=None, timeout=300) -> tuple[int, str, str]:
     env_full = {**os.environ, **(env or {}), "PYTHONIOENCODING": "utf-8"}
     if env:
         env_full.update(env)
-    r = subprocess.run(
-        cmd, cwd=cwd, capture_output=True, text=True, env=env_full,
-        encoding="utf-8", errors="replace", timeout=timeout,
-    )
-    return r.returncode, r.stdout or "", r.stderr or ""
+    try:
+        r = subprocess.run(
+            cmd, cwd=cwd, capture_output=True, text=True, env=env_full,
+            encoding="utf-8", errors="replace", timeout=timeout,
+        )
+        return r.returncode, r.stdout or "", r.stderr or ""
+    except subprocess.TimeoutExpired:
+        return -1, "", f"[timeout] {timeout}초 초과"
 
 
 def _check_docker() -> bool:
@@ -234,7 +237,7 @@ def step_ai_report(analysis_json: str | None, model: str = "qwen2.5:7b") -> bool
            "--output-dir", str(ai_output),
            "--model", model,
            "--ollama-base-url", _ollama_url()]
-    code, out, err = _run(cmd, cwd=str(ROOT / "ai"))
+    code, out, err = _run(cmd, cwd=str(ROOT / "ai"), timeout=600)
     if code == 0:
         _ok("AI 보고서 생성 완료")
         return True
@@ -545,7 +548,7 @@ def main():
     p.add_argument("--skip-ai",   action="store_true", help="AI 보고서 생성 스킵")
     p.add_argument("--skip-pr",   action="store_true", help="GitHub PR 자동 생성 스킵")
     p.add_argument("--skip-fp-fn", action="store_true", help="오탐/미탐 분석 스킵")
-    p.add_argument("--ai-model",  default="qwen2.5:7b", help="AI 보고서 Ollama 모델 (기본: qwen2.5:7b)")
+    p.add_argument("--ai-model",  default="llama3.2:3b", help="AI 보고서 Ollama 모델 (기본: llama3.2:3b)")
     args = p.parse_args()
 
     # --live: S3에서 실시간 로그 다운로드

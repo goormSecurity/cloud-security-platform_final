@@ -76,7 +76,7 @@ resource "aws_instance" "analysis" {
   user_data_replace_on_change = true
 
   lifecycle {
-    ignore_changes = [ami]
+    ignore_changes = [ami, user_data, root_block_device]
   }
 
   user_data = base64encode(file("${path.module}/templates/analysis_setup.sh"))
@@ -185,6 +185,16 @@ resource "aws_iam_instance_profile" "analysis" {
   role = aws_iam_role.analysis.name
 }
 
+# 분석 서버 Elastic IP (재시작 후에도 IP 고정)
+resource "aws_eip" "analysis" {
+  instance = aws_instance.analysis.id
+  domain   = "vpc"
+
+  tags = {
+    Name = "${var.project_name}-analysis-eip"
+  }
+}
+
 # 분석 서버 보안그룹
 resource "aws_security_group" "analysis" {
   name        = "${var.project_name}-analysis-sg"
@@ -208,6 +218,14 @@ resource "aws_security_group" "analysis" {
   ingress {
     from_port   = 3100
     to_port     = 3100
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Ollama LLM API"
+    from_port   = 11434
+    to_port     = 11434
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
