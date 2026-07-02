@@ -34,9 +34,18 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg
+except Exception:
+    def cfg(p, d=None): return d
+
 OUTPUT_DIR = ROOT / "output"
 COMPLIANCE_DIR = ROOT / "compliance"
-INPUT_DIR = COMPLIANCE_DIR / "input"   # 혜수 팀 등 raw 파일 drop 위치
+INPUT_DIR = COMPLIANCE_DIR / "input"
+
+_WAF_BUCKET = cfg("buckets.waf_logs", "aws-waf-logs-cloud-sec-dev")
+_PROJECT    = cfg("project.name",     "cloud-sec")
 RAW_DIR = ROOT / "raw"                 # WAF/인프라 팀 raw 파일 위치
 ATTACK_SIM_DIR = ROOT / "attack_simulation" / "output"
 
@@ -496,7 +505,7 @@ def _recommendations(ana, waf):
 
 
 def _build_evidence_checks(date_code, seq):
-    bucket = "aws-waf-logs-cloud-sec-dev"
+    bucket = _WAF_BUCKET
     tmpl = {"object_lock": {"ObjectLockMode": "COMPLIANCE", "retain_until_valid": True},
             "encryption": {"ServerSideEncryption": "aws:kms", "kms_key_valid": True},
             "check_result": "PASS"}
@@ -636,7 +645,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
             "period_end": period_end,
             "generated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
             "environment_touched": ["AWS WAF", "ALB", "S3", "KMS", "CloudTrail", "Config", "Prowler", "GitHub"],
-            "evidence_bucket": "aws-waf-logs-cloud-sec-dev",
+            "evidence_bucket": _WAF_BUCKET,
             "analyzer_file": ana_file.name,
             "total_requests": ana["summary"].get("total_requests", 0),
             "final_verdict": final_verdict,
@@ -670,7 +679,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
             "waf_describe": {
                 "status": "배치 확인",
                 "web_acl_exists": True,
-                "associated_resources": waf["associated_resources"] or ["alb/cloud-sec-alb"],
+                "associated_resources": waf["associated_resources"] or [f"alb/{_PROJECT}-alb"],
                 "rules_in_count_mode": waf["count_rules"],
             },
             "waf_association": {"associated": True},
