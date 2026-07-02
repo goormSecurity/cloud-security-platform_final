@@ -8,7 +8,7 @@ WAF 차단율 검증 결과를 JSON으로 저장한다.
 사용 예:
     python security/zap_scanner.py --target http://alb.example.com
     python security/zap_scanner.py --target http://alb.example.com --baseline-only
-    python security/zap_scanner.py --target http://alb.example.com --ssh-host 3.39.252.12
+    python security/zap_scanner.py --target http://alb.example.com --ssh-host <분석서버IP>
 """
 import argparse
 import json

@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -182,6 +183,42 @@ def build_attachment_rows(data: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+def _render_pdf(html_path: str, pdf_path: str) -> None:
+    """HTML → PDF 변환. Chromium 미설치 시 자동 설치 후 재시도."""
+    def _do() -> None:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            page = browser.new_page()
+            page.goto(f"file://{html_path}", wait_until="networkidle")
+            page.pdf(
+                path=pdf_path,
+                format="A4",
+                print_background=True,
+                prefer_css_page_size=True,
+                margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+            )
+            browser.close()
+
+    try:
+        _do()
+    except Exception as e:
+        msg = str(e).lower()
+        if "executable" in msg or "browser was not found" in msg or "chromium" in msg:
+            print("[render] Playwright Chromium 미설치 — 자동 설치 중 (약 1분)...")
+            r = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                capture_output=True, text=True,
+            )
+            if r.returncode != 0:
+                raise RuntimeError(
+                    f"playwright install chromium 실패:\n{r.stderr or r.stdout}"
+                ) from e
+            print("[render] Chromium 설치 완료 — 재시도")
+            _do()
+        else:
+            raise
+
+
 def render(data_file: str | None = None) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     resolved = _resolve_data_file(data_file)
@@ -258,18 +295,7 @@ def render(data_file: str | None = None) -> None:
     html_path = os.path.abspath("output/report.html")
     pdf_path = os.path.abspath("output/report.pdf")
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page()
-        page.goto(f"file://{html_path}", wait_until="networkidle")
-        page.pdf(
-            path=pdf_path,
-            format="A4",
-            print_background=True,
-            prefer_css_page_size=True,
-            margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
-        )
-        browser.close()
+    _render_pdf(html_path, pdf_path)
     print("PDF OK")
     print(PDF_FILE)
 

@@ -189,10 +189,11 @@ def step_zap(target: str) -> bool:
         return False
 
     local_docker = _check_docker()
-    ssh_host = cfg("servers.analysis_ip", "")
+    # analysis_ip 우선, 없으면 app_ip fallback (컨테이너 서버에 Docker 있음)
+    ssh_host = cfg("servers.analysis_ip", "") or cfg("servers.app_ip", "")
 
     if not local_docker and not ssh_host:
-        _skip("로컬 Docker 없음 + platform.yaml servers.analysis_ip 미설정 — ZAP 스킵")
+        _skip("로컬 Docker 없음 + platform.yaml servers.analysis_ip/app_ip 미설정 — ZAP 스킵")
         return False
 
     mode = "로컬 Docker" if local_docker else f"SSH 원격 ({ssh_host})"
@@ -406,7 +407,7 @@ def step_upload_s3() -> bool:
     try:
         import boto3
         s3 = boto3.client("s3", region_name="ap-northeast-2")
-        bucket = "cloud-sec-audit-evidence-dev"
+        bucket = cfg("buckets.audit_evidence", "cloud-sec-audit-evidence-dev")
         today = now_kst("%Y/%m/%d")
         prefix = f"pipeline-results/{today}"
 
