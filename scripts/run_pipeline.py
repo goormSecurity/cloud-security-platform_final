@@ -376,6 +376,23 @@ def step_collect_s3_security() -> bool:
         return False
 
 
+def step_collect_guardduty() -> bool:
+    _step("3h", "GuardDuty 위협 탐지 수집 (scripts/collect_guardduty.py)")
+    if not _has_aws_creds():
+        _skip("AWS 자격증명 없음 — GuardDuty 스킵")
+        return False
+    cmd = [sys.executable, str(ROOT / "scripts" / "collect_guardduty.py")]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    for line in (out + err).splitlines()[-8:]:
+        print(f"  {line}")
+    if code == 0:
+        _ok("GuardDuty 수집 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
 def step_upload_s3() -> bool:
     _step("10", "결과물 S3 업로드 (audit-evidence 버킷)")
     if not _has_aws_creds():
@@ -575,6 +592,7 @@ def main():
     results["cmk_collect"]   = step_collect_cmk()
     results["config_diff"]   = step_collect_config_diff()
     results["s3_security"]   = step_collect_s3_security()
+    results["guardduty"]     = step_collect_guardduty()
 
     results["zap"]           = False if args.skip_zap else step_zap(args.target)
     results["ai_report"]     = False if args.skip_ai  else step_ai_report(analysis_json, args.ai_model)
