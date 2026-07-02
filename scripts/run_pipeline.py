@@ -359,6 +359,25 @@ def step_collect_config_diff() -> bool:
         return False
 
 
+def step_collect_trivy() -> bool:
+    _step("3h", "Trivy 컨테이너·IaC 취약점 스캔 (scripts/collect_trivy.py, OSS)")
+    ssh_host = cfg("servers.analysis_ip", "")
+    cmd = [sys.executable, str(ROOT / "scripts" / "collect_trivy.py"), "--mode", "all"]
+    if not ssh_host:
+        _info("platform.yaml servers.analysis_ip 없음 — IaC 스캔만 시도")
+        cmd += ["--mode", "iac"]
+    code, out, err = _run(cmd, cwd=str(ROOT), timeout=360)
+    for line in (out + err).splitlines()[-10:]:
+        if line.strip():
+            print(f"  {line.strip()}")
+    if code == 0:
+        _ok("Trivy 스캔 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
 def step_collect_s3_security() -> bool:
     _step("3g", "S3 버킷 보안 감사 (scripts/collect_s3_security.py)")
     if not _has_aws_creds():
@@ -375,22 +394,6 @@ def step_collect_s3_security() -> bool:
         _fail(f"실패: {(err or out)[:200]}")
         return False
 
-
-def step_collect_guardduty() -> bool:
-    _step("3h", "GuardDuty 위협 탐지 수집 (scripts/collect_guardduty.py)")
-    if not _has_aws_creds():
-        _skip("AWS 자격증명 없음 — GuardDuty 스킵")
-        return False
-    cmd = [sys.executable, str(ROOT / "scripts" / "collect_guardduty.py")]
-    code, out, err = _run(cmd, cwd=str(ROOT))
-    for line in (out + err).splitlines()[-8:]:
-        print(f"  {line}")
-    if code == 0:
-        _ok("GuardDuty 수집 완료")
-        return True
-    else:
-        _fail(f"실패: {(err or out)[:200]}")
-        return False
 
 
 def step_upload_s3() -> bool:
@@ -592,7 +595,7 @@ def main():
     results["cmk_collect"]   = step_collect_cmk()
     results["config_diff"]   = step_collect_config_diff()
     results["s3_security"]   = step_collect_s3_security()
-    results["guardduty"]     = step_collect_guardduty()
+    results["trivy"]         = step_collect_trivy()
 
     results["zap"]           = False if args.skip_zap else step_zap(args.target)
     results["ai_report"]     = False if args.skip_ai  else step_ai_report(analysis_json, args.ai_model)

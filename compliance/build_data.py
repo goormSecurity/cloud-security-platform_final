@@ -348,38 +348,35 @@ def _parse_prowler(data):
     }
 
 
-# ── 8. GuardDuty 🟡 ─────────────────────────────────────────────
-def _parse_guardduty(data: dict | None) -> dict:
+# ── 8. Trivy 🟡 ─────────────────────────────────────────────────
+def _parse_trivy(data: dict | None) -> dict:
     if not data or not isinstance(data, dict):
-        return {
-            "enabled": False,
-            "total": 0, "high": 0, "medium": 0, "low": 0,
-            "by_type": {}, "top_findings": [],
-            "_data_collected": False,
-        }
-    summary = data.get("summary", {})
-    findings = data.get("findings", [])
-    top = [
-        {
-            "type": f.get("type", ""),
-            "title": f.get("title", ""),
-            "severity_label": f.get("severity_label", ""),
-            "resource_type": f.get("resource_type", ""),
-            "region": f.get("region", ""),
-        }
-        for f in findings[:5]
-    ]
+        return {"total_vulns": 0, "critical": 0, "high": 0, "images": [], "iac_misconfigs": 0, "_data_collected": False}
+    s = data.get("summary", {})
+    imgs = data.get("images", {})
+    iac  = data.get("iac", {})
     return {
-        "enabled": data.get("enabled", True),
-        "detector_id": data.get("detector_id", ""),
-        "total":   summary.get("total", 0),
-        "high":    summary.get("high", 0),
-        "medium":  summary.get("medium", 0),
-        "low":     summary.get("low", 0),
-        "by_type": summary.get("by_type", {}),
-        "top_findings": top,
-        "collected_at": data.get("collected_at", ""),
-        "_data_collected": True,
+        "tool":          data.get("tool", "Trivy"),
+        "total_vulns":   s.get("total_vulns", 0),
+        "critical":      s.get("critical", 0),
+        "high":          s.get("high", 0),
+        "images_scanned": imgs.get("scanned", []),
+        "image_results": [
+            {
+                "image":    r.get("image", ""),
+                "total":    r.get("total", 0),
+                "critical": r.get("by_severity", {}).get("CRITICAL", 0),
+                "high":     r.get("by_severity", {}).get("HIGH", 0),
+                "medium":   r.get("by_severity", {}).get("MEDIUM", 0),
+                "top_vulns": r.get("top_vulns", [])[:5],
+            }
+            for r in imgs.get("results", [])
+        ],
+        "iac_misconfigs":    iac.get("total", 0),
+        "iac_by_severity":   iac.get("by_severity", {}),
+        "iac_top":           (iac.get("misconfigs") or [])[:5],
+        "collected_at":      data.get("collected_at", ""),
+        "_data_collected":   True,
     }
 
 
@@ -618,9 +615,10 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
     s3sec_raw = _load_json(INPUT_DIR / "s3_security.json", "S3 버킷 보안 감사 🟡")
     s3_security = _parse_s3_security(s3sec_raw)
 
-    # 🟡 GuardDuty 위협 탐지 (collect_guardduty 출력)
-    gd_raw = _load_json(INPUT_DIR / "guardduty_findings.json", "GuardDuty 위협 탐지 🟡")
-    guardduty = _parse_guardduty(gd_raw if isinstance(gd_raw, dict) else None)
+    # 🟡 Trivy 컨테이너·IaC 취약점 스캔 (collect_trivy 출력, OSS)
+    trivy_raw = _load_json(INPUT_DIR / "trivy_report.json", "Trivy 취약점 스캔 🟡")
+    trivy = _parse_trivy(trivy_raw if isinstance(trivy_raw, dict) else None)
+
 
     # ── 조합 ────────────────────────────────────────────────────
     block_rate = ana["summary"].get("block_rate", 0)
@@ -683,7 +681,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
             "period_start": period_start,
             "period_end": period_end,
             "generated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "environment_touched": ["AWS WAF", "ALB", "S3", "KMS", "CloudTrail", "Config", "Prowler", "GuardDuty", "GitHub"],
+            "environment_touched": ["AWS WAF", "ALB", "S3", "KMS", "CloudTrail", "Config", "Prowler", "Trivy", "GitHub"],
             "evidence_bucket": _WAF_BUCKET,
             "analyzer_file": ana_file.name,
             "total_requests": ana["summary"].get("total_requests", 0),
@@ -742,7 +740,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
                 "status": (objlock_raw or {}).get("status", "UNKNOWN"),
             },
             "prowler": prowler,
-            "guardduty": guardduty,
+            "trivy": trivy,
             "config_diff": {
                 "recorder_status": (cfgdiff_raw or {}).get("recorder_status", "NOT_CONFIGURED"),
                 "drift_detected": (cfgdiff_raw or {}).get("drift_detected", False),
