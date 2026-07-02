@@ -28,7 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 try:
-    from config_loader import cfg, now_kst
+    from config_loader import cfg, now_kst, ollama_url as _ollama_url
 except Exception:
     def cfg(p, d=None): return d
 
@@ -90,7 +90,7 @@ def _check_docker() -> bool:
 def _check_ollama() -> bool:
     try:
         import urllib.request
-        urllib.request.urlopen("http://localhost:11434/api/version", timeout=3)
+        urllib.request.urlopen(f"{_ollama_url()}/api/version", timeout=5)
         return True
     except Exception:
         return False
@@ -226,12 +226,13 @@ def step_ai_report(analysis_json: str | None, model: str = "qwen2.5:7b") -> bool
         _skip("분석 JSON 없음 — AI 보고서 스킵")
         return False
 
-    _info(f"입력: {Path(analysis_json).name}")
+    _info(f"입력: {Path(analysis_json).name}  Ollama: {_ollama_url()}")
     ai_output = ROOT / "ai" / "output"
     cmd = [sys.executable, str(ROOT / "ai" / "report_generator.py"),
            "--input", analysis_json,
            "--output-dir", str(ai_output),
-           "--model", model]
+           "--model", model,
+           "--ollama-base-url", _ollama_url()]
     code, out, err = _run(cmd, cwd=str(ROOT / "ai"))
     if code == 0:
         _ok("AI 보고서 생성 완료")

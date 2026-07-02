@@ -30,7 +30,11 @@ except Exception:
 
 
 DEFAULT_MODEL = "qwen2.5:7b"
-DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
+try:
+    from config_loader import ollama_url as _ollama_url_fn
+    DEFAULT_OLLAMA_BASE_URL = _ollama_url_fn()
+except Exception:
+    DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
 MAX_GENERATION_ATTEMPTS = 3
 
 

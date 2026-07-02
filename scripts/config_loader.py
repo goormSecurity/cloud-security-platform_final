@@ -38,6 +38,9 @@ _ENV_OVERRIDES: dict[str, str] = {
     "AUDIT_EVIDENCE_BUCKET":"buckets.audit_evidence",
     "WAF_ACL_NAME":         "waf.acl_name",
     "ALB_DNS_NAME":         "alb.dns_name",
+    "ANALYSIS_SERVER_IP":   "servers.analysis_ip",
+    "APP_SERVER_IP":        "servers.app_ip",
+    "OLLAMA_BASE_URL":      "servers.ollama_url",
     "SLACK_WEBHOOK_URL":    "integrations.slack_webhook",
     "DISCORD_WEBHOOK_URL":  "integrations.discord_webhook",
     "GITHUB_REPOSITORY":    "integrations.github_repo",
@@ -133,6 +136,17 @@ def alb_target_url() -> str:
     """ALB HTTP URL."""
     dns = cfg("alb.dns_name", "")
     return f"http://{dns}" if dns else ""
+
+
+def ollama_url() -> str:
+    """Ollama API URL. 로컬 또는 원격 분석 서버."""
+    url = cfg("servers.ollama_url", "")
+    if url:
+        return url.rstrip("/")
+    analysis_ip = cfg("servers.analysis_ip", "")
+    if analysis_ip:
+        return f"http://{analysis_ip}:11434"
+    return "http://localhost:11434"
 
 
 def require(path: str) -> str:

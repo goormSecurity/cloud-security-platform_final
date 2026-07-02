@@ -33,6 +33,10 @@ cloudtrail:
 
 servers:
   analysis_ip: ""               # 분석 서버 IP (terraform output analysis_public_ip)
+  app_ip: ""                    # 앱 서버 IP (terraform output app_public_ip)
+                                # — 컨테이너 실행 서버, Trivy 원격 스캔 대상
+  ollama_url: ""                # Ollama URL (비우면 analysis_ip:11434 자동 사용)
+                                # 예: http://3.39.252.12:11434
   ssh_user: ec2-user            # EC2 SSH 유저 (Amazon Linux 기본값)
   ssh_key: ~/.ssh/cloud-sec-key2  # SSH 키 경로
 
