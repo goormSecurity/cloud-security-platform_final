@@ -95,6 +95,7 @@ def _build_config(tf_out: dict, region: str, account_id: str, project_name: str,
 
     alb_dns      = _val("alb_dns_name")
     analysis_ip  = _val("analysis_public_ip")
+    app_ip       = _val("app_public_ip")
     waf_bucket   = _val("waf_logs_bucket",      f"aws-waf-logs-{project_name}-{env}")
     audit_bkt    = _val("audit_evidence_bucket", f"{project_name}-audit-evidence-{env}")
     alb_bkt      = f"{project_name}-alb-logs-{env}"
@@ -104,28 +105,37 @@ def _build_config(tf_out: dict, region: str, account_id: str, project_name: str,
 
     # 선택 항목은 기존 platform.yaml에서 보존
     slack = discord = github = abuseipdb = ""
-    ssh_key = "~/.ssh/cloud-sec-key2"
+    ssh_key    = "~/.ssh/cloud-sec-key2"
+    ollama_url = ""
     if OUT_FILE.exists():
         try:
             import yaml
             existing = yaml.safe_load(OUT_FILE.read_text(encoding="utf-8")) or {}
             intg = existing.get("integrations", {})
-            slack     = intg.get("slack_webhook", "")
-            discord   = intg.get("discord_webhook", "")
-            github    = intg.get("github_repo", "")
-            abuseipdb = intg.get("abuseipdb_key", "")
+            slack      = intg.get("slack_webhook", "")
+            discord    = intg.get("discord_webhook", "")
+            github     = intg.get("github_repo", "")
+            abuseipdb  = intg.get("abuseipdb_key", "")
             srvs = existing.get("servers", {})
             ssh_key     = srvs.get("ssh_key", ssh_key)
             analysis_ip = analysis_ip or srvs.get("analysis_ip", "")
+            app_ip      = app_ip      or srvs.get("app_ip", "")
+            ollama_url  = srvs.get("ollama_url", "")
         except Exception:
             pass
 
     # 환경변수 우선
-    slack       = os.getenv("SLACK_WEBHOOK_URL",   slack)
-    discord     = os.getenv("DISCORD_WEBHOOK_URL", discord)
-    github      = os.getenv("GITHUB_REPOSITORY",   github)
-    abuseipdb   = os.getenv("ABUSEIPDB_API_KEY",   abuseipdb)
-    analysis_ip = os.getenv("ANALYSIS_SERVER_IP",  analysis_ip)
+    slack        = os.getenv("SLACK_WEBHOOK_URL",   slack)
+    discord      = os.getenv("DISCORD_WEBHOOK_URL", discord)
+    github       = os.getenv("GITHUB_REPOSITORY",   github)
+    abuseipdb    = os.getenv("ABUSEIPDB_API_KEY",   abuseipdb)
+    analysis_ip  = os.getenv("ANALYSIS_SERVER_IP",  analysis_ip)
+    app_ip       = os.getenv("APP_SERVER_IP",        app_ip)
+    ollama_url   = os.getenv("OLLAMA_BASE_URL",      ollama_url)
+
+    # ollama_url 기본값: analysis_ip가 있으면 원격, 없으면 localhost
+    if not ollama_url and analysis_ip:
+        ollama_url = f"http://{analysis_ip}:11434"
 
     return f"""\
 # Cloud Security Platform — 자동 생성된 환경 설정
@@ -157,6 +167,8 @@ cloudtrail:
 
 servers:
   analysis_ip: {analysis_ip}
+  app_ip: {app_ip}
+  ollama_url: {ollama_url}
   ssh_user: ec2-user
   ssh_key: {ssh_key}
 
