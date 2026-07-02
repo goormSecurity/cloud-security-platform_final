@@ -687,63 +687,68 @@
                   <td>2.11 사고 예방 및 대응</td>
                   <td>공격 탐지·분석·차단 증적</td>
                   <td>{% for label in ismsp_verdict_labels %}{{ ck(label, get("compliance.ismsp.2.11.verdict") == label) }}{% endfor %}</td>
-                  <td>WAF logs <span class="slash">/</span> Analyzer result <span class="slash">/</span> GuardDuty findings <span class="slash">/</span> 조사 의견</td>
+                  <td>WAF logs <span class="slash">/</span> Analyzer result <span class="slash">/</span> 조사 의견</td>
                 </tr>
               </tbody>
             </table>
           </section>
 
+
           <div class="subsection-gap" aria-hidden="true"></div>
-          <section class="subsection"><h3>III-3. GuardDuty 클라우드 위협 탐지 요약</h3>
+          <section class="subsection"><h3>III-3. Trivy 오픈소스 취약점 스캔 결과</h3>
             <table class="report-table key-value">
               <thead><tr><th>항목</th><th>내용</th></tr></thead>
               <tbody>
                 <tr>
-                  <td>활성화 상태</td>
-                  <td>{{ ck("활성화", get("posture.guardduty.enabled", false) == true) }} {{ ck("비활성화", get("posture.guardduty.enabled", false) != true) }}</td>
+                  <td>도구</td>
+                  <td>{{ get("posture.trivy.tool", "Trivy (Aqua Security, OSS)") }} — AWS 비용 없음</td>
                 </tr>
                 <tr>
-                  <td>탐지 건수 (최근 30일)</td>
+                  <td>컨테이너 이미지 스캔</td>
                   <td>
-                    전체 {{ get("posture.guardduty.total", 0) }}건 —
-                    HIGH <strong>{{ get("posture.guardduty.high", 0) }}</strong> /
-                    MEDIUM {{ get("posture.guardduty.medium", 0) }} /
-                    LOW {{ get("posture.guardduty.low", 0) }}
+                    {% set imgs = get("posture.trivy.images_scanned", []) %}
+                    {% if imgs %}{% for i in imgs %}{{ i }}{% if not loop.last %}, {% endif %}{% endfor %}
+                    {% else %}스캔 데이터 없음{% endif %}
                   </td>
                 </tr>
                 <tr>
-                  <td>탐지 유형</td>
+                  <td>컨테이너 취약점 합계</td>
                   <td>
-                    {% set by_type = get("posture.guardduty.by_type", {}) %}
-                    {% if by_type %}
-                      {% for k, v in by_type.items() %}{{ k }}: {{ v }}건{% if not loop.last %} / {% endif %}{% endfor %}
-                    {% else %}
-                      탐지 없음 (정상 상태)
-                    {% endif %}
+                    전체 {{ get("posture.trivy.total_vulns", 0) }}건 —
+                    CRITICAL <strong style="color:#c0392b">{{ get("posture.trivy.critical", 0) }}</strong> /
+                    HIGH {{ get("posture.trivy.high", 0) }}
                   </td>
                 </tr>
                 <tr>
-                  <td>주요 Finding</td>
+                  <td>이미지별 결과</td>
                   <td>
-                    {% set top = get("posture.guardduty.top_findings", []) %}
-                    {% if top %}
-                      <ul style="margin:0;padding-left:1.2em;">
-                      {% for f in top %}
-                        <li><strong>[{{ f.severity_label }}]</strong> {{ f.title }} ({{ f.resource_type }})</li>
-                      {% endfor %}
-                      </ul>
-                    {% else %}
-                      없음
+                    {% set img_results = get("posture.trivy.image_results", []) %}
+                    {% if img_results %}
+                    <ul style="margin:0;padding-left:1.2em;">
+                    {% for r in img_results %}
+                      <li>{{ r.image }}: CRITICAL={{ r.critical }} HIGH={{ r.high }} MEDIUM={{ r.medium }}</li>
+                    {% endfor %}
+                    </ul>
+                    {% else %}없음{% endif %}
+                  </td>
+                </tr>
+                <tr>
+                  <td>IaC (Terraform) 오설정</td>
+                  <td>
+                    {{ get("posture.trivy.iac_misconfigs", 0) }}건
+                    {% set iac_sev = get("posture.trivy.iac_by_severity", {}) %}
+                    {% if iac_sev %}
+                      ({% for k, v in iac_sev.items() %}{{ k }}: {{ v }}{% if not loop.last %} / {% endif %}{% endfor %})
                     {% endif %}
                   </td>
                 </tr>
                 <tr>
                   <td>수집 시각</td>
-                  <td>{{ get("posture.guardduty.collected_at", "—") }}</td>
+                  <td>{{ get("posture.trivy.collected_at", "—") }}</td>
                 </tr>
               </tbody>
             </table>
-            <p class="hint"><span class="hint-line">GuardDuty는 웹 레이어(WAF) 너머 EC2 이상 행동·IAM 권한 오용·S3 공개 노출·DNS 이상·네트워크 포트 스캔 등 클라우드 전반 위협을 탐지한다. 탐지 건수 0건은 정상 상태를 의미한다.</span></p>
+            <p class="hint"><span class="hint-line">Trivy(오픈소스)로 DVWA·JuiceShop·Ghost CMS 컨테이너 이미지의 OS 패키지 및 언어 런타임 CVE를 탐지하고, Terraform IaC 파일의 보안 오설정을 정적 분석한다. AWS 유료 서비스 비용 없이 동등한 취약점 관리 달성.</span></p>
           </section>
         </section>
 

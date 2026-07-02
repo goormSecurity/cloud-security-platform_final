@@ -23,11 +23,6 @@ output "audit_evidence_bucket" {
   description = "ISMS-P 감사 증적 버킷 이름 (Object Lock COMPLIANCE)"
 }
 
-output "guardduty_detector_id" {
-  value       = aws_guardduty_detector.main.id
-  description = "GuardDuty 탐지기 ID"
-}
-
 # KMS 출력 — 프리티어 종료 후 KMS 모듈 활성화 시 주석 해제
 # output "kms_key_id" {
 #   value       = module.kms.key_id
