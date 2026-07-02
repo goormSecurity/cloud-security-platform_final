@@ -28,11 +28,20 @@ import sys
 import time
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
-DEFAULT_TARGET        = "http://cloud-sec-alb-664622103.ap-northeast-2.elb.amazonaws.com"
+# platform.yaml 에서 ALB 타겟 읽기 (없으면 환경변수 → 빈 문자열)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+try:
+    from config_loader import alb_target_url as _alb_url
+    _cfg_target = _alb_url()
+except Exception:
+    _cfg_target = ""
+
+DEFAULT_TARGET        = _cfg_target or os.getenv("ALB_TARGET_URL", "")
 DEFAULT_TARGET_DVWA   = DEFAULT_TARGET          # DVWA 경로 기반
 DEFAULT_TARGET_JUICE  = DEFAULT_TARGET          # JuiceShop은 /rest API 기반
 DEFAULT_TARGET_GHOST  = DEFAULT_TARGET          # ALB 경로 기반 라우팅 → EC2:2368

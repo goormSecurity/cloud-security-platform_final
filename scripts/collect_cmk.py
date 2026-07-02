@@ -24,12 +24,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg, waf_log_prefix
+except Exception:
+    def cfg(p, d=None): return d
+    def waf_log_prefix(): return ""
+
 OUTPUT_DIR = ROOT / "compliance" / "input"
 
-DEFAULT_BUCKET        = "aws-waf-logs-cloud-sec-dev"
-AUDIT_EVIDENCE_BUCKET = "cloud-sec-audit-evidence-dev"   # Object Lock COMPLIANCE 적용 버킷
-DEFAULT_REGION = "ap-northeast-2"
-DEFAULT_PREFIX  = "AWSLogs/677673473281/WAFLogs/ap-northeast-2/cloud-sec-web-acl/"
+DEFAULT_BUCKET        = cfg("buckets.waf_logs",       "aws-waf-logs-cloud-sec-dev")
+AUDIT_EVIDENCE_BUCKET = cfg("buckets.audit_evidence", "cloud-sec-audit-evidence-dev")
+DEFAULT_REGION        = cfg("aws.region",              "ap-northeast-2")
+DEFAULT_PREFIX        = (waf_log_prefix() or "AWSLogs//WAFLogs//") + "/"
 
 
 def _client(service, region):
