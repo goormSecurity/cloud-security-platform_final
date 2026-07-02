@@ -138,13 +138,16 @@ ATTACKS_GHOST = {
 
 
 def build_url(target: str, path: str) -> str:
-    """경로의 쿼리 값 부분만 안전하게 인코딩해서 전체 URL을 만든다."""
+    """경로와 쿼리 값을 안전하게 인코딩해서 전체 URL을 만든다.
+    Python 3.14+에서 http.client가 경로의 제어문자/공백을 거부하므로
+    경로 부분도 percent-encode한다 (/ 는 유지)."""
     if "?" in path:
         base, query = path.split("?", 1)
     else:
         base, query = path, ""
+    encoded_base = quote(base, safe="/:@!$&()*+,;=")
     if not query:
-        return target + base
+        return target + encoded_base
     encoded_pairs = []
     for pair in query.split("&"):
         if "=" in pair:
@@ -152,7 +155,7 @@ def build_url(target: str, path: str) -> str:
             encoded_pairs.append(f"{k}={quote(v, safe='')}")
         else:
             encoded_pairs.append(pair)
-    return f"{target}{base}?{'&'.join(encoded_pairs)}"
+    return f"{target}{encoded_base}?{'&'.join(encoded_pairs)}"
 
 
 def send_one(target, category, name, method, path, extra_headers, timeout, body=None):
