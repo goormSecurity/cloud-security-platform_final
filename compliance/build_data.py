@@ -348,6 +348,41 @@ def _parse_prowler(data):
     }
 
 
+# ── 8. GuardDuty 🟡 ─────────────────────────────────────────────
+def _parse_guardduty(data: dict | None) -> dict:
+    if not data or not isinstance(data, dict):
+        return {
+            "enabled": False,
+            "total": 0, "high": 0, "medium": 0, "low": 0,
+            "by_type": {}, "top_findings": [],
+            "_data_collected": False,
+        }
+    summary = data.get("summary", {})
+    findings = data.get("findings", [])
+    top = [
+        {
+            "type": f.get("type", ""),
+            "title": f.get("title", ""),
+            "severity_label": f.get("severity_label", ""),
+            "resource_type": f.get("resource_type", ""),
+            "region": f.get("region", ""),
+        }
+        for f in findings[:5]
+    ]
+    return {
+        "enabled": data.get("enabled", True),
+        "detector_id": data.get("detector_id", ""),
+        "total":   summary.get("total", 0),
+        "high":    summary.get("high", 0),
+        "medium":  summary.get("medium", 0),
+        "low":     summary.get("low", 0),
+        "by_type": summary.get("by_type", {}),
+        "top_findings": top,
+        "collected_at": data.get("collected_at", ""),
+        "_data_collected": True,
+    }
+
+
 # ── 판정 로직 ────────────────────────────────────────────────────
 def _pci_verdict(e_num, ana, waf, change):
     """PCI DSS 요건 판정 — raw/waf_*.json 실데이터 기반"""
@@ -583,6 +618,10 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
     s3sec_raw = _load_json(INPUT_DIR / "s3_security.json", "S3 버킷 보안 감사 🟡")
     s3_security = _parse_s3_security(s3sec_raw)
 
+    # 🟡 GuardDuty 위협 탐지 (collect_guardduty 출력)
+    gd_raw = _load_json(INPUT_DIR / "guardduty_findings.json", "GuardDuty 위협 탐지 🟡")
+    guardduty = _parse_guardduty(gd_raw if isinstance(gd_raw, dict) else None)
+
     # ── 조합 ────────────────────────────────────────────────────
     block_rate = ana["summary"].get("block_rate", 0)
     buckets = ana["time_buckets"]
@@ -644,7 +683,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
             "period_start": period_start,
             "period_end": period_end,
             "generated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "environment_touched": ["AWS WAF", "ALB", "S3", "KMS", "CloudTrail", "Config", "Prowler", "GitHub"],
+            "environment_touched": ["AWS WAF", "ALB", "S3", "KMS", "CloudTrail", "Config", "Prowler", "GuardDuty", "GitHub"],
             "evidence_bucket": _WAF_BUCKET,
             "analyzer_file": ana_file.name,
             "total_requests": ana["summary"].get("total_requests", 0),
@@ -703,6 +742,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
                 "status": (objlock_raw or {}).get("status", "UNKNOWN"),
             },
             "prowler": prowler,
+            "guardduty": guardduty,
             "config_diff": {
                 "recorder_status": (cfgdiff_raw or {}).get("recorder_status", "NOT_CONFIGURED"),
                 "drift_detected": (cfgdiff_raw or {}).get("drift_detected", False),
