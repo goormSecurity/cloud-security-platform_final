@@ -24,6 +24,10 @@ resource "aws_instance" "app" {
   subnet_id              = var.public_subnet_ids[0]
   iam_instance_profile   = aws_iam_instance_profile.app.name
 
+  lifecycle {
+    ignore_changes = [ami, user_data]
+  }
+
   user_data = base64encode(<<-EOF
     #!/bin/bash
     yum update -y
@@ -51,7 +55,7 @@ resource "aws_instance" "app" {
   )
 
   root_block_device {
-    volume_size = 20
+    volume_size = 30
     volume_type = "gp3"
   }
 
@@ -71,10 +75,14 @@ resource "aws_instance" "analysis" {
   iam_instance_profile        = aws_iam_instance_profile.analysis.name
   user_data_replace_on_change = true
 
+  lifecycle {
+    ignore_changes = [ami]
+  }
+
   user_data = base64encode(file("${path.module}/templates/analysis_setup.sh"))
 
   root_block_device {
-    volume_size = 20
+    volume_size = 30
     volume_type = "gp3"
   }
 

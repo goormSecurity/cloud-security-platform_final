@@ -35,7 +35,7 @@ from urllib.error import HTTPError, URLError
 DEFAULT_TARGET        = "http://cloud-sec-alb-664622103.ap-northeast-2.elb.amazonaws.com"
 DEFAULT_TARGET_DVWA   = DEFAULT_TARGET          # DVWA 경로 기반
 DEFAULT_TARGET_JUICE  = DEFAULT_TARGET          # JuiceShop은 /rest API 기반
-DEFAULT_TARGET_GHOST  = "http://localhost:2368" # Ghost CMS (로컬: 2368, EC2: ALB 경로로 변경)
+DEFAULT_TARGET_GHOST  = DEFAULT_TARGET          # ALB 경로 기반 라우팅 → EC2:2368
 _SCRIPT_DIR           = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUTPUT        = os.path.join(_SCRIPT_DIR, "output", "sent_attacks.jsonl")
 
@@ -235,8 +235,7 @@ def main():
         }
         app_label = "DVWA + Juice Shop + Ghost CMS"
         target_override = args.target
-        print("[!] all 모드: Ghost 카탈로그도 포함됩니다."
-              f" Ghost 요청은 {DEFAULT_TARGET_GHOST} 로 보내려면 --app ghost 를 따로 실행하세요.")
+        print("[!] all 모드: DVWA + JuiceShop + Ghost 카탈로그 병합. ALB 경로 기반 라우팅으로 각 앱에 전달됩니다.")
 
     categories = args.category or list(catalog)
     # 카테고리 필터링 (지정한 것만)
