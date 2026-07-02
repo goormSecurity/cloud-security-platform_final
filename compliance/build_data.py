@@ -36,7 +36,7 @@ if hasattr(sys.stdout, "reconfigure"):
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 try:
-    from config_loader import cfg
+    from config_loader import cfg, now_kst, KST
 except Exception:
     def cfg(p, d=None): return d
 
@@ -524,7 +524,7 @@ def _build_evidence_checks(date_code, seq):
 
 # ── 메인 빌드 ────────────────────────────────────────────────────
 def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path=None):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(KST)
     date_code = now.strftime("%Y%m%d")
     seq = "001"
 

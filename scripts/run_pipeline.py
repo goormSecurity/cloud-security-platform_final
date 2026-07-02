@@ -26,6 +26,11 @@ if hasattr(sys.stderr, "reconfigure"):
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg, now_kst
+except Exception:
+    def cfg(p, d=None): return d
 
 # ── 색상 출력 ────────────────────────────────────────────────────
 class C:
@@ -63,13 +68,13 @@ def _has_aws_creds() -> bool:
         return False
 
 
-def _run(cmd: list, cwd=None, env=None) -> tuple[int, str, str]:
+def _run(cmd: list, cwd=None, env=None, timeout=300) -> tuple[int, str, str]:
     env_full = {**os.environ, **(env or {}), "PYTHONIOENCODING": "utf-8"}
     if env:
         env_full.update(env)
     r = subprocess.run(
         cmd, cwd=cwd, capture_output=True, text=True, env=env_full,
-        encoding="utf-8", errors="replace",
+        encoding="utf-8", errors="replace", timeout=timeout,
     )
     return r.returncode, r.stdout or "", r.stderr or ""
 
@@ -179,17 +184,26 @@ def step_fp_fn(analysis_json: str | None, target: str | None) -> bool:
 
 def step_zap(target: str) -> bool:
     _step(4, "OWASP ZAP 자동 스캔 (security/zap_scanner.py)")
-    if not _check_docker():
-        _skip("Docker 미실행 — ZAP 스킵 (Docker Desktop을 시작하면 사용 가능)")
-        return False
     if not target:
         _skip("--target 미지정 — ZAP 스킵")
         return False
 
-    _info(f"대상: {target}")
+    local_docker = _check_docker()
+    ssh_host = cfg("servers.analysis_ip", "")
+
+    if not local_docker and not ssh_host:
+        _skip("로컬 Docker 없음 + platform.yaml servers.analysis_ip 미설정 — ZAP 스킵")
+        return False
+
+    mode = "로컬 Docker" if local_docker else f"SSH 원격 ({ssh_host})"
+    _info(f"대상: {target}  실행 모드: {mode}")
+
     cmd = [sys.executable, str(ROOT / "security" / "zap_scanner.py"),
            "--target", target, "--baseline-only", "--out", str(ROOT / "output")]
-    code, out, err = _run(cmd)
+    if not local_docker:
+        cmd += ["--ssh-host", ssh_host]
+
+    code, out, err = _run(cmd, timeout=660)
     for line in (out + err).splitlines():
         if "[ZAP]" in line:
             print(f"  {line.strip()}")
@@ -372,7 +386,7 @@ def step_upload_s3() -> bool:
         import boto3
         s3 = boto3.client("s3", region_name="ap-northeast-2")
         bucket = "cloud-sec-audit-evidence-dev"
-        today = datetime.now().strftime("%Y/%m/%d")
+        today = now_kst("%Y/%m/%d")
         prefix = f"pipeline-results/{today}"
 
         candidates = [
@@ -532,7 +546,7 @@ def main():
 
     print(f"\n{C.BOLD}{C.CYAN}{'=' * 60}")
     print(f"  Cloud Security Platform — 로컬 파이프라인")
-    print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  {now_kst('%Y-%m-%d %H:%M:%S')} (KST)")
     print(f"{'=' * 60}{C.RESET}")
 
     start = time.time()

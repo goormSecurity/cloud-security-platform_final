@@ -24,6 +24,14 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "analyzer"))
 sys.path.insert(0, str(ROOT / "attack_simulation"))
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import now_kst
+except Exception:
+    def now_kst(fmt=None):
+        from datetime import timezone, timedelta
+        t = datetime.now(timezone(timedelta(hours=9)))
+        return t.strftime(fmt) if fmt else t.isoformat(timespec="seconds")
 
 import waf_analyzer
 
@@ -184,7 +192,7 @@ def run_ab_test(
             real_analysis = waf_analyzer.analyze(records)
 
     result = {
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": now_kst(),
         "target_url": target,
         "total_attack_patterns": total,
         "current_mode": {
@@ -213,7 +221,7 @@ def run_ab_test(
     }
 
     os.makedirs(output_dir, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = now_kst("%Y%m%d_%H%M%S")
     out_path = os.path.join(output_dir, f"ab_test_{ts}.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)

@@ -13,9 +13,19 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import datetime, timedelta, timezone
 from functools import reduce
 from pathlib import Path
 from typing import Any
+
+# 한국 표준시 (UTC+9)
+KST = timezone(timedelta(hours=9))
+
+
+def now_kst(fmt: str | None = None) -> str:
+    """현재 KST 시각. fmt 지정 시 strftime 결과, 없으면 ISO 8601 반환."""
+    t = datetime.now(KST)
+    return t.strftime(fmt) if fmt else t.isoformat(timespec="seconds")
 
 ROOT = Path(__file__).resolve().parent.parent
 _PLATFORM_YAML = ROOT / "platform.yaml"
