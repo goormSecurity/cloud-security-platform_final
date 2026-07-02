@@ -31,6 +31,11 @@ alb:
 cloudtrail:
   trail_name: cloud-sec-trail   # CloudTrail 트레일 이름
 
+servers:
+  analysis_ip: ""               # 분석 서버 IP (terraform output analysis_public_ip)
+  ssh_user: ec2-user            # EC2 SSH 유저 (Amazon Linux 기본값)
+  ssh_key: ~/.ssh/cloud-sec-key2  # SSH 키 경로
+
 # ── 선택 항목 (없으면 해당 기능 비활성) ───────────────────────────
 integrations:
   slack_webhook: ""             # Slack Incoming Webhook URL (또는 env: SLACK_WEBHOOK_URL)

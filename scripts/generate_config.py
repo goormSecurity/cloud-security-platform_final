@@ -93,16 +93,18 @@ def _build_config(tf_out: dict, region: str, account_id: str, project_name: str,
         v = tf_out.get(key, {}).get("value", fallback)
         return str(v) if v else fallback
 
-    alb_dns     = _val("alb_dns_name")
-    waf_bucket  = _val("waf_logs_bucket",      f"aws-waf-logs-{project_name}-{env}")
-    audit_bkt   = _val("audit_evidence_bucket", f"{project_name}-audit-evidence-{env}")
-    alb_bkt     = f"{project_name}-alb-logs-{env}"
-    ct_bkt      = f"{project_name}-cloudtrail-{env}"
-    trail_name  = f"{project_name}-trail"
-    waf_acl     = _aws_waf_acl_name(region, project_name)
+    alb_dns      = _val("alb_dns_name")
+    analysis_ip  = _val("analysis_public_ip")
+    waf_bucket   = _val("waf_logs_bucket",      f"aws-waf-logs-{project_name}-{env}")
+    audit_bkt    = _val("audit_evidence_bucket", f"{project_name}-audit-evidence-{env}")
+    alb_bkt      = f"{project_name}-alb-logs-{env}"
+    ct_bkt       = f"{project_name}-cloudtrail-{env}"
+    trail_name   = f"{project_name}-trail"
+    waf_acl      = _aws_waf_acl_name(region, project_name)
 
     # 선택 항목은 기존 platform.yaml에서 보존
     slack = discord = github = abuseipdb = ""
+    ssh_key = "~/.ssh/cloud-sec-key2"
     if OUT_FILE.exists():
         try:
             import yaml
@@ -112,14 +114,18 @@ def _build_config(tf_out: dict, region: str, account_id: str, project_name: str,
             discord   = intg.get("discord_webhook", "")
             github    = intg.get("github_repo", "")
             abuseipdb = intg.get("abuseipdb_key", "")
+            srvs = existing.get("servers", {})
+            ssh_key     = srvs.get("ssh_key", ssh_key)
+            analysis_ip = analysis_ip or srvs.get("analysis_ip", "")
         except Exception:
             pass
 
     # 환경변수 우선
-    slack     = os.getenv("SLACK_WEBHOOK_URL", slack)
-    discord   = os.getenv("DISCORD_WEBHOOK_URL", discord)
-    github    = os.getenv("GITHUB_REPOSITORY", github)
-    abuseipdb = os.getenv("ABUSEIPDB_API_KEY", abuseipdb)
+    slack       = os.getenv("SLACK_WEBHOOK_URL",   slack)
+    discord     = os.getenv("DISCORD_WEBHOOK_URL", discord)
+    github      = os.getenv("GITHUB_REPOSITORY",   github)
+    abuseipdb   = os.getenv("ABUSEIPDB_API_KEY",   abuseipdb)
+    analysis_ip = os.getenv("ANALYSIS_SERVER_IP",  analysis_ip)
 
     return f"""\
 # Cloud Security Platform — 자동 생성된 환경 설정
@@ -148,6 +154,11 @@ alb:
 
 cloudtrail:
   trail_name: {trail_name}
+
+servers:
+  analysis_ip: {analysis_ip}
+  ssh_user: ec2-user
+  ssh_key: {ssh_key}
 
 integrations:
   slack_webhook: "{slack}"

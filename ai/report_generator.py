@@ -18,6 +18,16 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
+_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_ROOT / "scripts"))
+try:
+    from config_loader import now_kst
+except Exception:
+    def now_kst(fmt=None):
+        from datetime import timezone, timedelta
+        t = datetime.now(timezone(timedelta(hours=9)))
+        return t.strftime(fmt) if fmt else t.isoformat(timespec="seconds")
+
 
 DEFAULT_MODEL = "qwen2.5:7b"
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
@@ -118,18 +128,24 @@ def build_facts_block(data: Dict[str, Any]) -> tuple[str, str]:
     raw_numbers = extract_numbers_from_json(data)
 
     # block_rate 같은 소수(0.6)는 퍼센트(60)로도 쓸 수 있도록 % 버전 추가
+    # 또한 block_rate=0이면 허용률=100이 자동 파생되므로 100도 허용
     pct_numbers: Set[str] = set()
     for n in list(raw_numbers):
         try:
             v = float(n)
-            if 0 < v <= 1:
-                pct_numbers.add(str(round(v * 100, 1)))
-                pct_numbers.add(str(int(v * 100)))
+            if 0 <= v <= 1:
+                pct = round(v * 100, 1)
+                pct_numbers.add(str(pct))
+                pct_numbers.add(str(int(pct)))
+                # 보완값(100 - x%)도 허용 (허용률 = 100 - 차단률)
+                complement = round(100 - pct, 1)
+                pct_numbers.add(str(complement))
+                pct_numbers.add(str(int(complement)))
         except ValueError:
             pass
 
     # 섹션 번호 1~6은 항상 허용
-    allowed = sorted(raw_numbers | pct_numbers | {"1", "2", "3", "4", "5", "6"},
+    allowed = sorted(raw_numbers | pct_numbers | {"0", "100", "1", "2", "3", "4", "5", "6"},
                      key=lambda x: float(x) if x.replace(".", "").lstrip("-").isdigit() else 0)
     allowed_numbers_text = ", ".join(allowed) if allowed else "없음"
 
@@ -338,7 +354,7 @@ def save_report(report: str, output_dir: Path) -> Path:
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = now_kst("%Y%m%d_%H%M%S")
     output_path = output_dir / f"report_{timestamp}.md"
 
     with output_path.open("w", encoding="utf-8") as f:

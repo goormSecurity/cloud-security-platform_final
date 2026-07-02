@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -10,8 +11,15 @@ from typing import Any
 from jinja2 import ChainableUndefined, Environment, FileSystemLoader, select_autoescape
 from playwright.sync_api import sync_playwright
 
-
 BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR.parent / "scripts"))
+try:
+    from config_loader import now_kst
+except Exception:
+    def now_kst(fmt=None):
+        from datetime import timezone
+        t = datetime.now(timezone.utc)
+        return t.strftime(fmt) if fmt else t.isoformat(timespec="seconds")
 OUTPUT_DIR = BASE_DIR / "output"
 TEMPLATE_NAME = "template.html"
 DEFAULT_DATA_FILE = BASE_DIR / "real_data.json"
@@ -77,13 +85,13 @@ def get_path(data: dict[str, Any], path: str, default: Any = PLACEHOLDER) -> Any
 
 
 def build_code_fields() -> dict[str, str]:
-    yyyymmdd = datetime.now().strftime("%Y%m%d")
+    yyyymmdd = now_kst("%Y%m%d")
     sequence = "001"
     return {
         "yyyymmdd": yyyymmdd,
         "sequence": sequence,
         "document_id": f"AUD-WAF-{yyyymmdd}-{sequence}",
-        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "generated_at": now_kst("%Y-%m-%d %H:%M:%S (KST)"),
         "event_id": f"EVT-{yyyymmdd}-{sequence}",
         "primary_evidence_id": f"EVD-{yyyymmdd}-{sequence}-001",
     }
