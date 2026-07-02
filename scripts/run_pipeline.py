@@ -196,11 +196,11 @@ def step_zap(target: str) -> bool:
         return False
 
 
-def step_ai_report(analysis_json: str | None) -> bool:
-    _step(5, "AI 보안 보고서 생성 (ai/report_generator.py)")
+def step_ai_report(analysis_json: str | None, model: str = "qwen2.5:7b") -> bool:
+    _step(5, f"AI 보안 보고서 생성 (ai/report_generator.py, model={model})")
     if not _check_ollama():
         _skip("Ollama 미실행 — AI 보고서 스킵\n"
-              "     (Ollama 설치: https://ollama.ai  모델: ollama pull llama3.1:8b)")
+              "     (Ollama 설치: https://ollama.ai  모델: ollama pull qwen2.5:7b)")
         return False
 
     if not analysis_json:
@@ -211,7 +211,8 @@ def step_ai_report(analysis_json: str | None) -> bool:
     ai_output = ROOT / "ai" / "output"
     cmd = [sys.executable, str(ROOT / "ai" / "report_generator.py"),
            "--input", analysis_json,
-           "--output-dir", str(ai_output)]
+           "--output-dir", str(ai_output),
+           "--model", model]
     code, out, err = _run(cmd, cwd=str(ROOT / "ai"))
     if code == 0:
         _ok("AI 보고서 생성 완료")
@@ -490,7 +491,7 @@ def step_auto_pr(analysis_json: str | None, dry_run: bool) -> bool:
 def main():
     p = argparse.ArgumentParser(description="클라우드 보안 플랫폼 — 전체 파이프라인 실행")
     p.add_argument("--target",    default=None,  help="공격 대상 URL (예: http://localhost:5000)")
-    p.add_argument("--app",       default="all", choices=["dvwa", "juiceshop", "all"],
+    p.add_argument("--app",       default="all", choices=["dvwa", "juiceshop", "ghost", "all"],
                    help="공격 시뮬레이션 대상 앱 (기본: all)")
     p.add_argument("--log-dir",   default=str(ROOT / "analyzer" / "sample_logs"),
                    help="WAF 로그 디렉토리")
@@ -503,6 +504,7 @@ def main():
     p.add_argument("--skip-ai",   action="store_true", help="AI 보고서 생성 스킵")
     p.add_argument("--skip-pr",   action="store_true", help="GitHub PR 자동 생성 스킵")
     p.add_argument("--skip-fp-fn", action="store_true", help="오탐/미탐 분석 스킵")
+    p.add_argument("--ai-model",  default="qwen2.5:7b", help="AI 보고서 Ollama 모델 (기본: qwen2.5:7b)")
     args = p.parse_args()
 
     # --live: S3에서 실시간 로그 다운로드
@@ -556,7 +558,7 @@ def main():
     results["s3_security"]   = step_collect_s3_security()
 
     results["zap"]           = False if args.skip_zap else step_zap(args.target)
-    results["ai_report"]     = False if args.skip_ai  else step_ai_report(analysis_json)
+    results["ai_report"]     = False if args.skip_ai  else step_ai_report(analysis_json, args.ai_model)
     results["ai_json"]       = step_generate_ai_json(analysis_json)
 
     # PR 수집은 compliance 빌드 전에 실행 (github_pr.json을 Adapter가 읽음)
