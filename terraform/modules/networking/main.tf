@@ -120,6 +120,13 @@ resource "aws_security_group" "app" {
   }
 
   ingress {
+    from_port       = 2368
+    to_port         = 2368
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
