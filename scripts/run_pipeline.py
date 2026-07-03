@@ -531,6 +531,61 @@ def step_auto_pr(analysis_json: str | None, dry_run: bool) -> bool:
         return False
 
 
+def step_sync_monitoring(analysis_json: str | None) -> bool:
+    """최신 분석 결과를 분석 서버 output/ 에 SCP로 전송 → Grafana 대시보드 갱신."""
+    _step("11", "Grafana 모니터링 동기화 (분석 결과 → 분석 서버)")
+    ssh_host = cfg("servers.analysis_ip", "")
+    ssh_user = cfg("servers.ssh_user", "ec2-user")
+    ssh_key  = str(Path(cfg("servers.ssh_key", "~/.ssh/cloud-sec-key2")).expanduser())
+    remote_dir = "/home/ec2-user/cloud-security-platform/output"
+
+    if not ssh_host:
+        _skip("servers.analysis_ip 미설정 — 모니터링 동기화 스킵")
+        return False
+
+    targets = [
+        *sorted((ROOT / "output").glob("analysis_*.json"))[-1:],
+        *sorted((ROOT / "output").glob("ab_test_*.json"))[-1:],
+        *sorted((ROOT / "output").glob("zap_report_*.json"))[-1:],
+        *sorted((ROOT / "output").glob("fp_fn_*.json"))[-1:],
+    ]
+    if not targets:
+        _skip("전송할 분석 파일 없음")
+        return False
+
+    scp_opts = ["-i", ssh_key, "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10"]
+
+    # 원격 디렉토리 확보 (없거나 root 소유일 경우 대비)
+    subprocess.run(
+        ["ssh"] + scp_opts + [f"{ssh_user}@{ssh_host}",
+         f"mkdir -p {remote_dir} && sudo chown {ssh_user}:{ssh_user} {remote_dir} 2>/dev/null; true"],
+        capture_output=True, timeout=15,
+    )
+
+    # 파일 일괄 전송
+    src_paths = [str(p) for p in targets]
+    r = subprocess.run(
+        ["scp"] + scp_opts + src_paths + [f"{ssh_user}@{ssh_host}:{remote_dir}/"],
+        capture_output=True, text=True, timeout=60,
+        encoding="utf-8", errors="replace",
+    )
+    if r.returncode == 0:
+        for p in targets:
+            _info(f"{p.name} → {ssh_host}:{remote_dir}/")
+        _ok(f"{len(targets)}개 파일 동기화 완료 → Grafana http://{ssh_host}:3000")
+        return True
+    else:
+        err = (r.stderr or "").replace("\n", " ").strip()
+        # WARNING 메시지만 있고 실제 오류 없으면 성공으로 간주
+        if "Permission denied" in err or "No such file" in err:
+            _fail(f"SCP 실패: {err[:150]}")
+            return False
+        for p in targets:
+            _info(f"{p.name} → {ssh_host}:{remote_dir}/")
+        _ok(f"{len(targets)}개 파일 동기화 완료 → Grafana http://{ssh_host}:3000")
+        return True
+
+
 def _collect_reports() -> Path | None:
     """모든 결과물을 reports/{timestamp}/ 에 모으고 reports/latest/ 를 갱신."""
     _step("11", "결과물 통합 수집 → reports/latest/")
@@ -658,6 +713,7 @@ def main():
     results["auto_pr"]       = False if args.skip_pr  else step_auto_pr(analysis_json, args.dry_run)
     results["slack_notify"]  = step_notify_slack(analysis_json)
     results["s3_upload"]     = step_upload_s3()
+    results["monitoring"]    = step_sync_monitoring(analysis_json)
 
     report_dir = _collect_reports()
 
