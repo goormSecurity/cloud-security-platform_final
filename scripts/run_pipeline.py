@@ -14,6 +14,7 @@ run_pipeline.py — 전체 보안 파이프라인 로컬 실행기
 """
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -530,6 +531,50 @@ def step_auto_pr(analysis_json: str | None, dry_run: bool) -> bool:
         return False
 
 
+def _collect_reports() -> Path | None:
+    """모든 결과물을 reports/{timestamp}/ 에 모으고 reports/latest/ 를 갱신."""
+    _step("11", "결과물 통합 수집 → reports/latest/")
+    ts = now_kst("%Y%m%d_%H%M%S")
+    dest = ROOT / "reports" / ts
+    dest.mkdir(parents=True, exist_ok=True)
+
+    candidates: list[tuple[str, Path]] = [
+        # 파일명, 원본 경로
+        ("컴플라이언스_감사보고서.pdf",   ROOT / "compliance" / "output" / "report.pdf"),
+        ("컴플라이언스_감사보고서.html",  ROOT / "compliance" / "output" / "report.html"),
+        *[(f"AI보안보고서_{p.name}", p) for p in sorted((ROOT / "ai" / "output").glob("report_*.md"))[-1:]],
+        *[(f"WAF분석_{p.name}", p)      for p in sorted((ROOT / "output").glob("analysis_*.json"))[-1:]],
+        *[(f"AB테스트_{p.name}", p)      for p in sorted((ROOT / "output").glob("ab_test_*.json"))[-1:]],
+        *[(f"FP_FN분석_{p.name}", p)     for p in sorted((ROOT / "output").glob("fp_fn_*.json"))[-1:]],
+        *[(f"ZAP스캔_{p.name}", p)       for p in sorted((ROOT / "output").glob("zap_report_*.json"))[-1:]],
+        ("Prowler_보안점검.json",         ROOT / "compliance" / "input" / "prowler_report.json"),
+        ("Trivy_취약점스캔.json",         ROOT / "compliance" / "input" / "trivy_report.json"),
+        ("CloudTrail_변경이력.json",      ROOT / "compliance" / "input" / "cloudtrail_events.json"),
+        ("S3_보안감사.json",              ROOT / "compliance" / "input" / "s3_security.json"),
+        ("WAF_설정.json",                 ROOT / "raw" / "waf_web_acl.json"),
+    ]
+
+    copied = 0
+    for name, src in candidates:
+        if src.exists():
+            shutil.copy2(src, dest / name)
+            _info(f"{name}")
+            copied += 1
+
+    if copied == 0:
+        _fail("복사할 파일 없음")
+        return None
+
+    # reports/latest 갱신 (기존 디렉토리 교체)
+    latest = ROOT / "reports" / "latest"
+    if latest.exists():
+        shutil.rmtree(latest)
+    shutil.copytree(dest, latest)
+
+    _ok(f"{copied}개 파일 → {dest.name}/  (reports/latest/ 갱신 완료)")
+    return dest
+
+
 # ── 메인 ─────────────────────────────────────────────────────────
 
 def main():
@@ -614,6 +659,8 @@ def main():
     results["slack_notify"]  = step_notify_slack(analysis_json)
     results["s3_upload"]     = step_upload_s3()
 
+    report_dir = _collect_reports()
+
     elapsed = time.time() - start
 
     print(f"\n{C.BOLD}{C.CYAN}{'=' * 60}")
@@ -628,12 +675,9 @@ def main():
 
     print(f"\n  {ok}/{total} 단계 성공\n")
 
-    if analysis_json:
-        print(f"{C.GRAY}  분석 결과: {Path(analysis_json).name}{C.RESET}")
-
-    latest_report = _latest_file("compliance/output/*.pdf")
-    if latest_report:
-        print(f"{C.GRAY}  컴플라이언스 PDF: {Path(latest_report).name}{C.RESET}")
+    if report_dir:
+        print(f"{C.BOLD}{C.GREEN}  결과물 위치: {report_dir}{C.RESET}")
+        print(f"{C.GREEN}  최신 결과:   {ROOT / 'reports' / 'latest'}{C.RESET}")
 
     print()
 
