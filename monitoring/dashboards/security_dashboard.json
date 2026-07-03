@@ -131,22 +131,26 @@
     },
 
     {
-      "id": 15, "type": "stat", "title": "허용 요청",
+      "id": 15, "type": "stat", "title": "ZAP 알림 건수",
       "gridPos": { "x": 20, "y": 2, "w": 4, "h": 4 },
       "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "fixed", "fixedColor": "#26a69a" },
-          "thresholds": { "mode": "absolute", "steps": [{ "color": "#26a69a", "value": 0 }] },
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "#66bb6a", "value": 0 },
+            { "color": "#ffa726", "value": 5 },
+            { "color": "#ef5350", "value": 15 }
+          ]},
           "unit": "short"
         }
       },
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center" },
       "targets": [{
         "refId": "A", "type": "json", "source": "url",
-        "url": "http://json-api:5000/summary",
+        "url": "http://json-api:5000/zap-stats",
         "format": "table", "parser": "backend", "root_selector": "",
-        "columns": [{ "selector": "allowed", "text": "allowed", "type": "number" }],
+        "columns": [{ "selector": "total", "text": "total", "type": "number" }],
         "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     },
@@ -500,6 +504,154 @@
         "datasource": { "type": "loki", "uid": "loki-cloud-sec" },
         "expr": "{job=\"waf_logs\"}",
         "queryType": "range", "maxLines": 100
+      }]
+    },
+
+    {
+      "id": 90, "type": "row", "title": "자동화 실행 결과 — 최근 파이프라인",
+      "gridPos": { "x": 0, "y": 67, "w": 24, "h": 1 }, "collapsed": false
+    },
+
+    {
+      "id": 91, "type": "table", "title": "최근 파이프라인 실행 상세",
+      "gridPos": { "x": 0, "y": 68, "w": 14, "h": 9 },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "상태" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "custom.width", "value": 70 },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": { "경고": { "color": "#ef5350", "index": 0, "text": "경고" } } },
+                { "type": "value", "options": { "차단": { "color": "#ff7043", "index": 1, "text": "차단" } } },
+                { "type": "value", "options": { "탐지": { "color": "#ffa726", "index": 2, "text": "탐지" } } },
+                { "type": "value", "options": { "완료": { "color": "#66bb6a", "index": 3, "text": "완료" } } },
+                { "type": "value", "options": { "정상": { "color": "#26a69a", "index": 4, "text": "정상" } } },
+                { "type": "value", "options": { "대기": { "color": "#78909c", "index": 5, "text": "대기" } } }
+              ]}
+            ]
+          },
+          { "matcher": { "id": "byName", "options": "항목" }, "properties": [{ "id": "custom.width", "value": 160 }] },
+          { "matcher": { "id": "byName", "options": "값" },  "properties": [{ "id": "custom.width", "value": 260 }] }
+        ]
+      },
+      "options": { "footer": { "show": false }, "sortBy": [] },
+      "targets": [{
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/latest-run",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [
+          { "selector": "항목", "text": "항목", "type": "string" },
+          { "selector": "값",   "text": "값",   "type": "string" },
+          { "selector": "상태", "text": "상태", "type": "string" }
+        ],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
+      }]
+    },
+
+    {
+      "id": 92, "type": "stat", "title": "ZAP High 알림",
+      "gridPos": { "x": 14, "y": 68, "w": 5, "h": 4 },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "#66bb6a", "value": 0 },
+            { "color": "#ef5350", "value": 1 }
+          ]},
+          "unit": "short"
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center", "text": { "titleSize": 12, "valueSize": 36 } },
+      "targets": [{
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/zap-stats",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [{ "selector": "high", "text": "high", "type": "number" }],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
+      }]
+    },
+
+    {
+      "id": 93, "type": "stat", "title": "ZAP Medium 알림",
+      "gridPos": { "x": 19, "y": 68, "w": 5, "h": 4 },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "#66bb6a", "value": 0 },
+            { "color": "#ffa726", "value": 1 }
+          ]},
+          "unit": "short"
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center", "text": { "titleSize": 12, "valueSize": 36 } },
+      "targets": [{
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/zap-stats",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [{ "selector": "medium", "text": "medium", "type": "number" }],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
+      }]
+    },
+
+    {
+      "id": 94, "type": "stat", "title": "ZAP Low 알림",
+      "gridPos": { "x": 14, "y": 72, "w": 5, "h": 5 },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "#78909c" },
+          "unit": "short"
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none", "justifyMode": "center", "text": { "titleSize": 12, "valueSize": 36 } },
+      "targets": [{
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/zap-stats",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [{ "selector": "low", "text": "low", "type": "number" }],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
+      }]
+    },
+
+    {
+      "id": 95, "type": "table", "title": "현재 보안 상태",
+      "gridPos": { "x": 19, "y": 72, "w": 5, "h": 5 },
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "infinity-ds" },
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "상태" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "color-background" },
+              { "id": "custom.width", "value": 60 },
+              { "id": "mappings", "value": [
+                { "type": "value", "options": { "경고": { "color": "#ef5350", "index": 0, "text": "⚠" } } },
+                { "type": "value", "options": { "활성": { "color": "#66bb6a", "index": 1, "text": "✔" } } },
+                { "type": "value", "options": { "정상": { "color": "#26a69a", "index": 2, "text": "✔" } } }
+              ]}
+            ]
+          }
+        ]
+      },
+      "options": { "footer": { "show": false } },
+      "targets": [{
+        "refId": "A", "type": "json", "source": "url",
+        "url": "http://json-api:5000/security-status",
+        "format": "table", "parser": "backend", "root_selector": "",
+        "columns": [
+          { "selector": "항목", "text": "항목", "type": "string" },
+          { "selector": "값",   "text": "값",   "type": "string" },
+          { "selector": "상태", "text": "상태", "type": "string" }
+        ],
+        "filters": [], "url_options": { "method": "GET", "data": "" }
       }]
     }
 
