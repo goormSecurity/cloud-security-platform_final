@@ -103,6 +103,9 @@ monitoring/loki-data/
 analyzer/live_logs/
 raw/
 compliance/real_data.json
+
+# 결과물 통합 폴더 (타임스탬프 하위 디렉토리는 제외, latest만 추적 안 함)
+reports/
 compliance/input/cloudtrail_events.json
 compliance/input/prowler_report.json
 compliance/input/github_pr.json
