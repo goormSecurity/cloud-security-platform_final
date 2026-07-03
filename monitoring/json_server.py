@@ -32,7 +32,9 @@ def _load(pattern: str):
 
 @app.route("/")
 def index():
-    return "WAF API: /summary /top-ips /rule-hits /time-buckets /attack-types /action-counts /risk-distribution /ab-test /pipeline-runs"
+    return ("WAF API: /summary /top-ips /rule-hits /time-buckets /attack-types "
+            "/action-counts /risk-distribution /ab-test /pipeline-runs "
+            "/zap-stats /latest-run /security-status")
 
 
 # ── 핵심 요약 ─────────────────────────────────────────────────────
@@ -185,6 +187,91 @@ def pipeline_runs():
         except Exception:
             pass
     return jsonify(runs)
+
+
+# ── ZAP 알림 통계 ─────────────────────────────────────────────────
+@app.route("/zap-stats")
+def zap_stats():
+    data = _load("zap_report_*.json")
+    if not data:
+        return jsonify({"total": 0, "high": 0, "medium": 0, "low": 0, "informational": 0})
+    rc = data.get("risk_counts", {})
+    return jsonify({
+        "total":         data.get("total_alerts", 0),
+        "high":          rc.get("High", 0),
+        "medium":        rc.get("Medium", 0),
+        "low":           rc.get("Low", 0),
+        "informational": rc.get("Informational", 0),
+    })
+
+
+# ── 최근 실행 상세 결과 (발표 자료용) ──────────────────────────────
+@app.route("/latest-run")
+def latest_run():
+    data = _load("analysis_*.json")
+    if not data:
+        return jsonify([]), 404
+
+    s       = data.get("summary", {})
+    total   = s.get("total_requests", 0)
+    unique  = s.get("unique_ips", 0)
+    blocked = s.get("action_counts", {}).get("BLOCK", 0)
+    allowed = s.get("action_counts", {}).get("ALLOW", 0)
+
+    high_ips   = [ip["ip"] for ip in data.get("top_ips", []) if ip.get("risk_level") == "HIGH"]
+    high_count = s.get("high_risk_ips", len(high_ips))
+    high_ip_str = high_ips[0] if high_ips else "-"
+
+    rule_hits = data.get("rule_hits", {})
+    if rule_hits:
+        top_rule = max(rule_hits, key=lambda k: rule_hits[k])
+        short    = top_rule.replace("AWSManagedRules", "").replace("RuleSet", "")
+        top_rule_str = f"{short} {rule_hits[top_rule]:,}건"
+    else:
+        top_rule_str = "-"
+
+    github_status = "미연결 (github_repo 미설정)"
+    for base in (_ROOT_OUTPUT, _LOCAL_DATA):
+        for f in sorted(base.rglob("github_pr*.json"), reverse=True)[:1]:
+            try:
+                pr = json.loads(f.read_text(encoding="utf-8"))
+                url = pr.get("pr_url") or pr.get("url") or pr.get("html_url")
+                github_status = f"자동 생성 완료 ({url})" if url else "자동 생성 완료"
+            except Exception:
+                pass
+
+    rows = [
+        {"항목": "총 요청 (1시간)",    "값": f"{total:,}건",                          "상태": "정상"},
+        {"항목": "고유 IP",            "값": f"{unique:,}개",                          "상태": "정상"},
+        {"항목": "HIGH 위험 IP",       "값": f"{high_count}개  ({high_ip_str})",       "상태": "경고" if high_count > 0 else "정상"},
+        {"항목": "WAF 차단 (BLOCK)",   "값": f"{blocked:,}건",                         "상태": "차단"},
+        {"항목": "WAF 허용 (ALLOW)",   "값": f"{allowed:,}건",                         "상태": "정상"},
+        {"항목": "WAF 룰 탐지 (상위)", "값": top_rule_str,                             "상태": "탐지"},
+        {"항목": "GitHub PR",          "값": github_status,                            "상태": "완료" if "완료" in github_status else "대기"},
+    ]
+    return jsonify(rows)
+
+
+# ── 보안 상태 요약 ─────────────────────────────────────────────────
+@app.route("/security-status")
+def security_status():
+    data = _load("analysis_*.json")
+    if not data:
+        return jsonify([{"항목": "상태", "값": "데이터 없음"}])
+
+    s          = data.get("summary", {})
+    block_rate = round(s.get("block_rate", 0) * 100, 1)
+    high_ips   = [ip["ip"] for ip in data.get("top_ips", []) if ip.get("risk_level") == "HIGH"]
+    waf_mode   = "Block 모드 실제 작동 중" if block_rate > 0 else "Count 모드"
+    updated    = data.get("generated_at", "")[:16].replace("T", " ")
+
+    rows = [
+        {"항목": "WAF 모드",    "값": waf_mode,                        "상태": "활성"},
+        {"항목": "차단률",      "값": f"{block_rate}%",                 "상태": "정상" if block_rate < 50 else "경고"},
+        {"항목": "HIGH 위험 IP","값": ", ".join(high_ips) if high_ips else "없음", "상태": "경고" if high_ips else "정상"},
+        {"항목": "최종 업데이트","값": updated,                         "상태": "정상"},
+    ]
+    return jsonify(rows)
 
 
 if __name__ == "__main__":
