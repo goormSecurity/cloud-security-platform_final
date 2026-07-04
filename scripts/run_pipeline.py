@@ -29,9 +29,10 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 try:
-    from config_loader import cfg, now_kst, ollama_url as _ollama_url
+    from config_loader import cfg, now_kst, ollama_url as _ollama_url, alb_target_url as _alb_target_url
 except Exception:
     def cfg(p, d=None): return d
+    def _alb_target_url(): return ""
 
 # ── 색상 출력 ────────────────────────────────────────────────────
 class C:
@@ -220,7 +221,7 @@ def step_zap(target: str) -> bool:
         return False
 
 
-def step_ai_report(analysis_json: str | None, model: str = "qwen2.5:7b") -> bool:
+def step_ai_report(analysis_json: str | None, model: str = "llama3.2:3b") -> bool:
     _step(5, f"AI 보안 보고서 생성 (ai/report_generator.py, model={model})")
     if not _check_ollama():
         _skip("Ollama 미실행 — AI 보고서 스킵\n"
@@ -668,6 +669,13 @@ def main():
         else:
             _fail("S3 로그 수집 실패 — sample_logs로 폴백")
             # log_dir은 기본값(sample_logs) 유지
+
+        # --live + --target 미지정 시 ALB DNS 자동 사용
+        if not args.target:
+            alb_url = _alb_target_url()
+            if alb_url:
+                args.target = alb_url
+                _ok(f"--live 모드: ZAP 대상 자동 설정 → {alb_url}")
 
     print(f"\n{C.BOLD}{C.CYAN}{'=' * 60}")
     print(f"  Cloud Security Platform — 로컬 파이프라인")

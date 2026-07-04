@@ -60,7 +60,7 @@ def test_prompt_does_not_treat_every_top_ip_as_high_risk():
 
 
 def test_prompt_separates_analyzer_classification_from_waf_detection():
-    assert "attack_type_counts는 Analyzer 분류 결과" in report_generator.SYSTEM_PROMPT
+    assert "attack_type_counts는 Analyzer 분류 결과이며 WAF 탐지 결과가 아니다" in report_generator.SYSTEM_PROMPT
 
 
 def test_generation_retries_after_invalid_report(monkeypatch, tmp_path):

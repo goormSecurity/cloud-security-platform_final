@@ -20,7 +20,8 @@ SYSTEM_PROMPT = """
      나쁜 예) "약 50건의 요청이 탐지되었다" (50이 FACTS에 없으면)
 2. FACTS에 없는 IP 주소를 쓰지 않는다.
 3. FACTS에 없는 Rule ID, URI, 도메인명, User-Agent를 쓰지 않는다.
-4. risk_level=LOW인 IP를 "위험한 IP" 또는 "고위험 IP"라고 표현하지 않는다.
+4. risk_level이 LOW인 IP를 "위험한 IP" 또는 "고위험 IP"라고 표현하지 않는다.
+5. attack_type_counts는 Analyzer 분류 결과이며 WAF 탐지 결과가 아니다. 혼용하지 않는다.
 
 [섹션별 작성 지침]
 - 섹션 1~4: FACTS의 숫자·IP만 사용. 없으면 숫자 없이 서술.
