@@ -192,7 +192,12 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Terraform init
-        run: terraform -chdir=terraform init
+        run: |
+          terraform -chdir=terraform init \
+            -backend-config="bucket=cloudsecurity-6-677673473281-ap-northeast-2-an" \
+            -backend-config="key=cloud-security/terraform.tfstate" \
+            -backend-config="region=ap-northeast-2" \
+            -backend-config="encrypt=true"
 
       - name: Terraform plan
         run: terraform -chdir=terraform plan -out=tfplan
