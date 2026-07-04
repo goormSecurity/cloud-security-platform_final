@@ -18,9 +18,15 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg
+except Exception:
+    def cfg(p, d=None): return d
+
 OUTPUT_FILE = ROOT / "compliance" / "input" / "config_diff.json"
 
-DEFAULT_REGION = "ap-northeast-2"
+DEFAULT_REGION = cfg("aws.region", "ap-northeast-2")
 DEFAULT_DAYS   = 7
 
 WAF_RESOURCE_TYPES = [

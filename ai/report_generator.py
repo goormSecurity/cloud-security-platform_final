@@ -4,7 +4,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Set, Optional
 
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
@@ -18,20 +18,35 @@ if hasattr(sys.stdout, "reconfigure"):
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8")
 
+_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_ROOT / "scripts"))
+try:
+    from config_loader import now_kst
+except Exception:
+    def now_kst(fmt=None):
+        from datetime import timezone, timedelta
+        t = datetime.now(timezone(timedelta(hours=9)))
+        return t.strftime(fmt) if fmt else t.isoformat(timespec="seconds")
 
-DEFAULT_MODEL = "llama3.1:8b"
-DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
-MAX_GENERATION_ATTEMPTS = 2
+
+DEFAULT_MODEL = "qwen2.5:7b"
+try:
+    from config_loader import ollama_url as _ollama_url_fn
+    DEFAULT_OLLAMA_BASE_URL = _ollama_url_fn()
+except Exception:
+    DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
+MAX_GENERATION_ATTEMPTS = 3
 
 
+# 섹션 존재 여부는 핵심 키워드로 확인 (소형 모델의 사소한 제목 변형 허용)
 REQUIRED_SECTIONS = [
-    "# WAF 보안 분석 보고서",
-    "## 1. 공격 현황 요약",
-    "## 2. 주요 공격 유형",
-    "## 3. 위험 IP 분석",
-    "## 4. WAF 탐지 결과",
-    "## 5. 정책 개선 제안",
-    "## 6. 운영자 검토 사항",
+    "WAF 보안 분석 보고서",
+    "공격 현황 요약",
+    "주요 공격 유형",
+    "위험 IP 분석",
+    "WAF 탐지 결과",
+    "정책 개선 제안",
+    "운영자 검토 사항",
 ]
 
 
@@ -71,10 +86,10 @@ def flatten_json(data: Any, prefix: str = "") -> List[str]:
     return lines
 
 
-def build_facts_block(data: Dict[str, Any]) -> str:
+def build_facts_block(data: Dict[str, Any]) -> tuple[str, str]:
     """
-    보고서 작성에 필요한 핵심 통계만 추출해 FACTS 블록으로 변환한다.
-    전체 JSON 플랫 변환 시 4096 컨텍스트 초과로 LLM 출력이 잘리는 문제를 방지.
+    보고서 작성에 필요한 핵심 통계를 FACTS 블록과 허용 숫자 목록으로 변환한다.
+    Returns: (facts_text, allowed_numbers_text)
     """
     lines: List[str] = []
 
@@ -83,26 +98,21 @@ def build_facts_block(data: Dict[str, Any]) -> str:
 
     summary = data.get("summary") or {}
 
-    # 기본 통계
     add("total_requests", summary.get("total_requests", 0))
     add("unique_ips",     summary.get("unique_ips", 0))
     add("high_risk_ips",  summary.get("high_risk_ips", 0))
     add("block_rate",     summary.get("block_rate", 0.0))
     add("generated_at",   data.get("generated_at", "unknown"))
 
-    # WAF 액션 집계
     for action, cnt in (summary.get("action_counts") or {}).items():
         add(f"action_counts.{action}", cnt)
 
-    # 공격 유형별 건수 (Analyzer 분류)
     for atype, cnt in (summary.get("attack_type_counts") or {}).items():
         add(f"attack_type_counts.{atype}", cnt)
 
-    # WAF 룰 히트
     for rule, cnt in (data.get("rule_hits") or {}).items():
         add(f"rule_hits.{rule}", cnt)
 
-    # 위험 IP 상위 10개
     top_ips = (data.get("top_ips") or [])[:10]
     for entry in top_ips:
         ip = entry.get("ip", "?")
@@ -114,13 +124,41 @@ def build_facts_block(data: Dict[str, Any]) -> str:
         add(f"top_ip.{ip}.block_rate",    entry.get("block_rate", 0.0))
 
     if not lines:
-        return "분석 데이터가 비어 있음"
+        return "분석 데이터가 비어 있음", "없음"
 
-    return "\n".join(lines)
+    facts_text = "\n".join(lines)
+
+    # FACTS 블록에서 실제로 등장하는 숫자만 추출 → LLM에게 명시적으로 전달
+    raw_numbers = extract_numbers_from_json(data)
+
+    # block_rate 같은 소수(0.6)는 퍼센트(60)로도 쓸 수 있도록 % 버전 추가
+    # 또한 block_rate=0이면 허용률=100이 자동 파생되므로 100도 허용
+    pct_numbers: Set[str] = set()
+    for n in list(raw_numbers):
+        try:
+            v = float(n)
+            if 0 <= v <= 1:
+                pct = round(v * 100, 1)
+                pct_numbers.add(str(pct))
+                pct_numbers.add(str(int(pct)))
+                # 보완값(100 - x%)도 허용 (허용률 = 100 - 차단률)
+                complement = round(100 - pct, 1)
+                pct_numbers.add(str(complement))
+                pct_numbers.add(str(int(complement)))
+        except ValueError:
+            pass
+
+    # 섹션 번호 1~6은 항상 허용
+    allowed = sorted(raw_numbers | pct_numbers | {"0", "100", "1", "2", "3", "4", "5", "6"},
+                     key=lambda x: float(x) if x.replace(".", "").lstrip("-").isdigit() else 0)
+    allowed_numbers_text = ", ".join(allowed) if allowed else "없음"
+
+    return facts_text, allowed_numbers_text
 
 
 def call_ollama_with_langchain(
     facts: str,
+    allowed_numbers: str,
     model: str,
     ollama_base_url: str
 ) -> str:
@@ -130,7 +168,7 @@ def call_ollama_with_langchain(
     llm = ChatOllama(
         model=model,
         base_url=ollama_base_url,
-        temperature=0.1,
+        temperature=0,
     )
 
     prompt = ChatPromptTemplate.from_messages([
@@ -142,7 +180,8 @@ def call_ollama_with_langchain(
 
     try:
         result = chain.invoke({
-            "facts": facts
+            "facts": facts,
+            "allowed_numbers": allowed_numbers,
         })
 
         return result.strip()
@@ -319,7 +358,7 @@ def save_report(report: str, output_dir: Path) -> Path:
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = now_kst("%Y%m%d_%H%M%S")
     output_path = output_dir / f"report_{timestamp}.md"
 
     with output_path.open("w", encoding="utf-8") as f:
@@ -339,13 +378,15 @@ def generate_report(
     """
     data = load_json(input_path)
 
-    facts = build_facts_block(data)
+    facts, allowed_numbers = build_facts_block(data)
 
-    validation_error = None
+    validation_error: Optional[ValueError] = None
     report = ""
-    for _ in range(MAX_GENERATION_ATTEMPTS):
+    for attempt in range(MAX_GENERATION_ATTEMPTS):
+        print(f"  [생성 {attempt + 1}/{MAX_GENERATION_ATTEMPTS}] 모델 호출 중...")
         report = call_ollama_with_langchain(
             facts=facts,
+            allowed_numbers=allowed_numbers,
             model=model,
             ollama_base_url=ollama_base_url
         )
@@ -354,12 +395,20 @@ def generate_report(
         try:
             validate_report(report, data)
             validation_error = None
+            print("  [검증 통과]")
             break
         except ValueError as error:
             validation_error = error
+            print(f"  [검증 실패 {attempt + 1}/{MAX_GENERATION_ATTEMPTS}] {error}")
 
     if validation_error is not None:
-        raise validation_error
+        # 3회 모두 실패해도 최선 결과를 경고 헤더와 함께 저장 (파이프라인 중단 방지)
+        warning_header = (
+            "> **[자동 검증 경고]** 이 보고서는 데이터 검증을 통과하지 못했습니다."
+            " 수치 정확성을 반드시 수동으로 확인하세요.\n\n"
+        )
+        report = warning_header + report
+        print(f"  [경고] 검증 실패 — 최선 결과로 저장: {validation_error}")
 
     output_path = save_report(report, output_dir)
 

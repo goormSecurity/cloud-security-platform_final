@@ -692,6 +692,64 @@
               </tbody>
             </table>
           </section>
+
+
+          <div class="subsection-gap" aria-hidden="true"></div>
+          <section class="subsection"><h3>III-3. Trivy 오픈소스 취약점 스캔 결과</h3>
+            <table class="report-table key-value">
+              <thead><tr><th>항목</th><th>내용</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td>도구</td>
+                  <td>{{ get("posture.trivy.tool", "Trivy (Aqua Security, OSS)") }} — AWS 비용 없음</td>
+                </tr>
+                <tr>
+                  <td>컨테이너 이미지 스캔</td>
+                  <td>
+                    {% set imgs = get("posture.trivy.images_scanned", []) %}
+                    {% if imgs %}{% for i in imgs %}{{ i }}{% if not loop.last %}, {% endif %}{% endfor %}
+                    {% else %}스캔 데이터 없음{% endif %}
+                  </td>
+                </tr>
+                <tr>
+                  <td>컨테이너 취약점 합계</td>
+                  <td>
+                    전체 {{ get("posture.trivy.total_vulns", 0) }}건 —
+                    CRITICAL <strong style="color:#c0392b">{{ get("posture.trivy.critical", 0) }}</strong> /
+                    HIGH {{ get("posture.trivy.high", 0) }}
+                  </td>
+                </tr>
+                <tr>
+                  <td>이미지별 결과</td>
+                  <td>
+                    {% set img_results = get("posture.trivy.image_results", []) %}
+                    {% if img_results %}
+                    <ul style="margin:0;padding-left:1.2em;">
+                    {% for r in img_results %}
+                      <li>{{ r.image }}: CRITICAL={{ r.critical }} HIGH={{ r.high }} MEDIUM={{ r.medium }}</li>
+                    {% endfor %}
+                    </ul>
+                    {% else %}없음{% endif %}
+                  </td>
+                </tr>
+                <tr>
+                  <td>IaC (Terraform) 오설정</td>
+                  <td>
+                    {{ get("posture.trivy.iac_misconfigs", 0) }}건
+                    {% set iac_sev = get("posture.trivy.iac_by_severity", {}) %}
+                    {% if iac_sev %}
+                      ({% for k, v in iac_sev.items() %}{{ k }}: {{ v }}{% if not loop.last %} / {% endif %}{% endfor %})
+                    {% endif %}
+                  </td>
+                </tr>
+                <tr>
+                  <td>수집 시각</td>
+                  <td>{{ get("posture.trivy.collected_at", "—") }}</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="hint"><span class="hint-line">Trivy(오픈소스)로 DVWA·JuiceShop·Ghost CMS 컨테이너 이미지의 OS 패키지 및 언어 런타임 CVE를 탐지하고, Terraform IaC 파일의 보안 오설정을 정적 분석한다. AWS 유료 서비스 비용 없이 동등한 취약점 관리 달성.</span></p>
+          </section>
         </section>
 
         <div class="section-gap" aria-hidden="true"></div>

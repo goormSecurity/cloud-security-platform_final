@@ -29,9 +29,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg
+except Exception:
+    def cfg(p, d=None): return d
+
 OUTPUT_DIR = ROOT / "compliance" / "input"
 
-DEFAULT_REGION = "ap-northeast-2"
+DEFAULT_REGION = cfg("aws.region", "ap-northeast-2")
 
 
 def _client(service, region):

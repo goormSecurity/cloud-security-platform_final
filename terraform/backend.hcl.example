@@ -1,0 +1,14 @@
+# Terraform S3 백엔드 설정 예시
+#
+# 사용법:
+#   1. 이 파일을 backend.hcl 로 복사
+#   2. 자신의 AWS 환경에 맞게 값 수정
+#   3. terraform init -backend-config=backend.hcl
+#
+# backend.hcl 은 .gitignore 에 포함됨 (계정 정보 보호)
+
+bucket = "내-terraform-state-버킷명"   # S3 state 버킷 (직접 생성 필요)
+key    = "cloud-security/terraform.tfstate"
+region = "ap-northeast-2"              # 버킷이 위치한 리전
+encrypt      = true
+use_lockfile = true                    # S3 native locking (AWS provider 5.x+)

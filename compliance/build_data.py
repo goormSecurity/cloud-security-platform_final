@@ -34,9 +34,18 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg, now_kst, KST
+except Exception:
+    def cfg(p, d=None): return d
+
 OUTPUT_DIR = ROOT / "output"
 COMPLIANCE_DIR = ROOT / "compliance"
-INPUT_DIR = COMPLIANCE_DIR / "input"   # 혜수 팀 등 raw 파일 drop 위치
+INPUT_DIR = COMPLIANCE_DIR / "input"
+
+_WAF_BUCKET = cfg("buckets.waf_logs", "aws-waf-logs-cloud-sec-dev")
+_PROJECT    = cfg("project.name",     "cloud-sec")
 RAW_DIR = ROOT / "raw"                 # WAF/인프라 팀 raw 파일 위치
 ATTACK_SIM_DIR = ROOT / "attack_simulation" / "output"
 
@@ -322,42 +331,132 @@ def _parse_s3_security(data):
 # ── 7. Prowler 🔴 미구현 ────────────────────────────────────────
 def _parse_prowler(data):
     if not data:
-        return {"mfa_enabled": True, "root_used": False, "findings": []}
+        # 데이터 없으면 "확인 필요" 처리를 위해 _data_collected=False 표시
+        return {"mfa_enabled": None, "root_used": None, "findings": [], "_data_collected": False}
     items = data if isinstance(data, list) else []
-    mfa_ok = all(
-        f.get("status") == "PASS"
-        for f in items
-        if "mfa" in (f.get("check_id", "") + f.get("service", "")).lower()
-    )
-    return {"mfa_enabled": mfa_ok, "root_used": False,
-            "findings": [f for f in items if f.get("status") == "FAIL"][:10]}
+    mfa_checks = [f for f in items if "mfa" in (f.get("check_id", "") + f.get("service", "")).lower()]
+    mfa_ok = bool(mfa_checks) and all(f.get("status") == "PASS" for f in mfa_checks)
+    return {
+        "mfa_enabled": mfa_ok,
+        "root_used": any(
+            "root" in (f.get("check_id", "") + f.get("service", "")).lower()
+            and f.get("status") == "FAIL"
+            for f in items
+        ),
+        "findings": [f for f in items if f.get("status") == "FAIL"][:10],
+        "_data_collected": True,
+    }
+
+
+# ── 8. Trivy 🟡 ─────────────────────────────────────────────────
+def _parse_trivy(data: dict | None) -> dict:
+    if not data or not isinstance(data, dict):
+        return {"total_vulns": 0, "critical": 0, "high": 0, "images": [], "iac_misconfigs": 0, "_data_collected": False}
+    s = data.get("summary", {})
+    imgs = data.get("images", {})
+    iac  = data.get("iac", {})
+    return {
+        "tool":          data.get("tool", "Trivy"),
+        "total_vulns":   s.get("total_vulns", 0),
+        "critical":      s.get("critical", 0),
+        "high":          s.get("high", 0),
+        "images_scanned": imgs.get("scanned", []),
+        "image_results": [
+            {
+                "image":    r.get("image", ""),
+                "total":    r.get("total", 0),
+                "critical": r.get("by_severity", {}).get("CRITICAL", 0),
+                "high":     r.get("by_severity", {}).get("HIGH", 0),
+                "medium":   r.get("by_severity", {}).get("MEDIUM", 0),
+                "top_vulns": r.get("top_vulns", [])[:5],
+            }
+            for r in imgs.get("results", [])
+        ],
+        "iac_misconfigs":    iac.get("total", 0),
+        "iac_by_severity":   iac.get("by_severity", {}),
+        "iac_top":           (iac.get("misconfigs") or [])[:5],
+        "collected_at":      data.get("collected_at", ""),
+        "_data_collected":   True,
+    }
 
 
 # ── 판정 로직 ────────────────────────────────────────────────────
 def _pci_verdict(e_num, ana, waf, change):
-    if e_num == 1: return "충족"   # WAF 배치 확인
-    if e_num == 2: return "충족"   # ALB 연결 (Terraform 정의)
-    if e_num == 3: return "충족"   # WAF 상시 활성화
-    if e_num == 4:
+    """PCI DSS 요건 판정 — raw/waf_*.json 실데이터 기반"""
+    if e_num == 1:  # WAF 배치 확인
+        if not waf["web_acl_exists"]:
+            return "수집 필요"   # collect_waf.py 미실행
+        return "충족"
+
+    if e_num == 2:  # ALB 연결
+        if not waf["web_acl_exists"]:
+            return "수집 필요"
+        return "충족" if waf["associated_resources"] else "부분충족"
+
+    if e_num == 3:  # WAF 상시 활성화 (룰 존재 여부 확인)
+        if not waf["web_acl_exists"]:
+            return "수집 필요"
+        return "충족" if waf["rules"] else "부분충족"
+
+    if e_num == 4:  # 변경관리 증적
         has_pr = bool(change.get("github_pulls"))
         has_ct = bool(change.get("cloudtrail"))
-        if has_pr or has_ct: return "충족"
-        return "부분충족"           # Terraform 관리 중이나 수집기 미완료
-    if e_num == 5:
-        return "충족" if ana["summary"].get("block_rate", 0) > 0 else "부분충족"
+        if has_pr and has_ct: return "충족"
+        if has_pr or has_ct:  return "부분충족"
+        return "미충족"
+
+    if e_num == 5:  # 실제 차단 동작
+        block_rate = ana["summary"].get("block_rate", 0)
+        if block_rate >= 0.1: return "충족"
+        if block_rate > 0:    return "부분충족"
+        return "미충족"
+
     return "충족"
 
 
-def _ismsp_verdict(item, ana, waf, prowler, change):
-    if item == "2.5": return "적정" if prowler.get("mfa_enabled", True) else "미흡"
-    if item == "2.6": return "적정"
-    if item == "2.7": return "적정"
-    if item == "2.8": return "조건부"
-    if item == "2.9": return "적정" if change.get("github_pulls") else "미흡"
-    if item == "2.10": return "적정"
-    if item == "2.11":
+def _ismsp_verdict(item, ana, waf, prowler, change, posture=None):
+    """ISMS-P 판정 — 실데이터 기반, 수집 안 된 항목은 '확인 필요'로 표시"""
+    posture = posture or {}
+
+    if item == "2.5":  # MFA 활성화
+        if not prowler.get("_data_collected"):
+            return "확인 필요"   # Prowler 미실행
+        return "적정" if prowler.get("mfa_enabled") else "미흡"
+
+    if item == "2.6":  # 고위험 IP 차단
+        high_ips = [ip for ip in ana.get("top_ips", []) if ip.get("risk_level") == "HIGH"]
+        if not high_ips:
+            return "적정"   # HIGH 위험 IP 없음
+        ipset_addrs = {addr.split("/")[0] for addr in waf.get("ipset_addresses", [])}
+        blocked = [ip for ip in high_ips if ip.get("ip") in ipset_addrs]
+        return "적정" if blocked else "미흡"
+
+    if item == "2.7":  # WAF 정책 설정 적절성
+        if not waf["web_acl_exists"]:
+            return "확인 필요"
+        return "적정" if waf["rules"] else "미흡"
+
+    if item == "2.8":  # 보안 모니터링 운영
         rule_hits = sum(ana.get("rule_hits", {}).values())
-        return "적정" if rule_hits > 0 or ana["summary"].get("total_requests", 0) > 0 else "미흡"
+        if rule_hits > 0:
+            return "적정"   # 실제 탐지 이력 있음
+        return "조건부"
+
+    if item == "2.9":  # 변경관리 PR 이력
+        return "적정" if change.get("github_pulls") else "미흡"
+
+    if item == "2.10":  # 로그 보관 (S3 + Object Lock)
+        s3lc = posture.get("s3_lifecycle", {})
+        if s3lc.get("object_lock_enabled"):
+            return "적정"
+        if s3lc.get("status") == "UNKNOWN":
+            return "확인 필요"
+        return "조건부"
+
+    if item == "2.11":  # WAF 룰 실제 탐지
+        rule_hits = sum(ana.get("rule_hits", {}).values())
+        return "적정" if rule_hits > 0 else "미흡"
+
     return "적정"
 
 
@@ -438,7 +537,7 @@ def _recommendations(ana, waf):
 
 
 def _build_evidence_checks(date_code, seq):
-    bucket = "aws-waf-logs-cloud-sec-dev"
+    bucket = _WAF_BUCKET
     tmpl = {"object_lock": {"ObjectLockMode": "COMPLIANCE", "retain_until_valid": True},
             "encryption": {"ServerSideEncryption": "aws:kms", "kms_key_valid": True},
             "check_result": "PASS"}
@@ -457,7 +556,7 @@ def _build_evidence_checks(date_code, seq):
 
 # ── 메인 빌드 ────────────────────────────────────────────────────
 def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path=None):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(KST)
     date_code = now.strftime("%Y%m%d")
     seq = "001"
 
@@ -516,6 +615,11 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
     s3sec_raw = _load_json(INPUT_DIR / "s3_security.json", "S3 버킷 보안 감사 🟡")
     s3_security = _parse_s3_security(s3sec_raw)
 
+    # 🟡 Trivy 컨테이너·IaC 취약점 스캔 (collect_trivy 출력, OSS)
+    trivy_raw = _load_json(INPUT_DIR / "trivy_report.json", "Trivy 취약점 스캔 🟡")
+    trivy = _parse_trivy(trivy_raw if isinstance(trivy_raw, dict) else None)
+
+
     # ── 조합 ────────────────────────────────────────────────────
     block_rate = ana["summary"].get("block_rate", 0)
     buckets = ana["time_buckets"]
@@ -545,8 +649,16 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
         "needs_action": ai_risk.get("needs_action", ana["risk_level"] == "HIGH"),
     }
 
+    # posture 딕셔너리: _ismsp_verdict 2.10 판정에 필요
+    posture_data = {
+        "s3_lifecycle": {
+            "object_lock_enabled": (objlock_raw or {}).get("ObjectLockEnabled") == "Enabled",
+            "status": (objlock_raw or {}).get("status", "UNKNOWN"),
+        },
+    }
+
     pci = {f"e{i}": {"verdict": _pci_verdict(i, ana, waf, change)} for i in range(1, 6)}
-    ismsp = {item: {"verdict": _ismsp_verdict(item, ana, waf, prowler, change)}
+    ismsp = {item: {"verdict": _ismsp_verdict(item, ana, waf, prowler, change, posture_data)}
              for item in ["2.5", "2.6", "2.7", "2.8", "2.9", "2.10", "2.11"]}
 
     pci_not_ok = sum(1 for v in pci.values() if v["verdict"] != "충족")
@@ -569,8 +681,8 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
             "period_start": period_start,
             "period_end": period_end,
             "generated_at": now.strftime("%Y-%m-%d %H:%M:%S"),
-            "environment_touched": ["AWS WAF", "ALB", "S3", "KMS", "CloudTrail", "Config", "Prowler", "GitHub"],
-            "evidence_bucket": "aws-waf-logs-cloud-sec-dev",
+            "environment_touched": ["AWS WAF", "ALB", "S3", "KMS", "CloudTrail", "Config", "Prowler", "Trivy", "GitHub"],
+            "evidence_bucket": _WAF_BUCKET,
             "analyzer_file": ana_file.name,
             "total_requests": ana["summary"].get("total_requests", 0),
             "final_verdict": final_verdict,
@@ -604,7 +716,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
             "waf_describe": {
                 "status": "배치 확인",
                 "web_acl_exists": True,
-                "associated_resources": waf["associated_resources"] or ["alb/cloud-sec-alb"],
+                "associated_resources": waf["associated_resources"] or [f"alb/{_PROJECT}-alb"],
                 "rules_in_count_mode": waf["count_rules"],
             },
             "waf_association": {"associated": True},
@@ -628,6 +740,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
                 "status": (objlock_raw or {}).get("status", "UNKNOWN"),
             },
             "prowler": prowler,
+            "trivy": trivy,
             "config_diff": {
                 "recorder_status": (cfgdiff_raw or {}).get("recorder_status", "NOT_CONFIGURED"),
                 "drift_detected": (cfgdiff_raw or {}).get("drift_detected", False),
