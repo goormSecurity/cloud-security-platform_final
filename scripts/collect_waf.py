@@ -20,12 +20,17 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg
+except Exception:
+    def cfg(p, d=None): return d
+
 RAW_DIR = ROOT / "raw"
 
-# Terraform에 정의된 기본값
-DEFAULT_REGION  = "ap-northeast-2"
-DEFAULT_SCOPE   = "REGIONAL"
-DEFAULT_ACL_NAME = "cloud-sec-web-acl"
+DEFAULT_REGION   = cfg("aws.region",   "ap-northeast-2")
+DEFAULT_SCOPE    = "REGIONAL"
+DEFAULT_ACL_NAME = cfg("waf.acl_name", "cloud-sec-web-acl")
 
 
 def _boto3_client(service, region):

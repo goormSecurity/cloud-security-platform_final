@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -10,8 +12,15 @@ from typing import Any
 from jinja2 import ChainableUndefined, Environment, FileSystemLoader, select_autoescape
 from playwright.sync_api import sync_playwright
 
-
 BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR.parent / "scripts"))
+try:
+    from config_loader import now_kst
+except Exception:
+    def now_kst(fmt=None):
+        from datetime import timezone
+        t = datetime.now(timezone.utc)
+        return t.strftime(fmt) if fmt else t.isoformat(timespec="seconds")
 OUTPUT_DIR = BASE_DIR / "output"
 TEMPLATE_NAME = "template.html"
 DEFAULT_DATA_FILE = BASE_DIR / "real_data.json"
@@ -77,13 +86,13 @@ def get_path(data: dict[str, Any], path: str, default: Any = PLACEHOLDER) -> Any
 
 
 def build_code_fields() -> dict[str, str]:
-    yyyymmdd = datetime.now().strftime("%Y%m%d")
+    yyyymmdd = now_kst("%Y%m%d")
     sequence = "001"
     return {
         "yyyymmdd": yyyymmdd,
         "sequence": sequence,
         "document_id": f"AUD-WAF-{yyyymmdd}-{sequence}",
-        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "generated_at": now_kst("%Y-%m-%d %H:%M:%S (KST)"),
         "event_id": f"EVT-{yyyymmdd}-{sequence}",
         "primary_evidence_id": f"EVD-{yyyymmdd}-{sequence}-001",
     }
@@ -174,6 +183,42 @@ def build_attachment_rows(data: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+def _render_pdf(html_path: str, pdf_path: str) -> None:
+    """HTML → PDF 변환. Chromium 미설치 시 자동 설치 후 재시도."""
+    def _do() -> None:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            page = browser.new_page()
+            page.goto(f"file://{html_path}", wait_until="networkidle")
+            page.pdf(
+                path=pdf_path,
+                format="A4",
+                print_background=True,
+                prefer_css_page_size=True,
+                margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
+            )
+            browser.close()
+
+    try:
+        _do()
+    except Exception as e:
+        msg = str(e).lower()
+        if "executable" in msg or "browser was not found" in msg or "chromium" in msg:
+            print("[render] Playwright Chromium 미설치 — 자동 설치 중 (약 1분)...")
+            r = subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium"],
+                capture_output=True, text=True,
+            )
+            if r.returncode != 0:
+                raise RuntimeError(
+                    f"playwright install chromium 실패:\n{r.stderr or r.stdout}"
+                ) from e
+            print("[render] Chromium 설치 완료 — 재시도")
+            _do()
+        else:
+            raise
+
+
 def render(data_file: str | None = None) -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     resolved = _resolve_data_file(data_file)
@@ -250,18 +295,7 @@ def render(data_file: str | None = None) -> None:
     html_path = os.path.abspath("output/report.html")
     pdf_path = os.path.abspath("output/report.pdf")
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page()
-        page.goto(f"file://{html_path}", wait_until="networkidle")
-        page.pdf(
-            path=pdf_path,
-            format="A4",
-            print_background=True,
-            prefer_css_page_size=True,
-            margin={"top": "0", "right": "0", "bottom": "0", "left": "0"},
-        )
-        browser.close()
+    _render_pdf(html_path, pdf_path)
     print("PDF OK")
     print(PDF_FILE)
 

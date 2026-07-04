@@ -2,31 +2,39 @@
 """
 zap_scanner.py — OWASP ZAP 자동화 스캐너
 
-Docker로 ZAP을 실행하여 대상 URL에 대한 활성 스캔을 수행하고
+로컬 Docker 또는 SSH 원격 서버에서 ZAP을 실행하여 대상 URL을 스캔하고
 WAF 차단율 검증 결과를 JSON으로 저장한다.
 
 사용 예:
-    python security/zap_scanner.py --target http://localhost:5000
-    python security/zap_scanner.py --target http://localhost:5000 --baseline-only
-    python security/zap_scanner.py --target http://dvwa.local --out output/
+    python security/zap_scanner.py --target http://alb.example.com
+    python security/zap_scanner.py --target http://alb.example.com --baseline-only
+    python security/zap_scanner.py --target http://alb.example.com --ssh-host <분석서버IP>
 """
 import argparse
 import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg, now_kst
+except Exception:
+    def cfg(p, d=None): return d
+
 try:
     import requests
 except ImportError:
-    sys.exit("requests 패키지가 필요합니다: pip install requests")
+    requests = None
 
-ZAP_IMAGE = "ghcr.io/zaproxy/zaproxy:stable"
-ZAP_PORT = 8090
-ZAP_API_KEY = "cloud-sec-zap-key"
+ZAP_IMAGE      = "ghcr.io/zaproxy/zaproxy:stable"
+ZAP_PORT       = 8090
+ZAP_API_KEY    = "cloud-sec-zap-key"
 CONTAINER_NAME = "cloud-sec-zap"
 
 
@@ -180,14 +188,14 @@ class ZAPScanner:
             summary = self._summarize(alerts)
 
             result = {
-                "generated_at": datetime.now().isoformat(),
+                "generated_at": now_kst(),
                 "target_url": self.target_url,
                 "scan_type": "baseline" if self.baseline_only else "active",
                 **summary,
             }
 
             Path(output_dir).mkdir(parents=True, exist_ok=True)
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            ts = now_kst("%Y%m%d_%H%M%S")
             out_path = os.path.join(output_dir, f"zap_report_{ts}.json")
             with open(out_path, "w", encoding="utf-8") as f:
                 json.dump(result, f, ensure_ascii=False, indent=2)
@@ -203,16 +211,127 @@ class ZAPScanner:
             self.stop()
 
 
+def run_via_ssh(target_url: str, ssh_host: str, ssh_user: str, ssh_key: str,
+                baseline_only: bool, output_dir: str) -> dict:
+    """분석 서버(Docker 있음)에 SSH로 접속해서 ZAP 실행 후 결과 회수."""
+    key_path = str(Path(ssh_key).expanduser())
+    ts       = now_kst("%Y%m%d_%H%M%S")
+    remote_out = f"/tmp/zap_report_{ts}.json"
+    scan_flag  = "-b" if baseline_only else ""          # -b = baseline only
+
+    # ZAP automation 프레임워크: zap-baseline.py (빠름) or zap-full-scan.py
+    zap_script = "zap-baseline.py" if baseline_only else "zap-full-scan.py"
+
+    remote_cmd = (
+        f"docker run --rm --name cloud-sec-zap-{ts} "
+        f"--network host "
+        f"ghcr.io/zaproxy/zaproxy:stable "
+        f"{zap_script} -t {target_url} -J {remote_out} -I; "
+        f"cat {remote_out}"
+    )
+
+    print(f"[ZAP] SSH 원격 실행: {ssh_user}@{ssh_host}")
+    print(f"[ZAP] 스캔 유형: {'baseline' if baseline_only else 'full'} → {target_url}")
+
+    ssh_base = [
+        "ssh", "-i", key_path,
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "ConnectTimeout=10",
+        f"{ssh_user}@{ssh_host}",
+    ]
+
+    # ZAP 이미지 pull (없으면 자동)
+    print("[ZAP] 이미지 확인 중 (첫 실행 시 pull 수 분 소요)...")
+    subprocess.run(ssh_base + [f"docker pull ghcr.io/zaproxy/zaproxy:stable"],
+                   capture_output=True)
+
+    # 스캔 실행 (stdout에 JSON 출력)
+    result = subprocess.run(
+        ssh_base + [remote_cmd],
+        capture_output=True, text=True, timeout=600
+    )
+
+    # JSON 파싱 (마지막 { ... } 블록)
+    raw = result.stdout
+    json_start = raw.rfind("{")
+    json_end   = raw.rfind("}") + 1
+    zap_json   = {}
+    if json_start >= 0 and json_end > json_start:
+        try:
+            zap_json = json.loads(raw[json_start:json_end])
+        except json.JSONDecodeError:
+            pass
+
+    # 표준 출력 형식으로 변환
+    alerts     = zap_json.get("site", [{}])[0].get("alerts", []) if zap_json else []
+    risk_map   = {"High": [], "Medium": [], "Low": [], "Informational": []}
+    for a in alerts:
+        risk = a.get("riskdesc", "Informational").split(" ")[0]
+        risk_map.setdefault(risk, []).append({
+            "name":        a.get("alert"),
+            "url":         a.get("uri") or a.get("url"),
+            "description": str(a.get("desc", ""))[:200],
+            "solution":    str(a.get("solution", ""))[:200],
+            "cwe":         a.get("cweid"),
+        })
+
+    summary = {
+        "total_alerts":           len(alerts),
+        "risk_counts":            {k: len(v) for k, v in risk_map.items()},
+        "block_rate_simulation":  f"{round(len(risk_map['High']) / max(len(alerts), 1) * 100, 1)}%",
+        "details":                risk_map,
+    }
+    output = {
+        "generated_at": now_kst(),
+        "target_url":   target_url,
+        "scan_type":    "baseline" if baseline_only else "full",
+        "executor":     f"ssh://{ssh_user}@{ssh_host}",
+        **summary,
+    }
+
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    out_path = Path(output_dir) / f"zap_report_{ts}.json"
+    out_path.write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    print(f"[ZAP] 보고서 저장: {out_path}")
+    print(f"[ZAP] 알림 {output['total_alerts']}건 | "
+          f"High {output['risk_counts']['High']} "
+          f"Medium {output['risk_counts']['Medium']} "
+          f"Low {output['risk_counts']['Low']}")
+    return output
+
+
 def main():
-    p = argparse.ArgumentParser(description="OWASP ZAP 자동 스캐너")
-    p.add_argument("--target", required=True, help="스캔 대상 URL (예: http://localhost:5000)")
-    p.add_argument("--baseline-only", action="store_true", help="Baseline 스캔만 (Active 스캔 생략)")
-    p.add_argument("--port", type=int, default=ZAP_PORT, help=f"ZAP API 포트 (기본 {ZAP_PORT})")
-    p.add_argument("--out", default="output", help="결과 저장 디렉토리")
+    p = argparse.ArgumentParser(description="OWASP ZAP 자동 스캐너 (로컬 Docker 또는 SSH)")
+    p.add_argument("--target",        required=True, help="스캔 대상 URL")
+    p.add_argument("--baseline-only", action="store_true", help="Baseline 스캔만 (빠름)")
+    p.add_argument("--port",    type=int, default=ZAP_PORT, help=f"ZAP API 포트 (로컬 모드, 기본 {ZAP_PORT})")
+    p.add_argument("--out",           default="output",     help="결과 저장 디렉토리")
+    p.add_argument("--ssh-host",      default="",           help="원격 서버 IP (로컬 Docker 없을 때)")
+    p.add_argument("--ssh-user",      default="ec2-user",   help="SSH 유저")
+    p.add_argument("--ssh-key",       default="",           help="SSH 키 경로")
     args = p.parse_args()
 
-    scanner = ZAPScanner(args.target, port=args.port, baseline_only=args.baseline_only)
-    result = scanner.scan_and_report(output_dir=args.out)
+    # SSH 원격 모드: --ssh-host 지정 또는 platform.yaml에 servers.analysis_ip 있을 때
+    ssh_host = args.ssh_host or cfg("servers.analysis_ip", "")
+    ssh_key  = args.ssh_key  or cfg("servers.ssh_key",     "~/.ssh/cloud-sec-key2")
+    ssh_user = args.ssh_user or cfg("servers.ssh_user",    "ec2-user")
+
+    local_docker = subprocess.run(["docker", "info"], capture_output=True).returncode == 0
+
+    if not local_docker and ssh_host:
+        result = run_via_ssh(args.target, ssh_host, ssh_user, ssh_key,
+                             args.baseline_only, args.out)
+    else:
+        if not local_docker:
+            print("[ZAP] 로컬 Docker 없음. --ssh-host 또는 platform.yaml servers.analysis_ip 설정 필요",
+                  file=sys.stderr)
+            sys.exit(1)
+        if requests is None:
+            sys.exit("requests 패키지가 필요합니다: pip install requests")
+        scanner = ZAPScanner(args.target, port=args.port, baseline_only=args.baseline_only)
+        result  = scanner.scan_and_report(output_dir=args.out)
+
     return 0 if result["risk_counts"]["High"] == 0 else 1
 
 

@@ -13,3 +13,7 @@ output "dvwa_target_group_arn" {
 output "juiceshop_target_group_arn" {
   value = aws_lb_target_group.juiceshop.arn
 }
+
+output "ghost_target_group_arn" {
+  value = aws_lb_target_group.ghost.arn
+}

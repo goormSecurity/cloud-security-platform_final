@@ -1,0 +1,48 @@
+# Cloud Security Platform — 환경 설정 파일
+#
+# 사용법:
+#   1. 이 파일을 platform.yaml 로 복사
+#   2. 자신의 AWS 환경에 맞게 값 수정
+#   3. 또는 자동 생성:  python scripts/generate_config.py
+#
+# platform.yaml 은 .gitignore 에 포함됨 (계정 정보 노출 방지)
+
+aws:
+  region: ap-northeast-2        # AWS 리전
+  account_id: "123456789012"    # 12자리 계정 ID (aws sts get-caller-identity)
+
+project:
+  name: cloud-sec               # Terraform project_name 변수와 동일하게
+  environment: dev              # dev / staging / prod
+
+buckets:
+  waf_logs: aws-waf-logs-cloud-sec-dev          # WAF 로그 버킷 (aws-waf-logs- 로 시작해야 함)
+  audit_evidence: cloud-sec-audit-evidence-dev  # 감사 증적 버킷 (Object Lock)
+  alb_logs: cloud-sec-alb-logs-dev              # ALB 액세스 로그 버킷
+  cloudtrail: cloud-sec-cloudtrail-dev          # CloudTrail 로그 버킷
+
+waf:
+  acl_name: cloud-sec-web-acl   # WAF WebACL 이름
+
+alb:
+  dns_name: ""                  # ALB DNS (terraform output alb_dns_name)
+                                # 예: cloud-sec-alb-xxxxxxxxx.ap-northeast-2.elb.amazonaws.com
+
+cloudtrail:
+  trail_name: cloud-sec-trail   # CloudTrail 트레일 이름
+
+servers:
+  analysis_ip: ""               # 분석 서버 IP (terraform output analysis_public_ip)
+  app_ip: ""                    # 앱 서버 IP (terraform output app_public_ip)
+                                # — 컨테이너 실행 서버, Trivy 원격 스캔 대상
+  ollama_url: ""                # Ollama URL (비우면 analysis_ip:11434 자동 사용)
+                                # 예: http://3.39.252.12:11434
+  ssh_user: ec2-user            # EC2 SSH 유저 (Amazon Linux 기본값)
+  ssh_key: ~/.ssh/cloud-sec-key2  # SSH 키 경로
+
+# ── 선택 항목 (없으면 해당 기능 비활성) ───────────────────────────
+integrations:
+  slack_webhook: ""             # Slack Incoming Webhook URL (또는 env: SLACK_WEBHOOK_URL)
+  discord_webhook: ""           # Discord Webhook URL (또는 env: DISCORD_WEBHOOK_URL)
+  github_repo: ""               # owner/repo 형식 (또는 env: GITHUB_REPOSITORY)
+  abuseipdb_key: ""             # AbuseIPDB API Key (또는 env: ABUSEIPDB_API_KEY)

@@ -24,6 +24,10 @@ resource "aws_instance" "app" {
   subnet_id              = var.public_subnet_ids[0]
   iam_instance_profile   = aws_iam_instance_profile.app.name
 
+  lifecycle {
+    ignore_changes = [ami, user_data]
+  }
+
   user_data = base64encode(<<-EOF
     #!/bin/bash
     yum update -y
@@ -51,7 +55,7 @@ resource "aws_instance" "app" {
   )
 
   root_block_device {
-    volume_size = 20
+    volume_size = 30
     volume_type = "gp3"
   }
 
@@ -63,51 +67,22 @@ resource "aws_instance" "app" {
 
 # 분석 서버 (Grafana + Loki)
 resource "aws_instance" "analysis" {
-  ami                    = data.aws_ami.amazon_linux.id
-  instance_type          = var.instance_type_analysis
-  key_name               = aws_key_pair.main.key_name
-  vpc_security_group_ids = [aws_security_group.analysis.id]
-  subnet_id              = var.public_subnet_ids[0]
-  iam_instance_profile   = aws_iam_instance_profile.analysis.name
+  ami                         = data.aws_ami.amazon_linux.id
+  instance_type               = var.instance_type_analysis
+  key_name                    = aws_key_pair.main.key_name
+  vpc_security_group_ids      = [aws_security_group.analysis.id]
+  subnet_id                   = var.public_subnet_ids[0]
+  iam_instance_profile        = aws_iam_instance_profile.analysis.name
+  user_data_replace_on_change = true
 
-  user_data = base64encode(<<-EOF
-    #!/bin/bash
-    yum update -y
-    yum install -y docker python3 python3-pip git
-    systemctl start docker
-    systemctl enable docker
-    usermod -aG docker ec2-user
+  lifecycle {
+    ignore_changes = [ami, user_data, root_block_device]
+  }
 
-    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
-      -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
-
-    mkdir -p /opt/monitoring
-    cat > /opt/monitoring/docker-compose.yml << 'COMPOSE'
-version: '3'
-services:
-  loki:
-    image: grafana/loki:latest
-    ports:
-      - "3100:3100"
-    restart: always
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin123!
-    depends_on:
-      - loki
-    restart: always
-COMPOSE
-
-    cd /opt/monitoring && docker-compose up -d
-  EOF
-  )
+  user_data = base64encode(file("${path.module}/templates/analysis_setup.sh"))
 
   root_block_device {
-    volume_size = 20
+    volume_size = 30
     volume_type = "gp3"
   }
 
@@ -168,8 +143,37 @@ resource "aws_iam_role_policy" "analysis_s3" {
         ]
       },
       {
+        Effect = "Allow"
+        Action = ["s3:PutObject", "s3:PutObjectAcl", "s3:ListAllMyBuckets"]
+        Resource = [
+          "arn:aws:s3:::${var.project_name}-audit-evidence-*",
+          "arn:aws:s3:::${var.project_name}-audit-evidence-*/*",
+          "arn:aws:s3:::*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = ["wafv2:GetWebACL", "wafv2:ListWebACLs", "wafv2:GetLoggingConfiguration",
+        "wafv2:ListIPSets", "wafv2:GetIPSet", "wafv2:UpdateIPSet"]
+        Resource = "*"
+      },
+      {
         Effect   = "Allow"
-        Action   = ["wafv2:UpdateIPSet", "wafv2:GetIPSet"]
+        Action   = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath"]
+        Resource = "arn:aws:ssm:ap-northeast-2:*:parameter/cloud-sec/*"
+      },
+      {
+        Effect = "Allow"
+        Action = ["cloudtrail:LookupEvents", "cloudtrail:DescribeTrails", "cloudtrail:GetTrail",
+        "cloudtrail:GetTrailStatus"]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = ["iam:ListUsers", "iam:ListRoles", "iam:ListPolicies",
+          "iam:GetAccountPasswordPolicy", "iam:GenerateCredentialReport",
+          "iam:GetCredentialReport", "iam:ListAccessKeys", "iam:ListMFADevices",
+        "iam:ListAttachedRolePolicies", "iam:ListRolePolicies"]
         Resource = "*"
       }
     ]
@@ -179,6 +183,16 @@ resource "aws_iam_role_policy" "analysis_s3" {
 resource "aws_iam_instance_profile" "analysis" {
   name = "${var.project_name}-analysis-profile"
   role = aws_iam_role.analysis.name
+}
+
+# 분석 서버 Elastic IP (재시작 후에도 IP 고정)
+resource "aws_eip" "analysis" {
+  instance = aws_instance.analysis.id
+  domain   = "vpc"
+
+  tags = {
+    Name = "${var.project_name}-analysis-eip"
+  }
 }
 
 # 분석 서버 보안그룹
@@ -204,6 +218,14 @@ resource "aws_security_group" "analysis" {
   ingress {
     from_port   = 3100
     to_port     = 3100
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Ollama LLM API"
+    from_port   = 11434
+    to_port     = 11434
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }

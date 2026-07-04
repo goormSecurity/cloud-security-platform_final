@@ -17,14 +17,24 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import sys as _sys
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_BUCKET   = "aws-waf-logs-cloud-sec-dev"
-DEFAULT_PREFIX   = "AWSLogs/677673473281/WAFLogs/ap-northeast-2/cloud-sec-web-acl"
+_sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg, waf_log_prefix
+except Exception:
+    def cfg(p, d=None): return d
+    def waf_log_prefix(): return ""
+
+DEFAULT_BUCKET   = cfg("buckets.waf_logs", "aws-waf-logs-cloud-sec-dev")
+DEFAULT_PREFIX   = waf_log_prefix() or "AWSLogs//WAFLogs//"
 OUTPUT_DIR       = ROOT / "analyzer" / "live_logs"
 DEFAULT_HOURS    = 1
+_DEFAULT_REGION  = cfg("aws.region", "ap-northeast-2")
 
 
-def _boto3_client(service, region="ap-northeast-2"):
+def _boto3_client(service, region=None):
+    region = region or _DEFAULT_REGION
     try:
         import boto3
         return boto3.client(service, region_name=region)

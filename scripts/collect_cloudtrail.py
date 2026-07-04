@@ -23,10 +23,16 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg
+except Exception:
+    def cfg(p, d=None): return d
+
 OUTPUT_FILE = ROOT / "compliance" / "input" / "cloudtrail_events.json"
 
-DEFAULT_REGION = "ap-northeast-2"
-DEFAULT_DAYS = 14
+DEFAULT_REGION = cfg("aws.region", "ap-northeast-2")
+DEFAULT_DAYS   = 14
 
 TARGET_EVENTS = [
     # WAF 변경 관리 (PCI e4 / ISMS 2.9)

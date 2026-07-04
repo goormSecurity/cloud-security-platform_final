@@ -14,13 +14,25 @@ run_pipeline.py — 전체 보안 파이프라인 로컬 실행기
 """
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 import time
 from datetime import datetime
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
 from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg, now_kst, ollama_url as _ollama_url, alb_target_url as _alb_target_url
+except Exception:
+    def cfg(p, d=None): return d
+    def _alb_target_url(): return ""
 
 # ── 색상 출력 ────────────────────────────────────────────────────
 class C:
@@ -42,23 +54,34 @@ def _step(n, title):
 
 
 def _has_aws_creds() -> bool:
-    """환경변수 또는 ~/.aws/credentials 어느 쪽이든 있으면 True."""
+    """환경변수, ~/.aws/credentials, 또는 EC2 IAM 역할(IMDS) 중 하나라도 있으면 True."""
     if os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE"):
         return True
     creds = Path.home() / ".aws" / "credentials"
     config = Path.home() / ".aws" / "config"
-    return creds.exists() or config.exists()
+    if creds.exists() or config.exists():
+        return True
+    # EC2 IAM 역할 — boto3 기본 자격증명 체인으로 확인
+    try:
+        import boto3
+        boto3.client("sts", region_name="ap-northeast-2").get_caller_identity()
+        return True
+    except Exception:
+        return False
 
 
-def _run(cmd: list, cwd=None, env=None) -> tuple[int, str, str]:
+def _run(cmd: list, cwd=None, env=None, timeout=300) -> tuple[int, str, str]:
     env_full = {**os.environ, **(env or {}), "PYTHONIOENCODING": "utf-8"}
     if env:
         env_full.update(env)
-    r = subprocess.run(
-        cmd, cwd=cwd, capture_output=True, text=True, env=env_full,
-        encoding="utf-8", errors="replace",
-    )
-    return r.returncode, r.stdout or "", r.stderr or ""
+    try:
+        r = subprocess.run(
+            cmd, cwd=cwd, capture_output=True, text=True, env=env_full,
+            encoding="utf-8", errors="replace", timeout=timeout,
+        )
+        return r.returncode, r.stdout or "", r.stderr or ""
+    except subprocess.TimeoutExpired:
+        return -1, "", f"[timeout] {timeout}초 초과"
 
 
 def _check_docker() -> bool:
@@ -72,7 +95,7 @@ def _check_docker() -> bool:
 def _check_ollama() -> bool:
     try:
         import urllib.request
-        urllib.request.urlopen("http://localhost:11434/api/version", timeout=3)
+        urllib.request.urlopen(f"{_ollama_url()}/api/version", timeout=5)
         return True
     except Exception:
         return False
@@ -85,15 +108,16 @@ def _latest_file(pattern: str) -> str | None:
 
 # ── 단계별 실행 ──────────────────────────────────────────────────
 
-def step_attack_sim(target: str, dry_run: bool) -> bool:
-    _step(1, "공격 시뮬레이션 (attack_runner.py)")
-    cmd = [sys.executable, str(ROOT / "attack_simulation" / "attack_runner.py")]
+def step_attack_sim(target: str, dry_run: bool, app: str = "all") -> bool:
+    _step(1, f"공격 시뮬레이션 (attack_runner.py, app={app})")
+    cmd = [sys.executable, str(ROOT / "attack_simulation" / "attack_runner.py"),
+           "--app", app]
     if dry_run or not target:
         cmd.append("--dry-run")
         _info("dry-run 모드")
     else:
         cmd += ["--target", target]
-        _info(f"대상: {target}")
+        _info(f"대상: {target}  앱: {app}")
 
     code, out, err = _run(cmd)
     if code == 0:
@@ -141,19 +165,51 @@ def step_ab_test(target: str, log_dir: str, dry_run: bool) -> bool:
         return False
 
 
+def step_fp_fn(analysis_json: str | None, target: str | None) -> bool:
+    _step("3h", "오탐/미탐(FP/FN) 분석 (scripts/analyze_fp_fn.py)")
+    cmd = [sys.executable, str(ROOT / "scripts" / "analyze_fp_fn.py")]
+    if analysis_json:
+        cmd += ["--analysis", analysis_json]
+    ab = _latest_file("output/ab_test_*.json")
+    if ab:
+        cmd += ["--ab-test", ab]
+    if target:
+        cmd += ["--target", target]
+    code, out, err = _run(cmd, cwd=str(ROOT))
+    for line in (out + err).splitlines():
+        if "[fp_fn]" in line:
+            print(f"  {line.strip()}")
+    if code == 0:
+        _ok("오탐/미탐 분석 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
 def step_zap(target: str) -> bool:
     _step(4, "OWASP ZAP 자동 스캔 (security/zap_scanner.py)")
-    if not _check_docker():
-        _skip("Docker 미실행 — ZAP 스킵 (Docker Desktop을 시작하면 사용 가능)")
-        return False
     if not target:
         _skip("--target 미지정 — ZAP 스킵")
         return False
 
-    _info(f"대상: {target}")
+    local_docker = _check_docker()
+    # analysis_ip 우선, 없으면 app_ip fallback (컨테이너 서버에 Docker 있음)
+    ssh_host = cfg("servers.analysis_ip", "") or cfg("servers.app_ip", "")
+
+    if not local_docker and not ssh_host:
+        _skip("로컬 Docker 없음 + platform.yaml servers.analysis_ip/app_ip 미설정 — ZAP 스킵")
+        return False
+
+    mode = "로컬 Docker" if local_docker else f"SSH 원격 ({ssh_host})"
+    _info(f"대상: {target}  실행 모드: {mode}")
+
     cmd = [sys.executable, str(ROOT / "security" / "zap_scanner.py"),
            "--target", target, "--baseline-only", "--out", str(ROOT / "output")]
-    code, out, err = _run(cmd)
+    if not local_docker:
+        cmd += ["--ssh-host", ssh_host]
+
+    code, out, err = _run(cmd, timeout=660)
     for line in (out + err).splitlines():
         if "[ZAP]" in line:
             print(f"  {line.strip()}")
@@ -165,23 +221,25 @@ def step_zap(target: str) -> bool:
         return False
 
 
-def step_ai_report(analysis_json: str | None) -> bool:
-    _step(5, "AI 보안 보고서 생성 (ai/report_generator.py)")
+def step_ai_report(analysis_json: str | None, model: str = "llama3.2:3b") -> bool:
+    _step(5, f"AI 보안 보고서 생성 (ai/report_generator.py, model={model})")
     if not _check_ollama():
         _skip("Ollama 미실행 — AI 보고서 스킵\n"
-              "     (Ollama 설치: https://ollama.ai  모델: ollama pull llama3.1:8b)")
+              "     (Ollama 설치: https://ollama.ai  모델: ollama pull qwen2.5:7b)")
         return False
 
     if not analysis_json:
         _skip("분석 JSON 없음 — AI 보고서 스킵")
         return False
 
-    _info(f"입력: {Path(analysis_json).name}")
+    _info(f"입력: {Path(analysis_json).name}  Ollama: {_ollama_url()}")
     ai_output = ROOT / "ai" / "output"
     cmd = [sys.executable, str(ROOT / "ai" / "report_generator.py"),
            "--input", analysis_json,
-           "--output-dir", str(ai_output)]
-    code, out, err = _run(cmd, cwd=str(ROOT / "ai"))
+           "--output-dir", str(ai_output),
+           "--model", model,
+           "--ollama-base-url", _ollama_url()]
+    code, out, err = _run(cmd, cwd=str(ROOT / "ai"), timeout=600)
     if code == 0:
         _ok("AI 보고서 생성 완료")
         return True
@@ -308,6 +366,25 @@ def step_collect_config_diff() -> bool:
         return False
 
 
+def step_collect_trivy() -> bool:
+    _step("3h", "Trivy 컨테이너·IaC 취약점 스캔 (scripts/collect_trivy.py, OSS)")
+    ssh_host = cfg("servers.analysis_ip", "")
+    cmd = [sys.executable, str(ROOT / "scripts" / "collect_trivy.py"), "--mode", "all"]
+    if not ssh_host:
+        _info("platform.yaml servers.analysis_ip 없음 — IaC 스캔만 시도")
+        cmd += ["--mode", "iac"]
+    code, out, err = _run(cmd, cwd=str(ROOT), timeout=360)
+    for line in (out + err).splitlines()[-10:]:
+        if line.strip():
+            print(f"  {line.strip()}")
+    if code == 0:
+        _ok("Trivy 스캔 완료")
+        return True
+    else:
+        _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
 def step_collect_s3_security() -> bool:
     _step("3g", "S3 버킷 보안 감사 (scripts/collect_s3_security.py)")
     if not _has_aws_creds():
@@ -322,6 +399,50 @@ def step_collect_s3_security() -> bool:
         return True
     else:
         _fail(f"실패: {(err or out)[:200]}")
+        return False
+
+
+
+def step_upload_s3() -> bool:
+    _step("10", "결과물 S3 업로드 (audit-evidence 버킷)")
+    if not _has_aws_creds():
+        _skip("AWS 자격증명 없음 — S3 업로드 스킵")
+        return False
+
+    try:
+        import boto3
+        s3 = boto3.client("s3", region_name="ap-northeast-2")
+        bucket = cfg("buckets.audit_evidence", "cloud-sec-audit-evidence-dev")
+        today = now_kst("%Y/%m/%d")
+        prefix = f"pipeline-results/{today}"
+
+        candidates = [
+            *sorted((ROOT / "output").glob("analysis_*.json"))[-1:],
+            *sorted((ROOT / "output").glob("ab_test_*.json"))[-1:],
+            ROOT / "compliance" / "real_data.json",
+            ROOT / "compliance" / "input" / "ai_analysis.json",
+            *sorted((ROOT / "compliance" / "output").glob("*.pdf"))[-1:],
+            ROOT / "compliance" / "output" / "report.html",
+            *sorted((ROOT / "ai" / "output").glob("report_*.md"))[-1:],
+        ]
+
+        uploaded, skipped = 0, 0
+        for path in candidates:
+            if not path.exists():
+                skipped += 1
+                continue
+            key = f"{prefix}/{path.name}"
+            try:
+                s3.upload_file(str(path), bucket, key)
+                print(f"  [upload] ✔ {path.name} → s3://{bucket}/{key}")
+                uploaded += 1
+            except Exception as e:
+                print(f"  [upload] ✘ {path.name}: {e}")
+
+        _ok(f"S3 업로드 완료 ({uploaded}개 / 스킵 {skipped}개)")
+        return uploaded > 0
+    except Exception as e:
+        _fail(f"S3 업로드 실패: {e}")
         return False
 
 
@@ -411,11 +532,112 @@ def step_auto_pr(analysis_json: str | None, dry_run: bool) -> bool:
         return False
 
 
+def step_sync_monitoring(analysis_json: str | None) -> bool:
+    """최신 분석 결과를 분석 서버 output/ 에 SCP로 전송 → Grafana 대시보드 갱신."""
+    _step("11", "Grafana 모니터링 동기화 (분석 결과 → 분석 서버)")
+    ssh_host = cfg("servers.analysis_ip", "")
+    ssh_user = cfg("servers.ssh_user", "ec2-user")
+    ssh_key  = str(Path(cfg("servers.ssh_key", "~/.ssh/cloud-sec-key2")).expanduser())
+    remote_dir = "/home/ec2-user/cloud-security-platform/output"
+
+    if not ssh_host:
+        _skip("servers.analysis_ip 미설정 — 모니터링 동기화 스킵")
+        return False
+
+    targets = [
+        *sorted((ROOT / "output").glob("analysis_*.json"))[-1:],
+        *sorted((ROOT / "output").glob("ab_test_*.json"))[-1:],
+        *sorted((ROOT / "output").glob("zap_report_*.json"))[-1:],
+        *sorted((ROOT / "output").glob("fp_fn_*.json"))[-1:],
+    ]
+    if not targets:
+        _skip("전송할 분석 파일 없음")
+        return False
+
+    scp_opts = ["-i", ssh_key, "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10"]
+
+    # 원격 디렉토리 확보 (없거나 root 소유일 경우 대비)
+    subprocess.run(
+        ["ssh"] + scp_opts + [f"{ssh_user}@{ssh_host}",
+         f"mkdir -p {remote_dir} && sudo chown {ssh_user}:{ssh_user} {remote_dir} 2>/dev/null; true"],
+        capture_output=True, timeout=15,
+    )
+
+    # 파일 일괄 전송
+    src_paths = [str(p) for p in targets]
+    r = subprocess.run(
+        ["scp"] + scp_opts + src_paths + [f"{ssh_user}@{ssh_host}:{remote_dir}/"],
+        capture_output=True, text=True, timeout=60,
+        encoding="utf-8", errors="replace",
+    )
+    if r.returncode == 0:
+        for p in targets:
+            _info(f"{p.name} → {ssh_host}:{remote_dir}/")
+        _ok(f"{len(targets)}개 파일 동기화 완료 → Grafana http://{ssh_host}:3000")
+        return True
+    else:
+        err = (r.stderr or "").replace("\n", " ").strip()
+        # WARNING 메시지만 있고 실제 오류 없으면 성공으로 간주
+        if "Permission denied" in err or "No such file" in err:
+            _fail(f"SCP 실패: {err[:150]}")
+            return False
+        for p in targets:
+            _info(f"{p.name} → {ssh_host}:{remote_dir}/")
+        _ok(f"{len(targets)}개 파일 동기화 완료 → Grafana http://{ssh_host}:3000")
+        return True
+
+
+def _collect_reports() -> Path | None:
+    """모든 결과물을 reports/{timestamp}/ 에 모으고 reports/latest/ 를 갱신."""
+    _step("11", "결과물 통합 수집 → reports/latest/")
+    ts = now_kst("%Y%m%d_%H%M%S")
+    dest = ROOT / "reports" / ts
+    dest.mkdir(parents=True, exist_ok=True)
+
+    candidates: list[tuple[str, Path]] = [
+        # 파일명, 원본 경로
+        ("컴플라이언스_감사보고서.pdf",   ROOT / "compliance" / "output" / "report.pdf"),
+        ("컴플라이언스_감사보고서.html",  ROOT / "compliance" / "output" / "report.html"),
+        *[(f"AI보안보고서_{p.name}", p) for p in sorted((ROOT / "ai" / "output").glob("report_*.md"))[-1:]],
+        *[(f"WAF분석_{p.name}", p)      for p in sorted((ROOT / "output").glob("analysis_*.json"))[-1:]],
+        *[(f"AB테스트_{p.name}", p)      for p in sorted((ROOT / "output").glob("ab_test_*.json"))[-1:]],
+        *[(f"FP_FN분석_{p.name}", p)     for p in sorted((ROOT / "output").glob("fp_fn_*.json"))[-1:]],
+        *[(f"ZAP스캔_{p.name}", p)       for p in sorted((ROOT / "output").glob("zap_report_*.json"))[-1:]],
+        ("Prowler_보안점검.json",         ROOT / "compliance" / "input" / "prowler_report.json"),
+        ("Trivy_취약점스캔.json",         ROOT / "compliance" / "input" / "trivy_report.json"),
+        ("CloudTrail_변경이력.json",      ROOT / "compliance" / "input" / "cloudtrail_events.json"),
+        ("S3_보안감사.json",              ROOT / "compliance" / "input" / "s3_security.json"),
+        ("WAF_설정.json",                 ROOT / "raw" / "waf_web_acl.json"),
+    ]
+
+    copied = 0
+    for name, src in candidates:
+        if src.exists():
+            shutil.copy2(src, dest / name)
+            _info(f"{name}")
+            copied += 1
+
+    if copied == 0:
+        _fail("복사할 파일 없음")
+        return None
+
+    # reports/latest 갱신 (기존 디렉토리 교체)
+    latest = ROOT / "reports" / "latest"
+    if latest.exists():
+        shutil.rmtree(latest)
+    shutil.copytree(dest, latest)
+
+    _ok(f"{copied}개 파일 → {dest.name}/  (reports/latest/ 갱신 완료)")
+    return dest
+
+
 # ── 메인 ─────────────────────────────────────────────────────────
 
 def main():
     p = argparse.ArgumentParser(description="클라우드 보안 플랫폼 — 전체 파이프라인 실행")
     p.add_argument("--target",    default=None,  help="공격 대상 URL (예: http://localhost:5000)")
+    p.add_argument("--app",       default="all", choices=["dvwa", "juiceshop", "ghost", "all"],
+                   help="공격 시뮬레이션 대상 앱 (기본: all)")
     p.add_argument("--log-dir",   default=str(ROOT / "analyzer" / "sample_logs"),
                    help="WAF 로그 디렉토리")
     p.add_argument("--live",      action="store_true",
@@ -426,6 +648,8 @@ def main():
     p.add_argument("--skip-zap",  action="store_true", help="ZAP 스캔 스킵")
     p.add_argument("--skip-ai",   action="store_true", help="AI 보고서 생성 스킵")
     p.add_argument("--skip-pr",   action="store_true", help="GitHub PR 자동 생성 스킵")
+    p.add_argument("--skip-fp-fn", action="store_true", help="오탐/미탐 분석 스킵")
+    p.add_argument("--ai-model",  default="llama3.2:3b", help="AI 보고서 Ollama 모델 (기본: llama3.2:3b)")
     args = p.parse_args()
 
     # --live: S3에서 실시간 로그 다운로드
@@ -446,9 +670,16 @@ def main():
             _fail("S3 로그 수집 실패 — sample_logs로 폴백")
             # log_dir은 기본값(sample_logs) 유지
 
+        # --live + --target 미지정 시 ALB DNS 자동 사용
+        if not args.target:
+            alb_url = _alb_target_url()
+            if alb_url:
+                args.target = alb_url
+                _ok(f"--live 모드: ZAP 대상 자동 설정 → {alb_url}")
+
     print(f"\n{C.BOLD}{C.CYAN}{'=' * 60}")
     print(f"  Cloud Security Platform — 로컬 파이프라인")
-    print(f"  {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  {now_kst('%Y-%m-%d %H:%M:%S')} (KST)")
     print(f"{'=' * 60}{C.RESET}")
 
     start = time.time()
@@ -463,10 +694,12 @@ def main():
                 k, _, v = line.partition("=")
                 os.environ.setdefault(k.strip(), v.strip())
 
-    results["attack_sim"]    = step_attack_sim(args.target, args.dry_run)
+    results["attack_sim"]    = step_attack_sim(args.target, args.dry_run, args.app)
     analysis_json            = step_analyzer(args.log_dir)
     results["analyzer"]      = bool(analysis_json)
     results["ab_test"]       = step_ab_test(args.target, args.log_dir, args.dry_run)
+    results["fp_fn"]         = (False if args.skip_fp_fn
+                                else step_fp_fn(analysis_json, args.target))
 
     # AWS 실데이터 수집기 (자격증명 있을 때만 실행)
     results["waf_collect"]   = step_collect_waf()
@@ -475,9 +708,10 @@ def main():
     results["cmk_collect"]   = step_collect_cmk()
     results["config_diff"]   = step_collect_config_diff()
     results["s3_security"]   = step_collect_s3_security()
+    results["trivy"]         = step_collect_trivy()
 
     results["zap"]           = False if args.skip_zap else step_zap(args.target)
-    results["ai_report"]     = False if args.skip_ai  else step_ai_report(analysis_json)
+    results["ai_report"]     = False if args.skip_ai  else step_ai_report(analysis_json, args.ai_model)
     results["ai_json"]       = step_generate_ai_json(analysis_json)
 
     # PR 수집은 compliance 빌드 전에 실행 (github_pr.json을 Adapter가 읽음)
@@ -486,6 +720,10 @@ def main():
     results["compliance"]    = step_compliance_report(analysis_json)
     results["auto_pr"]       = False if args.skip_pr  else step_auto_pr(analysis_json, args.dry_run)
     results["slack_notify"]  = step_notify_slack(analysis_json)
+    results["s3_upload"]     = step_upload_s3()
+    results["monitoring"]    = step_sync_monitoring(analysis_json)
+
+    report_dir = _collect_reports()
 
     elapsed = time.time() - start
 
@@ -501,12 +739,9 @@ def main():
 
     print(f"\n  {ok}/{total} 단계 성공\n")
 
-    if analysis_json:
-        print(f"{C.GRAY}  분석 결과: {Path(analysis_json).name}{C.RESET}")
-
-    latest_report = _latest_file("compliance/output/*.pdf")
-    if latest_report:
-        print(f"{C.GRAY}  컴플라이언스 PDF: {Path(latest_report).name}{C.RESET}")
+    if report_dir:
+        print(f"{C.BOLD}{C.GREEN}  결과물 위치: {report_dir}{C.RESET}")
+        print(f"{C.GREEN}  최신 결과:   {ROOT / 'reports' / 'latest'}{C.RESET}")
 
     print()
 

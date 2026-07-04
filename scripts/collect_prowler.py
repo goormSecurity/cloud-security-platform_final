@@ -20,8 +20,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUTPUT_FILE = ROOT / "compliance" / "input" / "prowler_report.json"
-DEFAULT_REGION = "ap-northeast-2"
+sys.path.insert(0, str(ROOT / "scripts"))
+try:
+    from config_loader import cfg
+except Exception:
+    def cfg(p, d=None): return d
+
+OUTPUT_FILE    = ROOT / "compliance" / "input" / "prowler_report.json"
+DEFAULT_REGION = cfg("aws.region", "ap-northeast-2")
 
 
 def _boto3_client(service, region):
