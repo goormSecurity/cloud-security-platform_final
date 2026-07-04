@@ -196,9 +196,13 @@ jobs:
 
       - name: Terraform plan
         run: terraform -chdir=terraform plan -out=tfplan
+        env:
+          TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
       - name: Terraform apply → AWS WAF 정책 업데이트
         run: terraform -chdir=terraform apply -auto-approve tfplan
+        env:
+          TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
   # ================================================================
   # JOB 5 (수동): AI 보안 보고서 생성
