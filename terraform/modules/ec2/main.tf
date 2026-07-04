@@ -152,9 +152,9 @@ resource "aws_iam_role_policy" "analysis_s3" {
         ]
       },
       {
-        Effect   = "Allow"
-        Action   = ["wafv2:GetWebACL", "wafv2:ListWebACLs", "wafv2:GetLoggingConfiguration",
-                    "wafv2:ListIPSets", "wafv2:GetIPSet", "wafv2:UpdateIPSet"]
+        Effect = "Allow"
+        Action = ["wafv2:GetWebACL", "wafv2:ListWebACLs", "wafv2:GetLoggingConfiguration",
+        "wafv2:ListIPSets", "wafv2:GetIPSet", "wafv2:UpdateIPSet"]
         Resource = "*"
       },
       {
@@ -163,17 +163,17 @@ resource "aws_iam_role_policy" "analysis_s3" {
         Resource = "arn:aws:ssm:ap-northeast-2:*:parameter/cloud-sec/*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["cloudtrail:LookupEvents", "cloudtrail:DescribeTrails", "cloudtrail:GetTrail",
-                    "cloudtrail:GetTrailStatus"]
+        Effect = "Allow"
+        Action = ["cloudtrail:LookupEvents", "cloudtrail:DescribeTrails", "cloudtrail:GetTrail",
+        "cloudtrail:GetTrailStatus"]
         Resource = "*"
       },
       {
-        Effect   = "Allow"
-        Action   = ["iam:ListUsers", "iam:ListRoles", "iam:ListPolicies",
-                    "iam:GetAccountPasswordPolicy", "iam:GenerateCredentialReport",
-                    "iam:GetCredentialReport", "iam:ListAccessKeys", "iam:ListMFADevices",
-                    "iam:ListAttachedRolePolicies", "iam:ListRolePolicies"]
+        Effect = "Allow"
+        Action = ["iam:ListUsers", "iam:ListRoles", "iam:ListPolicies",
+          "iam:GetAccountPasswordPolicy", "iam:GenerateCredentialReport",
+          "iam:GetCredentialReport", "iam:ListAccessKeys", "iam:ListMFADevices",
+        "iam:ListAttachedRolePolicies", "iam:ListRolePolicies"]
         Resource = "*"
       }
     ]

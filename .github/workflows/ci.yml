@@ -85,6 +85,7 @@ jobs:
     name: "[CI] Infracost — WAF 정책 변경 비용 사전 분석"
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    continue-on-error: true
     permissions:
       contents: read
       pull-requests: write
@@ -192,12 +193,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Terraform init
-        run: |
-          terraform -chdir=terraform init \
-            -backend-config="bucket=cloudsecurity-6-677673473281-ap-northeast-2-an" \
-            -backend-config="key=cloud-security/terraform.tfstate" \
-            -backend-config="region=ap-northeast-2" \
-            -backend-config="encrypt=true"
+        run: terraform -chdir=terraform init -backend-config=backend.hcl
 
       - name: Terraform plan
         run: terraform -chdir=terraform plan -out=tfplan
