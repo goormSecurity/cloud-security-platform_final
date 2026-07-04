@@ -51,12 +51,12 @@ _ENV_OVERRIDES: dict[str, str] = {
 def _load_yaml() -> dict:
     if not _PLATFORM_YAML.exists():
         print(
-            "[config] platform.yaml 없음.\n"
+            "[config] platform.yaml 없음 — 환경변수·기본값으로 동작합니다.\n"
             "  방법 1: python scripts/generate_config.py  (terraform output에서 자동 생성)\n"
             "  방법 2: cp platform.yaml.example platform.yaml  후 직접 수정",
             file=sys.stderr,
         )
-        sys.exit(1)
+        return {}
 
     try:
         import yaml
