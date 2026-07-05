@@ -84,16 +84,16 @@ def _build_discord_payload(data: dict, filename: str, level: str, color_hex: str
 
     return {
         "username": "구름방범대 보안봇",
-        "avatar_url": "https://avatars.githubusercontent.com/goormSecurity",
+        "avatar_url": "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2601.png",
         "embeds": [{
             "title": f"🛡️ WAF 자동 분석 리포트 — {level}",
             "description": f"{status_bar}\n\n{desc_prefix}",
             "color": color_int,
             "fields": embed_fields,
-            "thumbnail": {"url": "https://avatars.githubusercontent.com/goormSecurity"},
+            "thumbnail": {"url": "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2601.png"},
             "footer": {
                 "text": "구름방범대 · AI 적용 클라우드 보안 자동화 플랫폼",
-                "icon_url": "https://avatars.githubusercontent.com/goormSecurity",
+                "icon_url": "https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/2601.png",
             },
             "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
         }]
