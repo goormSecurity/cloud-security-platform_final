@@ -51,6 +51,13 @@ resource "aws_instance" "app" {
       --restart always \
       -p 3000:3000 \
       bkimminich/juice-shop
+
+    docker run -d \
+      --name ghost \
+      --restart always \
+      -p 2368:2368 \
+      -e url=http://localhost:2368 \
+      ghost:5-alpine
   EOF
   )
 
