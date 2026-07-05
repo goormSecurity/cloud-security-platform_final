@@ -239,7 +239,7 @@ def step_ai_report(analysis_json: str | None, model: str = "llama3.2:3b") -> boo
            "--output-dir", str(ai_output),
            "--model", model,
            "--ollama-base-url", _ollama_url()]
-    code, out, err = _run(cmd, cwd=str(ROOT / "ai"), timeout=600)
+    code, out, err = _run(cmd, cwd=str(ROOT / "ai"), timeout=1200)
     if code == 0:
         _ok("AI 보고서 생성 완료")
         return True
@@ -649,7 +649,7 @@ def main():
     p.add_argument("--skip-ai",   action="store_true", help="AI 보고서 생성 스킵")
     p.add_argument("--skip-pr",   action="store_true", help="GitHub PR 자동 생성 스킵")
     p.add_argument("--skip-fp-fn", action="store_true", help="오탐/미탐 분석 스킵")
-    p.add_argument("--ai-model",  default="llama3.2:3b", help="AI 보고서 Ollama 모델 (기본: llama3.2:3b)")
+    p.add_argument("--ai-model",  default="qwen2.5:7b", help="AI 보고서 Ollama 모델 (기본: qwen2.5:7b)")
     args = p.parse_args()
 
     # --live: S3에서 실시간 로그 다운로드

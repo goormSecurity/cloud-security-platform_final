@@ -169,6 +169,7 @@ def call_ollama_with_langchain(
         model=model,
         base_url=ollama_base_url,
         temperature=0,
+        timeout=900,
     )
 
     prompt = ChatPromptTemplate.from_messages([

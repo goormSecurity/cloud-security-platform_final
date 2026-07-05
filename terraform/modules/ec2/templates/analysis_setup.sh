@@ -31,7 +31,7 @@ curl -fsSL https://ollama.com/install.sh | sh
 systemctl enable ollama
 systemctl start ollama
 sleep 30
-ollama pull llama3.1:8b
+ollama pull qwen2.5:7b
 
 # 7. SSM에서 시크릿 가져와 .env 생성
 SSM_GITHUB=$(aws ssm get-parameter --name /cloud-sec/github_token \
