@@ -64,7 +64,7 @@ def _has_aws_creds() -> bool:
     # EC2 IAM 역할 — boto3 기본 자격증명 체인으로 확인
     try:
         import boto3
-        boto3.client("sts", region_name="ap-northeast-2").get_caller_identity()
+        boto3.client("sts", region_name=cfg("aws.region", "ap-northeast-2")).get_caller_identity()
         return True
     except Exception:
         return False
@@ -411,7 +411,7 @@ def step_upload_s3() -> bool:
 
     try:
         import boto3
-        s3 = boto3.client("s3", region_name="ap-northeast-2")
+        s3 = boto3.client("s3", region_name=cfg("aws.region", "ap-northeast-2"))
         bucket = cfg("buckets.audit_evidence", "cloud-sec-audit-evidence-dev")
         today = now_kst("%Y/%m/%d")
         prefix = f"pipeline-results/{today}"
@@ -538,7 +538,7 @@ def step_sync_monitoring(analysis_json: str | None) -> bool:
     ssh_host = cfg("servers.analysis_ip", "")
     ssh_user = cfg("servers.ssh_user", "ec2-user")
     ssh_key  = str(Path(cfg("servers.ssh_key", "~/.ssh/cloud-sec-key2")).expanduser())
-    remote_dir = "/home/ec2-user/cloud-security-platform/output"
+    remote_dir = cfg("servers.remote_dir", f"/home/{ssh_user}/cloud-security-platform/output")
 
     if not ssh_host:
         _skip("servers.analysis_ip 미설정 — 모니터링 동기화 스킵")

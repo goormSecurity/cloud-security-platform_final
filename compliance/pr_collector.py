@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
@@ -18,7 +19,13 @@ try:
 except ImportError:
     pass
 
-DEFAULT_REPO = "goormSecurity/cloud-security-platform"
+try:
+    import yaml
+    _cfg = yaml.safe_load((Path(__file__).parent.parent / "platform.yaml").read_text(encoding="utf-8"))
+    DEFAULT_REPO = _cfg.get("integrations", {}).get("github_repo", "goormSecurity/cloud-security-platform")
+except Exception:
+    DEFAULT_REPO = "goormSecurity/cloud-security-platform"
+
 API = "https://api.github.com"
 
 

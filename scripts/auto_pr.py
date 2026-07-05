@@ -25,9 +25,20 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).parent.parent
 OUTPUT_DIR = ROOT / "output"
 TFVARS_PATH = ROOT / "terraform" / "waf_blocked_ips.auto.tfvars"
-REPO = "goormSecurity/cloud-security-platform"
 BASE_BRANCH = "main"
 API = "https://api.github.com"
+
+
+def _load_repo() -> str:
+    try:
+        import yaml
+        cfg = yaml.safe_load((ROOT / "platform.yaml").read_text(encoding="utf-8"))
+        return cfg["integrations"]["github_repo"]
+    except Exception:
+        return "goormSecurity/cloud-security-platform"
+
+
+REPO = _load_repo()
 
 
 # ── GitHub API 헬퍼 ─────────────────────────────────────────────
