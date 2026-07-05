@@ -15,9 +15,8 @@ curl -SL "https://github.com/docker/compose/releases/latest/download/docker-comp
 chmod +x /usr/local/bin/docker-compose
 
 # 3. 리포지토리 클론 (public)
-git clone https://github.com/goormSecurity/cloud-security-platform.git /opt/cloud-security-platform
+git clone https://github.com/goormSecurity/cloud-security-platform_final.git /opt/cloud-security-platform
 cd /opt/cloud-security-platform
-git checkout feature/ec2-deploy
 
 # 4. Python 3.11 의존성
 python3.11 -m pip install -r requirements.txt
