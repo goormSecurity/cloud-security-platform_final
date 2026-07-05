@@ -10,15 +10,8 @@ yum install -y docker python3.11 python3.11-pip git
 systemctl start docker
 systemctl enable docker
 
-# 2b. NVIDIA 드라이버 (g4dn GPU 인스턴스 감지 시 자동 설치)
-if lspci 2>/dev/null | grep -i nvidia > /dev/null; then
-    dnf install -y kernel-devel-$(uname -r) kernel-headers-$(uname -r) gcc make
-    curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-keyring_1.1-1_all.rpm \
-      -o /tmp/cuda-keyring.rpm
-    rpm -i /tmp/cuda-keyring.rpm 2>/dev/null || true
-    dnf install -y cuda-drivers 2>/dev/null || true
-    nvidia-smi && echo "[GPU] NVIDIA T4 준비 완료" || echo "[GPU] 드라이버 설치 실패"
-fi
+# 2b. DLAMI에 NVIDIA 드라이버 사전 설치됨 — 상태만 확인
+nvidia-smi && echo "[GPU] NVIDIA T4 준비 완료" || echo "[GPU] 드라이버 확인 필요"
 usermod -aG docker ec2-user
 curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
   -o /usr/local/bin/docker-compose
@@ -36,11 +29,26 @@ dnf install -y nss atk at-spi2-atk cups-libs libXcomposite libXdamage libXext \
   libXfixes libXrandr pango alsa-lib gtk3 2>/dev/null || true
 python3.11 -m playwright install chromium 2>/dev/null || true
 
-# 6. Ollama 설치 + 모델 다운로드 (t3.xlarge 16GB — llama3.1:8b 실행 가능)
+# 6. Ollama 설치 — 0.0.0.0으로 바인딩 (외부 접근 허용)
 curl -fsSL https://ollama.com/install.sh | sh
+mkdir -p /etc/systemd/system/ollama.service.d
+cat > /etc/systemd/system/ollama.service.d/override.conf << 'EOF'
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0:11434"
+EOF
+systemctl daemon-reload
 systemctl enable ollama
 systemctl start ollama
-sleep 30
+
+# Ollama 준비될 때까지 대기 (최대 60초)
+for i in $(seq 1 12); do
+  if curl -sf http://localhost:11434/api/tags >/dev/null 2>&1; then
+    echo "[Ollama] 준비 완료 (${i}*5초)"
+    break
+  fi
+  echo "[Ollama] 대기 중... ($i/12)"
+  sleep 5
+done
 ollama pull qwen2.5:7b
 
 # 7. SSM에서 시크릿 가져와 .env 생성
@@ -55,32 +63,10 @@ printf 'AWS_DEFAULT_REGION=ap-northeast-2\nGITHUB_TOKEN=%s\nABUSEIPDB_API_KEY=%s
   "$SSM_GITHUB" "$SSM_ABUSE" "$SSM_SLACK" > /opt/cloud-security-platform/.env
 chmod 600 /opt/cloud-security-platform/.env
 
-# 8. Grafana + Loki
-mkdir -p /opt/monitoring
-cat > /opt/monitoring/docker-compose.yml << 'COMPOSE'
-version: '3'
-services:
-  loki:
-    image: grafana/loki:2.9.0
-    ports:
-      - "3100:3100"
-    restart: always
-  grafana:
-    image: grafana/grafana:10.2.0
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin123!
-    volumes:
-      - grafana-data:/var/lib/grafana
-    depends_on:
-      - loki
-    restart: always
-volumes:
-  grafana-data:
-COMPOSE
-cd /opt/monitoring && docker-compose up -d
+# 8. Grafana + Loki + JSON API (repo의 docker-compose 사용)
+mkdir -p /opt/cloud-security-platform/output
+cd /opt/cloud-security-platform/monitoring
+docker-compose up -d
 
 # 9. cron 등록 — 매일 오전 9시 KST (0시 UTC)
 echo "0 0 * * * ec2-user cd /opt/cloud-security-platform && python3.11 scripts/run_pipeline.py --live >> /var/log/pipeline.log 2>&1" >> /etc/crontab

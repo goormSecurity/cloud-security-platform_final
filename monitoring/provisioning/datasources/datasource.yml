@@ -1,18 +1,19 @@
 apiVersion: 1
 
 datasources:
-  - name: Infinity
-    type: yesoreyeram-infinity-datasource
-    uid: infinity-ds
+  - name: JSON API
+    type: marcusolsson-json-datasource
+    uid: afot70vnoy7swf
+    url: http://json-api:5000
     access: proxy
     isDefault: true
-    editable: true
+    editable: false
 
   - name: Loki
     type: loki
     uid: loki-cloud-sec
-    access: proxy
     url: http://loki:3100
-    editable: true
+    access: proxy
+    editable: false
     jsonData:
       maxLines: 1000
