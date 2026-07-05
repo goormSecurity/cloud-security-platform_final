@@ -307,7 +307,7 @@ def step_zap(target: str) -> bool:
         return False
 
 
-def step_ai_report(analysis_json: str | None, model: str = "llama3.2:3b") -> bool:
+def step_ai_report(analysis_json: str | None, model: str = "qwen2.5:7b") -> bool:
     _step(5, f"AI 보안 보고서 생성 (ai/report_generator.py, model={model})")
     if not _check_ollama():
         _skip("Ollama 미실행 — AI 보고서 스킵\n"
@@ -325,7 +325,7 @@ def step_ai_report(analysis_json: str | None, model: str = "llama3.2:3b") -> boo
            "--output-dir", str(ai_output),
            "--model", model,
            "--ollama-base-url", _ollama_url()]
-    code, _ = _run_live_spin(cmd, cwd=str(ROOT / "ai"), timeout=600, label="AI 보고서 생성 중")
+    code, _ = _run_live_spin(cmd, cwd=str(ROOT / "ai"), timeout=1200, label="AI 보고서 생성 중")
     if code == 0:
         _ok("AI 보고서 생성 완료")
         return True
@@ -781,9 +781,8 @@ def main():
         help="오탐(False Positive) / 미탐(False Negative) 분석 단계를 건너뜀",
     )
     p.add_argument(
-        "--ai-model", default="llama3.2:3b", metavar="MODEL",
-        help="AI 보고서 생성에 사용할 Ollama 모델 (기본: llama3.2:3b)\n"
-             "더 정확한 결과: qwen2.5:7b  (모델 용량 더 큼)\n"
+        "--ai-model", default="qwen2.5:7b", metavar="MODEL",
+        help="AI 보고서 생성에 사용할 Ollama 모델 (기본: qwen2.5:7b)\n"
              "사용 전 올라마에 모델이 pull 되어 있어야 함",
     )
     args = p.parse_args()
