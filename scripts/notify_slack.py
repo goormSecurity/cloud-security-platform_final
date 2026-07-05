@@ -69,18 +69,32 @@ def _build_slack_payload(data: dict, filename: str, level: str, color: str,
 
 def _build_discord_payload(data: dict, filename: str, level: str, color_hex: str,
                            fields_data: list) -> dict:
-    # Discord color는 16진수 정수
     color_int = int(color_hex.lstrip("#"), 16)
-    embed_fields = [
-        {"name": k, "value": v, "inline": s} for k, v, s in fields_data
-    ]
+    summary = data.get("summary", {})
+    high_risk = summary.get("high_risk_ips", 0)
+
+    if high_risk > 0:
+        status_bar = "🔴🔴🔴 **즉각 조치 필요**"
+        desc_prefix = "⚠️ **HIGH 위험 IP가 탐지되었습니다.** WAF 차단 목록 업데이트를 위한 GitHub PR이 자동 생성되었습니다."
+    else:
+        status_bar = "🟢🟢🟢 **정상 범위**"
+        desc_prefix = "✅ 탐지된 고위험 IP가 없습니다. 인프라 보안 상태가 양호합니다."
+
+    embed_fields = [{"name": k, "value": v, "inline": s} for k, v, s in fields_data]
+
     return {
+        "username": "구름방범대 보안봇",
+        "avatar_url": "https://avatars.githubusercontent.com/goormSecurity",
         "embeds": [{
-            "title": f"[Cloud Security Platform] WAF 분석 완료 — {level}",
-            "description": f"분석 파일: `{filename}`",
+            "title": f"🛡️ WAF 자동 분석 리포트 — {level}",
+            "description": f"{status_bar}\n\n{desc_prefix}",
             "color": color_int,
             "fields": embed_fields,
-            "footer": {"text": "Cloud Security Platform | AWS WAF 자동 분석"},
+            "thumbnail": {"url": "https://avatars.githubusercontent.com/goormSecurity"},
+            "footer": {
+                "text": "구름방범대 · AI 적용 클라우드 보안 자동화 플랫폼",
+                "icon_url": "https://avatars.githubusercontent.com/goormSecurity",
+            },
             "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
         }]
     }
@@ -108,17 +122,18 @@ def _build_payload(data: dict, filename: str, url: str) -> dict:
 
     # (이름, 값, inline/short) 공통 필드
     fields_data = [
-        ("총 요청 수",  f"{total:,}건",                    True),
-        ("고위험 IP",   f"{high_risk}개",                  True),
-        ("WAF 차단율",  f"{block_rate * 100:.1f}%",        True),
-        ("공격 유형",   ", ".join(attack_counts) or "없음", True),
+        ("📊 총 요청 수",  f"`{total:,}건`",                           True),
+        ("🚨 고위험 IP",   f"`{high_risk}개`",                         True),
+        ("🛡️ WAF 차단율",  f"`{block_rate * 100:.1f}%`",              True),
+        ("⚔️ 공격 유형",   ", ".join(attack_counts) or "탐지 없음",   True),
     ]
 
     if high_ips:
         top = high_ips[0]
         fields_data.append((
-            f"최고위험 IP [{top.get('country', '??')}]",
-            f"`{top.get('ip')}` — 위험도 {top.get('risk_score', 0):.0f}점\n"
+            f"🔍 최고위험 IP [{top.get('country', '??')}]",
+            f"```{top.get('ip')}```\n"
+            f"위험도 **{top.get('risk_score', 0):.0f}점** · "
             f"공격: {', '.join(top.get('attack_types', [])) or '없음'}",
             False,
         ))
