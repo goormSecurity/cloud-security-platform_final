@@ -19,12 +19,26 @@ try:
 except ImportError:
     pass
 
-try:
-    import yaml
-    _cfg = yaml.safe_load((Path(__file__).parent.parent / "platform.yaml").read_text(encoding="utf-8"))
-    DEFAULT_REPO = _cfg.get("integrations", {}).get("github_repo", "goormSecurity/cloud-security-platform")
-except Exception:
-    DEFAULT_REPO = "goormSecurity/cloud-security-platform"
+def _resolve_default_repo() -> str:
+    # 1) 명시적 오버라이드
+    if os.environ.get("GITHUB_REPO"):
+        return os.environ["GITHUB_REPO"]
+    # 2) GitHub Actions가 자동 설정하는 현재 레포 (owner/name)
+    if os.environ.get("GITHUB_REPOSITORY"):
+        return os.environ["GITHUB_REPOSITORY"]
+    # 3) platform.yaml
+    try:
+        import yaml
+        _cfg = yaml.safe_load((Path(__file__).parent.parent / "platform.yaml").read_text(encoding="utf-8"))
+        val = _cfg.get("integrations", {}).get("github_repo", "")
+        if val:
+            return val
+    except Exception:
+        pass
+    return "goormSecurity/cloud-security-platform_final"
+
+
+DEFAULT_REPO = _resolve_default_repo()
 
 API = "https://api.github.com"
 

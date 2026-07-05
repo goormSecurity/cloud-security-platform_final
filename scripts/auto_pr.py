@@ -30,12 +30,14 @@ API = "https://api.github.com"
 
 
 def _load_repo() -> str:
+    if os.environ.get("GITHUB_REPOSITORY"):
+        return os.environ["GITHUB_REPOSITORY"]
     try:
         import yaml
         cfg = yaml.safe_load((ROOT / "platform.yaml").read_text(encoding="utf-8"))
         return cfg["integrations"]["github_repo"]
     except Exception:
-        return "goormSecurity/cloud-security-platform"
+        return "goormSecurity/cloud-security-platform_final"
 
 
 REPO = _load_repo()
@@ -77,6 +79,16 @@ def _load_latest_analysis(analysis_path: str = None) -> dict:
         p = candidates[-1]
     print(f"[auto_pr] 분석 파일 로드: {p}")
     return json.loads(p.read_text(encoding="utf-8"))
+
+
+def _load_latest_fpfn() -> dict | None:
+    candidates = sorted(OUTPUT_DIR.glob("fp_fn_*.json"))
+    if not candidates:
+        return None
+    try:
+        return json.loads(candidates[-1].read_text(encoding="utf-8"))
+    except Exception:
+        return None
 
 
 def _extract_high_risk_ips(analysis: dict) -> list[str]:
@@ -149,6 +161,52 @@ def _create_pr(token: str, branch: str, title: str, body: str) -> dict:
     return resp
 
 
+def _build_waf_section(fpfn: dict) -> str:
+    fn = fpfn.get("false_negative", {})
+    fn_rate = fn.get("fn_rate", 0)
+    fn_count = fn.get("fn_count", 0)
+    total_patterns = fn.get("total_attack_patterns", 0)
+    improvable = fn.get("improvable_by_block_mode", 0)
+    verdict = fpfn.get("overall_verdict", "")
+    summary_text = fpfn.get("summary", "")
+
+    from collections import Counter
+    fn_items = fn.get("fn_items", [])
+    category_counts = Counter(item.get("category") for item in fn_items)
+    cat_table = "\n".join(f"| `{cat}` | {count}개 |" for cat, count in sorted(category_counts.items()))
+
+    recs = fpfn.get("recommendations", [])
+    rec_lines = "\n".join(
+        f"- **[{r.get('priority', '')}] {r.get('action', '')}**\n  {r.get('detail', '')}"
+        for r in recs
+    )
+
+    return f"""
+## ⚠️ WAF 보안 진단 결과 (FP/FN 분석)
+
+> 판정: **{verdict}** — {summary_text}
+
+| 항목 | 값 |
+|---|---|
+| 공격 패턴 테스트 수 | {total_patterns}개 |
+| 미탐(FN) 건수 | {fn_count}개 ({fn_rate:.0%}) |
+| Block 전환으로 즉시 차단 가능 | {improvable}개 |
+
+### 미탐 카테고리별 분류
+
+| 공격 유형 | 미탐 건수 |
+|---|---|
+{cat_table}
+
+### 권고사항
+
+{rec_lines}
+
+> 🔴 **WAF가 현재 Count 모드로 동작 중입니다.** 공격을 탐지만 하고 차단하지 않습니다.
+> AWSManagedRules의 `override_action`을 `none`으로 변경하면 {improvable}개 추가 공격을 즉시 차단할 수 있습니다.
+"""
+
+
 def _build_pr_body(analysis: dict, ips: list[str]) -> str:
     summary = analysis.get("summary", {})
     generated_at = analysis.get("generated_at", "")
@@ -157,6 +215,9 @@ def _build_pr_body(analysis: dict, ips: list[str]) -> str:
     high_risk = summary.get("high_risk_ips", 0)
 
     ip_table = "\n".join(f"| `{ip}` | HIGH |" for ip in ips) if ips else "| (없음) | - |"
+
+    fpfn = _load_latest_fpfn()
+    waf_section = _build_waf_section(fpfn) if fpfn else ""
 
     return f"""## 개요
 
@@ -177,7 +238,7 @@ def _build_pr_body(analysis: dict, ips: list[str]) -> str:
 | IP (CIDR) | 위험도 |
 |---|---|
 {ip_table}
-
+{waf_section}
 ## 변경 파일
 
 - `terraform/waf_blocked_ips.auto.tfvars` — WAF IP 차단 목록 자동 갱신
@@ -185,6 +246,7 @@ def _build_pr_body(analysis: dict, ips: list[str]) -> str:
 ## 검토 체크리스트
 
 - [ ] HIGH 위험 판정 근거 확인 (output/ 폴더의 분석 JSON 참조)
+- [ ] WAF Count 모드 → Block 전환 검토 (위 FP/FN 분석 참조)
 - [ ] Infracost 비용 영향 확인 (이 PR에 자동 댓글 게시됨)
 - [ ] 오탐 여부 검토
 - [ ] 승인 후 Terraform Apply → AWS WAF 자동 반영
