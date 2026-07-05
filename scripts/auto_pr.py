@@ -182,7 +182,7 @@ def _build_waf_section(fpfn: dict) -> str:
     )
 
     return f"""
-## ⚠️ WAF 보안 진단 결과 (FP/FN 분석)
+## WAF 보안 진단 결과 (FP/FN 분석)
 
 > 판정: **{verdict}** — {summary_text}
 
@@ -202,7 +202,7 @@ def _build_waf_section(fpfn: dict) -> str:
 
 {rec_lines}
 
-> 🔴 **WAF가 현재 Count 모드로 동작 중입니다.** 공격을 탐지만 하고 차단하지 않습니다.
+> **[긴급] WAF가 현재 Count 모드로 동작 중입니다.** 공격을 탐지만 하고 차단하지 않습니다.
 > AWSManagedRules의 `override_action`을 `none`으로 변경하면 {improvable}개 추가 공격을 즉시 차단할 수 있습니다.
 """
 
