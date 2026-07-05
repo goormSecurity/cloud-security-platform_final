@@ -9,6 +9,16 @@ yum install -y docker python3.11 python3.11-pip git
 # 2. Docker
 systemctl start docker
 systemctl enable docker
+
+# 2b. NVIDIA 드라이버 (g4dn GPU 인스턴스 감지 시 자동 설치)
+if lspci 2>/dev/null | grep -i nvidia > /dev/null; then
+    dnf install -y kernel-devel-$(uname -r) kernel-headers-$(uname -r) gcc make
+    curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-keyring_1.1-1_all.rpm \
+      -o /tmp/cuda-keyring.rpm
+    rpm -i /tmp/cuda-keyring.rpm 2>/dev/null || true
+    dnf install -y cuda-drivers 2>/dev/null || true
+    nvidia-smi && echo "[GPU] NVIDIA T4 준비 완료" || echo "[GPU] 드라이버 설치 실패"
+fi
 usermod -aG docker ec2-user
 curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" \
   -o /usr/local/bin/docker-compose

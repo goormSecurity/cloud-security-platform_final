@@ -25,7 +25,7 @@ module "ec2" {
   private_subnet_ids     = module.networking.private_subnet_ids
   app_sg_id              = module.networking.app_sg_id
   instance_type_app      = "t3.small"
-  instance_type_analysis = "t3.xlarge"
+  instance_type_analysis = "g4dn.xlarge"
   ssh_public_key         = var.ssh_public_key
 }
 
