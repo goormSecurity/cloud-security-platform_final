@@ -36,7 +36,14 @@ S3 버킷 보안·CloudTrail 변경 이력·Config 드리프트 결과를 종합
 - 섹션 6: ZAP High/Medium 취약점명·Trivy CRITICAL/HIGH CVE 수·IaC 오설정 수
 - 섹션 7: CloudTrail 주요 API 변경 이력·S3 암호화 상태·데이터 보안 현황
 - 섹션 8: 모든 데이터를 종합하여 우선순위별 구체적 개선 권고 5~8개 항목
+  * 각 권고는 반드시 "어떤 도구의 어떤 항목(check_id/CVE/rule명)이 문제이며, 구체적으로 무엇을 어떻게 바꿔야 한다"는 형식으로 작성한다.
+  * 예시 형식: "① [긴급] WAF Block 모드 전환 — AWSManagedRulesCommonRuleSet rule이 COUNT 상태. WAF 콘솔에서 해당 rule의 OverrideAction을 None(Block)으로 변경하면 X건의 공격을 즉시 차단 가능."
+  * 예시 형식: "② [높음] Prowler FAIL cloudwatch_changes_to_vpcs_alarm_configured — CloudWatch → 경보 → VPC 변경 감지 알람을 생성하여 CloudTrail 연동 설정."
+  * 예시 형식: "③ [높음] Trivy CRITICAL CVE-XXXX-YYYY (패키지명) — 해당 Docker 이미지를 버전 X.Y 이상으로 업데이트하고 컨테이너를 재배포."
+  * FACTS에 실제 check_id, CVE ID, rule name이 없으면 그 유형의 권고는 생략하고 있는 데이터만으로 구체화한다.
 - 섹션 9: 즉시 조치 필요한 운영 액션 아이템 bullet 목록
+  * 각 항목은 "조치 대상(시스템/서비스명) + 구체적 액션 + 예상 효과"를 포함해야 한다.
+  * FACTS에 없는 항목을 지어내지 않는다. 데이터에 근거한 액션만 작성한다.
 """
 
 USER_PROMPT_TEMPLATE = """
@@ -88,9 +95,13 @@ USER_PROMPT_TEMPLATE = """
 7. "## 6. 웹·컨테이너 취약점 스캔" — ZAP High/Medium·Trivy CRITICAL/HIGH·IaC 오설정
 8. "## 7. 데이터 보안 및 변경 이력" — CloudTrail API 변경·S3 암호화·Object Lock
 9. "## 8. 종합 정책 개선 제안" — 전체 데이터 종합 우선순위별 5~8개 구체적 권고
+   - 각 항목은 ①②③... 번호 + [긴급/높음/중간] 우선순위 레이블 + check_id·CVE·rule명 명시 + 구체적 조치 방법을 포함한다.
+   - [WAF 분석 데이터]의 rule_hits 키명, [인프라 보안 점검]의 check_id, [컨테이너·IaC 취약점 스캔]의 CVE 번호를 직접 인용한다.
 10. "## 9. 운영자 검토 사항" — 즉시 조치 필요 항목 bullet
+    - 각 bullet은 "- [ ] **[대상 시스템/서비스]** 구체적 조치 — 기대 효과" 형식으로 작성한다.
 
 핵심 규칙:
 - IP는 FACTS에 있는 것만 적는다.
 - 코드블록(```) 없이 순수 Markdown만 출력한다.
+- 섹션 8·9의 권고는 반드시 FACTS에 존재하는 구체적 식별자(check_id, CVE ID, rule명, IP 주소)를 인용한다. FACTS에 없으면 generic 표현 대신 해당 항목을 생략한다.
 """

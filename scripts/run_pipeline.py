@@ -52,7 +52,7 @@ def _fail(msg): print(f"{C.RED}  ✘ {msg}{C.RESET}", flush=True)
 def _info(msg): print(f"{C.CYAN}  → {msg}{C.RESET}", flush=True)
 
 _STEP_N = 0
-_STEP_TOTAL = 21  # main()에서 실행되는 총 단계 수
+_STEP_TOTAL = 22  # main()에서 실행되는 총 단계 수
 
 def _step(n, title):
     global _STEP_N
@@ -608,6 +608,27 @@ def step_auto_pr(analysis_json: str | None, dry_run: bool) -> bool:
         return False
 
 
+def step_auto_remediation_pr(dry_run: bool) -> bool:
+    _step(9, "보안 취약점 수정 코드 PR 자동 생성 (scripts/auto_remediation_pr.py)")
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token and not dry_run:
+        _skip("GITHUB_TOKEN 없음 — 수정 코드 PR 스킵")
+        return False
+
+    cmd = [sys.executable, str(ROOT / "scripts" / "auto_remediation_pr.py")]
+    if dry_run:
+        cmd.append("--dry-run")
+
+    code, _ = _run_live(cmd, cwd=str(ROOT), env={"GITHUB_TOKEN": token or ""},
+                        keyword="[auto_remediation_pr]")
+    if code == 0:
+        _ok("수정 코드 PR 생성 완료")
+        return True
+    else:
+        _fail(f"종료 코드: {code}")
+        return False
+
+
 def step_sync_monitoring(analysis_json: str | None) -> bool:
     """최신 분석 결과를 분석 서버 output/ 에 동기화 → Grafana 대시보드 갱신."""
     _step("11", "Grafana 모니터링 동기화 (분석 결과 → 분석 서버)")
@@ -910,7 +931,8 @@ def main():
     results["pr_collector"]  = step_pr_collector()
 
     results["compliance"]    = step_compliance_report(analysis_json)
-    results["auto_pr"]       = False if args.skip_pr  else step_auto_pr(analysis_json, args.dry_run)
+    results["auto_pr"]            = False if args.skip_pr  else step_auto_pr(analysis_json, args.dry_run)
+    results["auto_remediation_pr"] = False if args.skip_pr else step_auto_remediation_pr(args.dry_run)
     results["slack_notify"]  = step_notify_slack(analysis_json)
     results["s3_upload"]     = step_upload_s3()
     results["monitoring"]    = step_sync_monitoring(analysis_json)

@@ -250,7 +250,14 @@ def build_trivy_facts(data: Dict) -> str:
         by_sev = r.get("by_severity", {})
         lines.append(f"- trivy.image.{img}=CRITICAL:{by_sev.get('CRITICAL',0)} HIGH:{by_sev.get('HIGH',0)}")
         for v in (r.get("top_vulns") or [])[:3]:
-            lines.append(f"- trivy.cve={v.get('vulnerability_id','')} severity={v.get('severity','')} pkg={v.get('pkg_name','')}")
+            cve_id  = v.get("id") or v.get("vulnerability_id", "")
+            pkg_nm  = v.get("pkg") or v.get("pkg_name", "")
+            fix_ver = v.get("fixed") or v.get("fixed_version", "")
+            title   = v.get("title", "")
+            lines.append(
+                f"- trivy.cve={cve_id} severity={v.get('severity','')} "
+                f"pkg={pkg_nm} installed={v.get('installed','')} fixed={fix_ver} title={title[:60]}"
+            )
     iac = data.get("iac", {})
     lines.append(f"- trivy.iac_misconfigs={iac.get('total', 0)}")
     for k, v in (iac.get("by_severity") or {}).items():
