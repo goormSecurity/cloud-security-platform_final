@@ -193,18 +193,42 @@ def ab_test():
 # ── 파이프라인 실행 이력 ───────────────────────────────────────────
 @app.route("/pipeline-runs")
 def pipeline_runs():
+    from flask import request as req
+    try:
+        from_ts = int(req.args.get("from", 0))
+        to_ts   = int(req.args.get("to",   0))
+    except Exception:
+        from_ts = to_ts = 0
+    from_dt = datetime.fromtimestamp(from_ts, tz=timezone.utc) if from_ts else None
+    to_dt   = datetime.fromtimestamp(to_ts,   tz=timezone.utc) if to_ts   else None
+
     files = []
     for base in (_ROOT_OUTPUT, _LOCAL_DATA):
         files.extend(base.rglob("analysis_*.json"))
+
     runs = []
-    for f in sorted(files, reverse=True)[:10]:
+    for f in sorted(files, reverse=True):
+        if len(runs) >= 10:
+            break
         try:
             with open(f, encoding="utf-8") as fp:
                 d = json.load(fp)
+            gen_at = d.get("generated_at", "")
+            if (from_dt or to_dt) and gen_at:
+                try:
+                    gen_dt = datetime.fromisoformat(gen_at.replace("Z", "+00:00"))
+                    if gen_dt.tzinfo is None:
+                        gen_dt = gen_dt.replace(tzinfo=timezone.utc)
+                    if from_dt and gen_dt < from_dt:
+                        continue
+                    if to_dt and gen_dt > to_dt:
+                        continue
+                except Exception:
+                    pass
             s = d.get("summary", {})
             runs.append({
                 "filename":       f.name,
-                "generated_at":   d.get("generated_at", "")[:16].replace("T", " "),
+                "generated_at":   gen_at[:16].replace("T", " "),
                 "total_requests": s.get("total_requests", 0),
                 "high_risk_ips":  s.get("high_risk_ips", 0),
                 "blocked":        s.get("action_counts", {}).get("BLOCK", 0),
