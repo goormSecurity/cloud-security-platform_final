@@ -19,6 +19,7 @@ chmod +x /usr/local/bin/docker-compose
 
 # 3. 리포지토리 클론 (public)
 git clone https://github.com/goormSecurity/cloud-security-platform_final.git /opt/cloud-security-platform
+chown -R ec2-user:ec2-user /opt/cloud-security-platform
 cd /opt/cloud-security-platform
 
 # 4. Python 3.11 의존성
@@ -63,12 +64,50 @@ printf 'AWS_DEFAULT_REGION=ap-northeast-2\nGITHUB_TOKEN=%s\nABUSEIPDB_API_KEY=%s
   "$SSM_GITHUB" "$SSM_ABUSE" "$SSM_SLACK" > /opt/cloud-security-platform/.env
 chmod 600 /opt/cloud-security-platform/.env
 
-# 8. Grafana + Loki + JSON API (repo의 docker-compose 사용)
+# 8. platform.yaml 자동 생성 (AWS API 기반)
+cd /opt/cloud-security-platform
+REGION="ap-northeast-2"
+ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text --region $REGION 2>/dev/null || echo "")
+TOKEN=$(curl -sf -X PUT "http://169.254.169.254/latest/api/token" \
+  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" 2>/dev/null)
+MY_IP=$(curl -sf -H "X-aws-ec2-metadata-token: $TOKEN" \
+  "http://169.254.169.254/latest/meta-data/public-ipv4" 2>/dev/null || echo "")
+ALB_DNS=$(aws elbv2 describe-load-balancers \
+  --query "LoadBalancers[?contains(LoadBalancerName,'cloud-sec')].DNSName | [0]" \
+  --output text --region $REGION 2>/dev/null || echo "")
+APP_IP=$(aws ec2 describe-instances \
+  --filters "Name=tag:Role,Values=app" "Name=instance-state-name,Values=running" \
+  --query "Reservations[0].Instances[0].PublicIpAddress" \
+  --output text --region $REGION 2>/dev/null || echo "")
+
+python3.11 scripts/generate_config.py 2>/dev/null || true
+
+# generate_config가 못 채운 값 보완
+ALB_DNS="$ALB_DNS" MY_IP="$MY_IP" APP_IP="$APP_IP" python3.11 - <<PYEOF
+import re, pathlib, os
+f = pathlib.Path("/opt/cloud-security-platform/platform.yaml")
+if not f.exists():
+    f.write_text("")
+txt = f.read_text()
+def patch(txt, key, val):
+    if not val or val in ("", "None", "null"):
+        return txt
+    return re.sub(r"(  " + key + r":).*", r"\1 " + val, txt)
+txt = patch(txt, "dns_name",    os.environ.get("ALB_DNS", ""))
+txt = patch(txt, "analysis_ip", os.environ.get("MY_IP", ""))
+txt = patch(txt, "app_ip",      os.environ.get("APP_IP", ""))
+f.write_text(txt)
+PYEOF
+chown ec2-user:ec2-user /opt/cloud-security-platform/platform.yaml 2>/dev/null || true
+echo "[platform.yaml] ALB=$ALB_DNS / 분석서버=$MY_IP / 앱서버=$APP_IP"
+
+# 9. Grafana + Loki + JSON API (repo의 docker-compose 사용)
 mkdir -p /opt/cloud-security-platform/output
+chown ec2-user:ec2-user /opt/cloud-security-platform/output
 cd /opt/cloud-security-platform/monitoring
 docker-compose up -d
 
-# 9. cron 등록 — 매일 오전 9시 KST (0시 UTC)
-echo "0 0 * * * ec2-user cd /opt/cloud-security-platform && python3.11 scripts/run_pipeline.py --live >> /var/log/pipeline.log 2>&1" >> /etc/crontab
+# 10. cron 등록 — 매일 오전 9시 KST (0시 UTC)
+echo "0 0 * * * ec2-user cd /opt/cloud-security-platform && python3.11 scripts/run_pipeline.py --live >> /home/ec2-user/pipeline.log 2>&1" >> /etc/crontab
 
 echo "=== user-data 완료 ==="
