@@ -354,11 +354,164 @@ def build_trivy_remediations(trivy_data: dict, min_severity: str) -> list:
     return remediations
 
 
+# ── WAF 누락 룰 탐지 (attack_runner PASS + fp_fn 미탐) ──────────
+
+# 공격 유형 → 권고 AWS 관리형 룰 매핑
+_ATTACK_RULE_MAP = {
+    "CommandInjection": {
+        "rule_group": "AWSManagedRulesKnownBadInputsRuleSet",
+        "vendor":     "AWS",
+        "priority":   5,
+        "desc":       "OS 명령어 주입(Command Injection) 패턴을 차단하는 AWS 관리형 룰 그룹",
+        "tf_name":    "AWSManagedRulesKnownBadInputsRuleSet",
+    },
+    "SQLi": {
+        "rule_group": "AWSManagedRulesSQLiRuleSet",
+        "vendor":     "AWS",
+        "priority":   2,
+        "desc":       "SQL 인젝션 패턴 차단 (이미 존재하면 스킵)",
+        "tf_name":    "AWSManagedRulesSQLiRuleSet",
+    },
+    "XSS": {
+        "rule_group": "AWSManagedRulesCommonRuleSet",
+        "vendor":     "AWS",
+        "priority":   1,
+        "desc":       "XSS를 포함한 일반 웹 공격 차단 (이미 존재하면 스킵)",
+        "tf_name":    "AWSManagedRulesCommonRuleSet",
+    },
+    "PathTraversal": {
+        "rule_group": "AWSManagedRulesCommonRuleSet",
+        "vendor":     "AWS",
+        "priority":   1,
+        "desc":       "경로 순회(LFI) 공격 차단 (이미 존재하면 스킵)",
+        "tf_name":    "AWSManagedRulesCommonRuleSet",
+    },
+}
+
+
+def _get_uncovered_attack_types(analysis_data: dict, acl_data: dict) -> list[str]:
+    """attack_runner PASS 공격 유형 중 WAF 룰이 없는 항목 반환."""
+    # 현재 WAF에 있는 룰 그룹 이름 수집
+    existing_rules: set[str] = set()
+    if acl_data:
+        acl = acl_data.get("WebACL") or acl_data
+        for rule in (acl.get("Rules") or []):
+            existing_rules.add(rule.get("Name", ""))
+            stmt = rule.get("Statement") or {}
+            mrg = stmt.get("ManagedRuleGroupStatement") or {}
+            if mrg.get("Name"):
+                existing_rules.add(mrg["Name"])
+
+    # fp_fn 파일에서 미탐 유형 읽기
+    fp_fn_paths = [
+        ROOT / "output" / "fp_fn_latest.json",
+    ]
+    fp_fn_latest = _find_latest("fp_fn_*.json")
+    if fp_fn_latest:
+        fp_fn_paths.insert(0, fp_fn_latest)
+
+    missed_types: set[str] = set()
+    for p in fp_fn_paths:
+        data = _load(p)
+        if not data:
+            continue
+        for item in (data.get("false_negatives") or []):
+            atype = item.get("attack_type") or item.get("type") or ""
+            if atype:
+                missed_types.add(atype)
+        break
+
+    # attack_runner sent_attacks.jsonl에서 PASS(미차단) 유형 추가
+    sim_path = ROOT / "attack_simulation" / "output" / "sent_attacks.jsonl"
+    if sim_path.exists():
+        try:
+            import json as _json
+            with open(sim_path, encoding="utf-8") as f:
+                for line in f:
+                    rec = _json.loads(line.strip())
+                    # blocked=False 또는 status!=403 인 것
+                    if not rec.get("blocked", True) or rec.get("status_code", 403) not in (403, 400):
+                        atype = rec.get("attack_type") or rec.get("type") or ""
+                        if atype:
+                            missed_types.add(atype)
+        except Exception:
+            pass
+
+    # 맵에 있는 유형 중 실제로 커버되지 않는 것만
+    uncovered = []
+    for atype, info in _ATTACK_RULE_MAP.items():
+        if atype not in missed_types:
+            continue
+        if info["rule_group"] not in existing_rules and info["tf_name"] not in existing_rules:
+            uncovered.append(atype)
+    return uncovered
+
+
+def build_missing_waf_rule_remediations(analysis_data: dict, acl_data: dict) -> list:
+    """attack_runner에서 PASS된 공격 유형 중 WAF 룰이 없는 항목에 대한 추가 권고."""
+    remediations = []
+    acl_name = (acl_data or {}).get("WebACL", {}).get("Name") or "cloud-sec-web-acl"
+    acl_id   = (acl_data or {}).get("WebACL", {}).get("Id") or "<WEB_ACL_ID>"
+    region   = "ap-northeast-2"
+
+    for atype in _get_uncovered_attack_types(analysis_data, acl_data):
+        info = _ATTACK_RULE_MAP[atype]
+        rg   = info["rule_group"]
+        pri  = info["priority"]
+
+        cli_code = (
+            f"# {atype} 차단 WAF 룰 그룹 추가: {rg}\n\n"
+            f"LOCK_TOKEN=$(aws wafv2 get-web-acl \\\n"
+            f"  --name {acl_name} --scope REGIONAL --id {acl_id} \\\n"
+            f"  --region {region} --query LockToken --output text)\n\n"
+            f"# waf_acl_current.json 에 아래 Rule 블록을 추가 후:\n"
+            f"aws wafv2 update-web-acl \\\n"
+            f"  --name {acl_name} --scope REGIONAL --id {acl_id} \\\n"
+            f"  --lock-token $LOCK_TOKEN \\\n"
+            f"  --cli-input-json file://waf_acl_updated.json \\\n"
+            f"  --region {region}"
+        )
+        tf_code = (
+            f'# terraform/waf.tf 에 추가\n'
+            f'resource "aws_wafv2_web_acl_rule" "{rg.lower()}" {{\n'
+            f'  name     = "{rg}"\n'
+            f'  priority = {pri}\n'
+            f'  override_action {{ none {{}} }}\n'
+            f'  statement {{\n'
+            f'    managed_rule_group_statement {{\n'
+            f'      name        = "{rg}"\n'
+            f'      vendor_name = "{info["vendor"]}"\n'
+            f'    }}\n'
+            f'  }}\n'
+            f'  visibility_config {{\n'
+            f'    sampled_requests_enabled   = true\n'
+            f'    cloudwatch_metrics_enabled = true\n'
+            f'    metric_name                = "{rg}"\n'
+            f'  }}\n'
+            f'}}'
+        )
+        remediations.append({
+            "type":      "waf",
+            "check_id":  f"waf_missing_rule_{atype.lower()}",
+            "severity":  "high",
+            "title":     f"WAF {atype} 차단 룰 미설치 — {rg} 추가 필요",
+            "why":       (
+                f"공격 시뮬레이션에서 {atype} 공격이 WAF에 차단되지 않고 통과됨. "
+                f"AWS 관리형 룰 '{rg}' 추가로 즉시 차단 가능."
+            ),
+            "resource":  acl_name,
+            "detail":    f"attack_type={atype} missing_rule_group={rg}",
+            "cli_code":  cli_code,
+            "tf_code":   tf_code,
+        })
+
+    return remediations
+
+
 # ── WAF Count 모드 수정 코드 생성 ────────────────────────────────
 
 def build_waf_remediations(analysis_data: dict) -> list:
     remediations = []
-    waf_mode = analysis_data.get("waf_mode") or ""
     rule_hits = analysis_data.get("rule_hits") or {}
 
     # WAF ACL 파일 확인
@@ -568,10 +721,23 @@ def run(dry_run: bool = False, min_severity: str = "medium") -> bool:
 
     prowler_list = prowler_raw if isinstance(prowler_raw, list) else []
 
+    # WAF ACL 데이터 (waf 관련 함수들이 공유)
+    _acl_paths = [
+        ROOT / "raw" / "waf_web_acl.json",
+        ROOT / "analyzer" / "live_logs" / "raw" / "waf_web_acl.json",
+        ROOT / "output" / "waf_web_acl.json",
+    ]
+    _acl_data = None
+    for _p in _acl_paths:
+        if _p.exists():
+            _acl_data = _load(_p)
+            break
+
     # 수정 코드 생성
     remediations = (
         build_prowler_remediations(prowler_list, region) +
         build_waf_remediations(analysis) +
+        build_missing_waf_rule_remediations(analysis, _acl_data) +
         build_trivy_remediations(trivy_data, min_severity)
     )
 

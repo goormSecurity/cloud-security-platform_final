@@ -68,12 +68,10 @@ def _build_slack_payload(data: dict, filename: str, level: str, color: str,
 
 
 def _build_discord_payload(data: dict, filename: str, level: str, color_hex: str,
-                           fields_data: list) -> dict:
+                           fields_data: list, high_risk_count: int = 0) -> dict:
     color_int = int(color_hex.lstrip("#"), 16)
-    summary = data.get("summary", {})
-    high_risk = summary.get("high_risk_ips", 0)
 
-    if high_risk > 0:
+    if high_risk_count > 0:
         status_bar = "🔴🔴🔴 **즉각 조치 필요**"
         desc_prefix = "⚠️ **HIGH 위험 IP가 탐지되었습니다.** WAF 차단 목록 업데이트를 위한 GitHub PR이 자동 생성되었습니다."
     else:
@@ -100,15 +98,29 @@ def _build_discord_payload(data: dict, filename: str, level: str, color_hex: str
     }
 
 
+def _self_ips() -> set:
+    """EC2 분석 서버 자체 IP 반환 — WAF 리포트에서 제외."""
+    try:
+        from config_loader import cfg as _cfg
+        return {_cfg("servers.analysis_ip", ""), _cfg("servers.app_ip", "")} - {""}
+    except Exception:
+        return set()
+
+
 def _build_payload(data: dict, filename: str, url: str) -> dict:
     summary = data.get("summary", {})
     total = summary.get("total_requests", 0)
-    high_risk = summary.get("high_risk_ips", 0)
     block_rate = summary.get("block_rate", 0)
     attack_counts = summary.get("attack_type_counts", {})
     top_ips = data.get("top_ips", [])
 
-    high_ips = [ip for ip in top_ips if ip.get("risk_level") == "HIGH"]
+    # EC2 자체 IP 제외 (attack_runner가 로컬에서 실행되더라도 분석 서버 IP는 제외)
+    _exclude = _self_ips()
+    high_ips = [
+        ip for ip in top_ips
+        if ip.get("risk_level") == "HIGH" and ip.get("ip") not in _exclude
+    ]
+    high_risk = len(high_ips)
 
     if high_risk > 0:
         color = "FF0000"
@@ -122,10 +134,10 @@ def _build_payload(data: dict, filename: str, url: str) -> dict:
 
     # (이름, 값, inline/short) 공통 필드
     fields_data = [
-        ("📊 총 요청 수",  f"`{total:,}건`",                           True),
-        ("🚨 고위험 IP",   f"`{high_risk}개`",                         True),
-        ("🛡️ WAF 차단율",  f"`{block_rate * 100:.1f}%`",              True),
-        ("⚔️ 공격 유형",   ", ".join(attack_counts) or "탐지 없음",   True),
+        ("📊 총 요청 수",  f"`{total:,}건`",                              True),
+        ("🚨 고위험 IP",   f"`{high_risk}개`",                            True),
+        ("🛡️ WAF 차단율",  f"`{block_rate * 100:.1f}%`",                 True),
+        ("⚔️ 공격 유형",   ", ".join(attack_counts) or "탐지 없음",      True),
     ]
 
     if high_ips:
@@ -181,7 +193,7 @@ def _build_payload(data: dict, filename: str, url: str) -> dict:
             pass
 
     if _is_discord(url):
-        return _build_discord_payload(data, filename, level, color, fields_data)
+        return _build_discord_payload(data, filename, level, color, fields_data, high_risk)
     return _build_slack_payload(data, filename, level, f"#{color}", fields_data)
 
 
