@@ -109,8 +109,6 @@ def action_timeline():
     if not data:
         return jsonify([]), 404
     by_action = data.get("time_buckets_by_action", {})
-    if not by_action:
-        return jsonify([]), 404
 
     merged: dict = {}
     for action, buckets in by_action.items():
