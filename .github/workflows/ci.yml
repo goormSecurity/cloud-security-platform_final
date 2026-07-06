@@ -169,6 +169,31 @@ jobs:
           retention-days: 30
 
   # ================================================================
+  # JOB 3-B: EC2 자동 배포 — main push 시 코드 반영 + 컨테이너 재시작
+  #   필요 GitHub Secrets: EC2_HOST, EC2_SSH_PRIVATE_KEY
+  # ================================================================
+  deploy-ec2:
+    name: "[CD] Deploy to EC2 (Grafana 스택 갱신)"
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH — git pull + 컨테이너 재시작
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd /opt/cloud-security-platform
+            git pull --ff-only
+            docker restart json-api fluent-bit
+            echo "[OK] 배포 완료: $(date)"
+        continue-on-error: true
+
+  # ================================================================
   # JOB 4: AWS 인프라 배포 — 수동 실행 전용
   #   기획서 4.4: "승인된 정책은 GitHub Actions를 통해 Terraform 코드로 반영"
   #   Actions 탭 → "Run workflow" 버튼으로 수동 실행
