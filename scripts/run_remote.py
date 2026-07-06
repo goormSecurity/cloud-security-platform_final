@@ -77,60 +77,51 @@ def _print_step(n: int, title: str):
 
 # ── 0단계: 코드 동기화 ───────────────────────────────────────────
 
-_SYNC_DIRS = [
-    "scripts",
-    "analyzer",
-    "ai",
-    "compliance",
-    "security",
-    "monitoring/dashboards",
-]
-
-_RSYNC_EXCLUDES = [
-    "--exclude=__pycache__/",
-    "--exclude=*.pyc",
-    "--exclude=*.pyc",
-    "--exclude=.venv/",
-    "--exclude=output/",
-    "--exclude=reports/",
-    "--exclude=.git/",
-    "--exclude=*.tfstate",
-    "--exclude=attack_simulation/output/",
-]
+_FINAL_REPO = "https://github.com/goormSecurity/cloud-security-platform_final.git"
 
 
 def sync_code_to_ec2(ssh_host: str, ssh_user: str, ssh_key: str,
                      remote_path: str) -> bool:
-    """로컬 소스코드를 EC2로 rsync. 변경된 파일만 전송, 삭제도 반영."""
-    import shutil
-    _print_step(0, f"코드 동기화 (로컬 → EC2 {ssh_host})")
+    """EC2에서 git pull로 최신 코드 동기화.
 
-    if not shutil.which("rsync"):
-        print("  ✘ rsync 명령을 찾을 수 없음 — Git Bash 또는 WSL에서 실행하세요")
-        return False
+    로컬에서 rsync 대신 EC2가 GitHub에서 직접 pull — Windows 호환, 항상 최신.
+    EC2 remote가 구 레포를 가리키고 있으면 _final로 교체 후 pull.
+    """
+    _print_step(0, f"코드 동기화 (EC2 git pull ← GitHub _final)")
 
-    # Windows 경로를 rsync용 POSIX 경로로 변환
-    ssh_key_posix = ssh_key.replace("\\", "/")
-    ssh_cmd = f"ssh -i '{ssh_key_posix}' -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+    # 현재 remote 확인 후 _final이 아니면 교체
+    fix_remote = (
+        f"cd {remote_path} && "
+        f"CURRENT=$(git remote get-url origin 2>/dev/null || echo '') && "
+        f"if [ \"$CURRENT\" != '{_FINAL_REPO}' ]; then "
+        f"  git remote set-url origin {_FINAL_REPO} && "
+        f"  echo '[sync] remote → _final'; "
+        f"fi"
+    )
+    subprocess.run(
+        ["ssh"] + _ssh_opts(ssh_key) + [f"{ssh_user}@{ssh_host}", fix_remote],
+        capture_output=True, timeout=15,
+    )
 
-    ok = True
-    for rel in _SYNC_DIRS:
-        src  = str(ROOT / rel.replace("/", os.sep)) + ("/" if True else "")
-        dest = f"{ssh_user}@{ssh_host}:{remote_path}/{rel}/"
-        r = subprocess.run(
-            ["rsync", "-az", "--delete"] + _RSYNC_EXCLUDES +
-            ["-e", ssh_cmd, src, dest],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-        )
-        if r.returncode == 0:
-            print(f"  ✔ {rel}/")
-        else:
-            print(f"  ✘ {rel}/  →  {r.stderr.strip()[:100]}")
-            ok = False
-
-    if ok:
-        print("  → EC2 코드 최신화 완료")
-    return ok
+    # git pull
+    pull_cmd = (
+        f"cd {remote_path} && "
+        f"git fetch origin main && "
+        f"git reset --hard origin/main 2>&1"
+    )
+    r = subprocess.run(
+        ["ssh"] + _ssh_opts(ssh_key) + [f"{ssh_user}@{ssh_host}", pull_cmd],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=60,
+    )
+    out = (r.stdout + r.stderr).strip()
+    if r.returncode == 0:
+        # 마지막 줄만 출력 (HEAD is now at ...)
+        last = [l for l in out.splitlines() if l.strip()][-1] if out else "완료"
+        print(f"  ✔ {last}")
+        return True
+    print(f"  ✘ git pull 실패:\n{out[:300]}")
+    return False
 
 
 # ── 1단계: 로컬 ZAP 스캔 ─────────────────────────────────────────
