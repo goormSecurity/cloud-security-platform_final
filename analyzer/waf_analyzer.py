@@ -218,6 +218,8 @@ def analyze(records, threshold=Config.IP_REQUEST_THRESHOLD):
     attack_type_counts = Counter()
     rule_hits = Counter()
     time_buckets = Counter()
+    time_buckets_block = Counter()
+    time_buckets_allow = Counter()
     per_ip = defaultdict(lambda: {
         "country": "", "request_count": 0,
         "actions": Counter(), "attack_types": Counter(),
@@ -244,6 +246,10 @@ def analyze(records, threshold=Config.IP_REQUEST_THRESHOLD):
             _min5 = (_dt.minute // 5) * 5
             hour = _dt.strftime(f"%Y-%m-%d %H:{_min5:02d}")
             time_buckets[hour] += 1
+            if action == "BLOCK":
+                time_buckets_block[hour] += 1
+            elif action == "ALLOW":
+                time_buckets_allow[hour] += 1
 
         s = per_ip[ip]
         s["country"] = req.get("country", "") or s["country"]
@@ -291,5 +297,9 @@ def analyze(records, threshold=Config.IP_REQUEST_THRESHOLD):
         },
         "rule_hits": dict(rule_hits),
         "time_buckets": [{"hour": h, "count": c} for h, c in sorted(time_buckets.items())],
+        "time_buckets_by_action": {
+            "BLOCK": [{"hour": h, "count": c} for h, c in sorted(time_buckets_block.items())],
+            "ALLOW": [{"hour": h, "count": c} for h, c in sorted(time_buckets_allow.items())],
+        },
         "top_ips": top_ips,
     }

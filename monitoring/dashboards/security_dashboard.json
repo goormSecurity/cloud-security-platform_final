@@ -552,9 +552,9 @@
                                            "root_selector":  "",
                                            "columns":  [
                                                            {
-                                                               "selector":  "hour",
+                                                               "selector":  "time",
                                                                "text":  "Time",
-                                                               "type":  "timestamp"
+                                                               "type":  "timestamp_epoch_ms"
                                                            },
                                                            {
                                                                "selector":  "count",
@@ -673,16 +673,8 @@
                                                {
                                                    "id":  "rowsToFields",
                                                    "options":  {
-                                                                   "mappings":  [
-                                                                                    {
-                                                                                        "handlerKey":  "field.name",
-                                                                                        "fieldName":  "action"
-                                                                                    },
-                                                                                    {
-                                                                                        "handlerKey":  "field.value",
-                                                                                        "fieldName":  "count"
-                                                                                    }
-                                                                                ]
+                                                                   "nameField":  "action",
+                                                                   "valueField":  "count"
                                                                }
                                                }
                                            ]
@@ -1576,7 +1568,7 @@
                    {
                        "id":  70,
                        "type":  "row",
-                       "title":  "실시간 WAF 로그 스트림 (Loki)",
+                       "title":  "WAF BLOCK/ALLOW 시간대별 추이",
                        "gridPos":  {
                                        "x":  0,
                                        "y":  57,
@@ -1591,7 +1583,7 @@
                    {
                        "id":  71,
                        "type":  "timeseries",
-                       "title":  "BLOCK / ALLOW 실시간 추이 (LogQL)",
+                       "title":  "BLOCK / ALLOW 시간대별 추이 (5분 단위)",
                        "gridPos":  {
                                        "x":  0,
                                        "y":  58,
@@ -1599,15 +1591,16 @@
                                        "h":  9
                                    },
                        "datasource":  {
-                                          "type":  "loki",
-                                          "uid":  "loki-cloud-sec"
+                                          "type":  "yesoreyeram-infinity-datasource",
+                                          "uid":  "infinity-uid"
                                       },
                        "fieldConfig":  {
                                            "defaults":  {
                                                             "custom":  {
                                                                            "lineWidth":  2,
                                                                            "fillOpacity":  15,
-                                                                           "drawStyle":  "line"
+                                                                           "drawStyle":  "line",
+                                                                           "pointSize":  4
                                                                        },
                                                             "unit":  "short"
                                                         },
@@ -1658,19 +1651,46 @@
                                        {
                                            "refId":  "A",
                                            "datasource":  {
-                                                              "type":  "loki",
-                                                              "uid":  "loki-cloud-sec"
+                                                              "type":  "yesoreyeram-infinity-datasource",
+                                                              "uid":  "infinity-uid"
                                                           },
-                                           "expr":  "sum by (action) (count_over_time({job=\"waf_logs\"}[5m]))",
-                                           "legendFormat":  "{{action}}",
-                                           "queryType":  "range"
+                                           "type":  "json",
+                                           "source":  "url",
+                                           "url":  "http://json-api:5000/action-timeline",
+                                           "url_options":  {
+                                                               "method":  "GET",
+                                                               "data":  ""
+                                                           },
+                                           "parser":  "backend",
+                                           "root_selector":  "",
+                                           "columns":  [
+                                                           {
+                                                               "selector":  "time",
+                                                               "text":  "Time",
+                                                               "type":  "timestamp_epoch_ms"
+                                                           },
+                                                           {
+                                                               "selector":  "BLOCK",
+                                                               "text":  "BLOCK",
+                                                               "type":  "number"
+                                                           },
+                                                           {
+                                                               "selector":  "ALLOW",
+                                                               "text":  "ALLOW",
+                                                               "type":  "number"
+                                                           }
+                                                       ],
+                                           "filters":  [
+
+                                                       ],
+                                           "format":  "table"
                                        }
                                    ]
                    },
                    {
                        "id":  72,
-                       "type":  "logs",
-                       "title":  "WAF 로그 라이브 스트림",
+                       "type":  "table",
+                       "title":  "공격자 위험도 요약 (TOP IPs)",
                        "gridPos":  {
                                        "x":  12,
                                        "y":  58,
@@ -1678,28 +1698,147 @@
                                        "h":  9
                                    },
                        "datasource":  {
-                                          "type":  "loki",
-                                          "uid":  "loki-cloud-sec"
+                                          "type":  "yesoreyeram-infinity-datasource",
+                                          "uid":  "infinity-uid"
                                       },
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "unit":  "short"
+                                                        },
+                                           "overrides":  [
+                                                             {
+                                                                 "matcher":  {
+                                                                                 "id":  "byName",
+                                                                                 "options":  "risk_level"
+                                                                             },
+                                                                 "properties":  [
+                                                                                    {
+                                                                                        "id":  "custom.displayMode",
+                                                                                        "value":  "color-background"
+                                                                                    },
+                                                                                    {
+                                                                                        "id":  "mappings",
+                                                                                        "value":  [
+                                                                                                      {
+                                                                                                          "type":  "value",
+                                                                                                          "options":  {
+                                                                                                                          "HIGH":  {
+                                                                                                                                       "color":  "#ef5350",
+                                                                                                                                       "index":  0,
+                                                                                                                                       "text":  "HIGH"
+                                                                                                                                   }
+                                                                                                                      }
+                                                                                                      },
+                                                                                                      {
+                                                                                                          "type":  "value",
+                                                                                                          "options":  {
+                                                                                                                          "MEDIUM":  {
+                                                                                                                                         "color":  "#ffa726",
+                                                                                                                                         "index":  1,
+                                                                                                                                         "text":  "MEDIUM"
+                                                                                                                                     }
+                                                                                                                      }
+                                                                                                      },
+                                                                                                      {
+                                                                                                          "type":  "value",
+                                                                                                          "options":  {
+                                                                                                                          "LOW":  {
+                                                                                                                                      "color":  "#66bb6a",
+                                                                                                                                      "index":  2,
+                                                                                                                                      "text":  "LOW"
+                                                                                                                                  }
+                                                                                                                      }
+                                                                                                      }
+                                                                                                  ]
+                                                                                    }
+                                                                                ]
+                                                             },
+                                                             {
+                                                                 "matcher":  {
+                                                                                 "id":  "byName",
+                                                                                 "options":  "risk_score"
+                                                                             },
+                                                                 "properties":  [
+                                                                                    {
+                                                                                        "id":  "custom.displayMode",
+                                                                                        "value":  "gradient-gauge"
+                                                                                    },
+                                                                                    {
+                                                                                        "id":  "thresholds",
+                                                                                        "value":  {
+                                                                                                      "mode":  "absolute",
+                                                                                                      "steps":  [
+                                                                                                                    {
+                                                                                                                        "color":  "green",
+                                                                                                                        "value":  0
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "color":  "orange",
+                                                                                                                        "value":  40
+                                                                                                                    },
+                                                                                                                    {
+                                                                                                                        "color":  "red",
+                                                                                                                        "value":  70
+                                                                                                                    }
+                                                                                                                ]
+                                                                                                  }
+                                                                                    }
+                                                                                ]
+                                                             }
+                                                         ]
+                                       },
                        "options":  {
-                                       "showLabels":  false,
-                                       "showCommonLabels":  false,
-                                       "wrapLogMessage":  false,
-                                       "prettifyLogMessage":  false,
-                                       "enableLogDetails":  true,
-                                       "dedupStrategy":  "none",
-                                       "sortOrder":  "Descending"
+                                       "footer":  {
+                                                      "show":  false
+                                                  }
                                    },
                        "targets":  [
                                        {
                                            "refId":  "A",
                                            "datasource":  {
-                                                              "type":  "loki",
-                                                              "uid":  "loki-cloud-sec"
+                                                              "type":  "yesoreyeram-infinity-datasource",
+                                                              "uid":  "infinity-uid"
                                                           },
-                                           "expr":  "{job=\"waf_logs\"}",
-                                           "queryType":  "range",
-                                           "maxLines":  100
+                                           "type":  "json",
+                                           "source":  "url",
+                                           "url":  "http://json-api:5000/top-ips",
+                                           "url_options":  {
+                                                               "method":  "GET",
+                                                               "data":  ""
+                                                           },
+                                           "parser":  "backend",
+                                           "root_selector":  "",
+                                           "columns":  [
+                                                           {
+                                                               "selector":  "ip",
+                                                               "text":  "ip",
+                                                               "type":  "string"
+                                                           },
+                                                           {
+                                                               "selector":  "country",
+                                                               "text":  "country",
+                                                               "type":  "string"
+                                                           },
+                                                           {
+                                                               "selector":  "risk_level",
+                                                               "text":  "risk_level",
+                                                               "type":  "string"
+                                                           },
+                                                           {
+                                                               "selector":  "risk_score",
+                                                               "text":  "risk_score",
+                                                               "type":  "number"
+                                                           },
+                                                           {
+                                                               "selector":  "attack_types",
+                                                               "text":  "attack_types",
+                                                               "type":  "string"
+                                                           }
+                                                       ],
+                                           "filters":  [
+
+                                                       ],
+                                           "format":  "table"
                                        }
                                    ]
                    },

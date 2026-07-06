@@ -35,8 +35,8 @@ def _load(pattern: str):
 
 @app.route("/")
 def index():
-    return ("WAF API: /summary /top-ips /rule-hits /time-buckets /attack-types "
-            "/action-counts /risk-distribution /ab-test /pipeline-runs "
+    return ("WAF API: /summary /top-ips /rule-hits /time-buckets /action-timeline "
+            "/attack-types /action-counts /risk-distribution /ab-test /pipeline-runs "
             "/zap-stats /latest-run /security-status")
 
 
@@ -76,6 +76,13 @@ def time_buckets():
     except Exception:
         from_ts = to_ts = 0
 
+    def _with_epoch(b):
+        try:
+            dt = datetime.strptime(b["hour"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+            return {**b, "time": int(dt.timestamp() * 1000)}
+        except Exception:
+            return b
+
     if from_ts or to_ts:
         from_dt = datetime.fromtimestamp(from_ts, tz=timezone.utc) if from_ts else None
         to_dt   = datetime.fromtimestamp(to_ts,   tz=timezone.utc) if to_ts   else None
@@ -87,13 +94,36 @@ def time_buckets():
                     continue
                 if to_dt and dt > to_dt:
                     continue
-                filtered.append(b)
+                filtered.append(_with_epoch(b))
             except Exception:
-                filtered.append(b)
-        # 필터 결과가 없으면 전체 반환 (시간 범위 밖 데이터도 차트에 표시)
-        return jsonify(filtered if filtered else buckets)
+                filtered.append(_with_epoch(b))
+        return jsonify(filtered if filtered else [_with_epoch(b) for b in buckets])
 
-    return jsonify(buckets)
+    return jsonify([_with_epoch(b) for b in buckets])
+
+
+# ── BLOCK/ALLOW 시간대별 (wide format: time, BLOCK, ALLOW) ──────────
+@app.route("/action-timeline")
+def action_timeline():
+    data = _load("analysis_*.json")
+    if not data:
+        return jsonify([]), 404
+    by_action = data.get("time_buckets_by_action", {})
+    if not by_action:
+        return jsonify([]), 404
+
+    merged: dict = {}
+    for action, buckets in by_action.items():
+        for b in buckets:
+            try:
+                dt = datetime.strptime(b["hour"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+                ts = int(dt.timestamp() * 1000)
+                if ts not in merged:
+                    merged[ts] = {"time": ts, "BLOCK": 0, "ALLOW": 0}
+                merged[ts][action] = b["count"]
+            except Exception:
+                pass
+    return jsonify(sorted(merged.values(), key=lambda x: x["time"]))
 
 
 # ── TOP IP ───────────────────────────────────────────────────────
