@@ -65,16 +65,7 @@ def time_buckets():
     data = _load("analysis_*.json")
     if not data:
         return jsonify([]), 404
-    buckets = []
-    for b in data.get("time_buckets", []):
-        hour = b.get("hour", "")
-        try:
-            # "2026-06-21 15:00" → Unix ms (Infinity backend가 number type을 time으로 확실히 인식)
-            dt = datetime.strptime(hour, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
-            ts_ms = int(dt.timestamp() * 1000)
-        except Exception:
-            ts_ms = 0
-        buckets.append({"hour": ts_ms, "count": b.get("count", 0)})
+    buckets = data.get("time_buckets", [])
     return jsonify(buckets)
 
 
