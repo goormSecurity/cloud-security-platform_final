@@ -71,7 +71,7 @@ def _print_step(n: int, title: str):
 
 # ── 1단계: 로컬 ZAP 스캔 ─────────────────────────────────────────
 
-def run_zap_local(target: str) -> Path | None:
+def run_zap_local(target: str):  # -> Path | None
     """로컬에서 ZAP 스캔 실행 후 결과 파일 경로 반환."""
     _print_step(1, f"ZAP 웹 취약점 스캔 (로컬) → {target}")
     out_dir = ROOT / "output"
@@ -125,7 +125,7 @@ def trigger_ec2_pipeline(ssh_host: str, ssh_user: str, ssh_key: str,
     cmd = (
         f"cd {remote_path} && "
         f"source .venv/bin/activate 2>/dev/null || true && "
-        f"python scripts/run_pipeline.py --live --live-hours {live_hours} --skip-zap 2>&1"
+        f"python3 scripts/run_pipeline.py --live --live-hours {live_hours} --skip-zap 2>&1"
     )
     r = subprocess.run(
         ["ssh"] + _ssh_opts(ssh_key) + [f"{ssh_user}@{ssh_host}", cmd],
@@ -140,7 +140,7 @@ def trigger_ec2_pipeline(ssh_host: str, ssh_user: str, ssh_key: str,
 
 # ── 4단계: S3 결과물 로컬 다운로드 ──────────────────────────────
 
-def _latest_prefix(s3, bucket: str, base: str) -> str | None:
+def _latest_prefix(s3, bucket: str, base: str):  # -> str | None
     prefixes = []
     pager = s3.get_paginator("list_objects_v2")
     for yr in pager.paginate(Bucket=bucket, Prefix=base, Delimiter="/"):
@@ -153,7 +153,7 @@ def _latest_prefix(s3, bucket: str, base: str) -> str | None:
     return sorted(prefixes)[-1] if prefixes else None
 
 
-def pull_results(date_str: str | None = None) -> Path | None:
+def pull_results(date_str=None):  # date_str: str | None -> Path | None
     """S3 pipeline-results/ 에서 결과물만 로컬 reports/pulled/ 에 저장."""
     _print_step(4, "S3 결과물 로컬 다운로드 (원시 로그 제외)")
     try:

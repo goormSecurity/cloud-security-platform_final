@@ -196,7 +196,7 @@ def _check_ollama() -> bool:
         return False
 
 
-def _latest_file(pattern: str) -> str | None:
+def _latest_file(pattern: str):  # -> str | None
     files = sorted(ROOT.glob(pattern))
     return str(files[-1]) if files else None
 
@@ -223,7 +223,7 @@ def step_attack_sim(target: str, dry_run: bool, app: str = "all") -> bool:
         return False
 
 
-def step_analyzer(log_dir: str) -> str | None:
+def step_analyzer(log_dir: str):  # -> str | None
     _step(2, "WAF 로그 분석 + CTI 위험도 산정 (analyzer/main.py)")
     _info(f"로그 소스: {log_dir}")
     cmd = [sys.executable, str(ROOT / "analyzer" / "main.py"), "--source", log_dir]
@@ -688,7 +688,7 @@ def step_sync_monitoring(analysis_json: str | None) -> bool:
         return True
 
 
-def _collect_reports() -> Path | None:
+def _collect_reports():  # -> Path | None
     """모든 결과물을 reports/{timestamp}/ 에 모으고 reports/latest/ 를 갱신."""
     _step("11", "결과물 통합 수집 → reports/latest/")
     ts = now_kst("%Y%m%d_%H%M%S")

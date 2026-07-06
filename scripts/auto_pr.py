@@ -81,7 +81,7 @@ def _load_latest_analysis(analysis_path: str = None) -> dict:
     return json.loads(p.read_text(encoding="utf-8"))
 
 
-def _load_latest_fpfn() -> dict | None:
+def _load_latest_fpfn():  # -> dict | None
     candidates = sorted(OUTPUT_DIR.glob("fp_fn_*.json"))
     if not candidates:
         return None
@@ -91,7 +91,7 @@ def _load_latest_fpfn() -> dict | None:
         return None
 
 
-def _load_prowler() -> list | None:
+def _load_prowler():  # -> list | None
     p = ROOT / "compliance" / "input" / "prowler_report.json"
     if not p.exists():
         return None
@@ -102,7 +102,7 @@ def _load_prowler() -> list | None:
         return None
 
 
-def _load_latest_zap() -> dict | None:
+def _load_latest_zap():  # -> dict | None
     candidates = sorted(OUTPUT_DIR.glob("zap_report_*.json"))
     if not candidates:
         return None
