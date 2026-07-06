@@ -96,6 +96,8 @@ def patch(txt, key, val):
 txt = patch(txt, "dns_name",    os.environ.get("ALB_DNS", ""))
 txt = patch(txt, "analysis_ip", os.environ.get("MY_IP", ""))
 txt = patch(txt, "app_ip",      os.environ.get("APP_IP", ""))
+import re as _re
+txt = _re.sub(r'(  github_repo:).*', r'\1 "goormSecurity/cloud-security-platform_final"', txt)
 f.write_text(txt)
 PYEOF
 chown ec2-user:ec2-user /opt/cloud-security-platform/platform.yaml 2>/dev/null || true
