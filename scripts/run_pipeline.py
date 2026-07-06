@@ -592,7 +592,7 @@ def step_auto_pr(analysis_json: str | None, dry_run: bool) -> bool:
 
 
 def step_sync_monitoring(analysis_json: str | None) -> bool:
-    """최신 분석 결과를 분석 서버 output/ 에 SCP로 전송 → Grafana 대시보드 갱신."""
+    """최신 분석 결과를 분석 서버 output/ 에 동기화 → Grafana 대시보드 갱신."""
     _step("11", "Grafana 모니터링 동기화 (분석 결과 → 분석 서버)")
     ssh_host = cfg("servers.analysis_ip", "")
     ssh_user = cfg("servers.ssh_user", "ec2-user")
@@ -613,9 +613,24 @@ def step_sync_monitoring(analysis_json: str | None) -> bool:
         _skip("전송할 분석 파일 없음")
         return False
 
+    # 로컬 IP 확인 — 분석 서버와 같은 머신이면 SCP 대신 cp
+    import socket
+    try:
+        local_ips = {i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None)}
+    except Exception:
+        local_ips = set()
+    local_ips.add("127.0.0.1")
+
+    if ssh_host in local_ips or ssh_host == socket.gethostbyname(socket.gethostname()):
+        # 같은 서버 — Grafana는 output/ 을 직접 마운트하므로 이미 반영됨
+        for p in targets:
+            _info(f"{p.name} → (로컬 output/ 마운트, 이미 반영)")
+        _ok(f"Grafana 동기화 완료 (로컬) → http://{ssh_host}:3000")
+        return True
+
     scp_opts = ["-i", ssh_key, "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10"]
 
-    # 원격 디렉토리 확보 (없거나 root 소유일 경우 대비)
+    # 원격 디렉토리 확보
     subprocess.run(
         ["ssh"] + scp_opts + [f"{ssh_user}@{ssh_host}",
          f"mkdir -p {remote_dir} && sudo chown {ssh_user}:{ssh_user} {remote_dir} 2>/dev/null; true"],
@@ -636,7 +651,6 @@ def step_sync_monitoring(analysis_json: str | None) -> bool:
         return True
     else:
         err = (r.stderr or "").replace("\n", " ").strip()
-        # WARNING 메시지만 있고 실제 오류 없으면 성공으로 간주
         if "Permission denied" in err or "No such file" in err:
             _fail(f"SCP 실패: {err[:150]}")
             return False
