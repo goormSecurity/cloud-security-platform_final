@@ -519,7 +519,9 @@
         },
         "tooltip": {
           "mode": "multi"
-        }
+        },
+        "xTickLabelRotation": -45,
+        "xTickLabelSpacing": 200
       },
       "targets": [
         {
