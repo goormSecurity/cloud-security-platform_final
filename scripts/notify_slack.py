@@ -145,6 +145,28 @@ def _build_payload(data: dict, filename: str, url: str) -> dict:
             False,
         ))
 
+    # WAF WebACL 존재 여부 — Prowler 결과 참조
+    prowler_path = ROOT / "compliance" / "input" / "prowler_report.json"
+    if prowler_path.exists():
+        try:
+            findings = json.loads(prowler_path.read_text(encoding="utf-8"))
+            for item in findings:
+                if item.get("check_id") == "wafv2_webacl_exists" and item.get("status") == "FAIL":
+                    fields_data.append((
+                        "🚨 WAF 미설정",
+                        "WebACL이 존재하지 않습니다. `terraform apply`로 WAF를 배포하세요.",
+                        False,
+                    ))
+                    break
+                if item.get("check_id") == "iam_root_mfa_enabled" and item.get("status") == "FAIL":
+                    fields_data.append((
+                        "⚠️ 루트 MFA 비활성화",
+                        "AWS 루트 계정 MFA가 설정되지 않았습니다. 즉시 활성화하세요.",
+                        False,
+                    ))
+        except Exception:
+            pass
+
     if _is_discord(url):
         return _build_discord_payload(data, filename, level, color, fields_data)
     return _build_slack_payload(data, filename, level, f"#{color}", fields_data)

@@ -13,6 +13,7 @@ CORS(app)
 _HERE = Path(__file__).resolve().parent
 _ROOT_OUTPUT = _HERE.parent / "output"
 _LOCAL_DATA  = _HERE / "data"
+_COMPLIANCE  = _HERE / "compliance"
 
 
 def _find_latest(pattern: str):
@@ -302,12 +303,29 @@ def latest_run():
     return jsonify(rows)
 
 
+# ── Prowler 결과에서 특정 체크 상태 조회 ─────────────────────────
+def _prowler_status(check_id: str) -> str:
+    """prowler_report.json 에서 check_id 결과 반환 (PASS/FAIL/UNKNOWN)"""
+    for base in (_COMPLIANCE, _LOCAL_DATA):
+        f = base / "prowler_report.json"
+        if not f.exists():
+            continue
+        try:
+            findings = json.loads(f.read_text(encoding="utf-8"))
+            for item in findings:
+                if item.get("check_id") == check_id:
+                    return item.get("status", "UNKNOWN")
+        except Exception:
+            pass
+    return "UNKNOWN"
+
+
 # ── 보안 상태 요약 ─────────────────────────────────────────────────
 @app.route("/security-status")
 def security_status():
     data = _load("analysis_*.json")
     if not data:
-        return jsonify([{"항목": "상태", "값": "데이터 없음"}])
+        return jsonify([{"항목": "상태", "값": "데이터 없음", "상태": "경고"}])
 
     s          = data.get("summary", {})
     block_rate = round(s.get("block_rate", 0) * 100, 1)
@@ -315,11 +333,29 @@ def security_status():
     waf_mode   = "Block 모드 실제 작동 중" if block_rate > 0 else "Count 모드"
     updated    = data.get("generated_at", "")[:16].replace("T", " ")
 
+    # WAF 존재 여부 (Prowler)
+    waf_exists = _prowler_status("wafv2_webacl_exists")
+    waf_row = {
+        "항목": "WAF WebACL",
+        "값":   "설정됨" if waf_exists == "PASS" else ("미설정 — Terraform apply 필요" if waf_exists == "FAIL" else "확인 불가"),
+        "상태": "정상" if waf_exists == "PASS" else "경고",
+    }
+
+    # 루트 MFA (Prowler)
+    root_mfa = _prowler_status("iam_root_mfa_enabled")
+    mfa_row = {
+        "항목": "루트 MFA",
+        "값":   "활성화" if root_mfa == "PASS" else ("비활성화 — 즉시 설정 필요" if root_mfa == "FAIL" else "확인 불가"),
+        "상태": "정상" if root_mfa == "PASS" else "경고",
+    }
+
     rows = [
-        {"항목": "WAF 모드",    "값": waf_mode,                        "상태": "활성"},
-        {"항목": "차단률",      "값": f"{block_rate}%",                 "상태": "정상" if block_rate < 50 else "경고"},
-        {"항목": "HIGH 위험 IP","값": ", ".join(high_ips) if high_ips else "없음", "상태": "경고" if high_ips else "정상"},
-        {"항목": "최종 업데이트","값": updated,                         "상태": "정상"},
+        waf_row,
+        mfa_row,
+        {"항목": "WAF 모드",     "값": waf_mode,                                        "상태": "활성"},
+        {"항목": "차단률",       "값": f"{block_rate}%",                                  "상태": "정상" if block_rate < 50 else "경고"},
+        {"항목": "HIGH 위험 IP", "값": ", ".join(high_ips) if high_ips else "없음",       "상태": "경고" if high_ips else "정상"},
+        {"항목": "최종 업데이트","값": updated,                                            "상태": "정상"},
     ]
     return jsonify(rows)
 
