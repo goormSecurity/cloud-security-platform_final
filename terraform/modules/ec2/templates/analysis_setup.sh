@@ -19,7 +19,6 @@ chmod +x /usr/local/bin/docker-compose
 
 # 3. 리포지토리 클론 (public)
 git clone https://github.com/goormSecurity/cloud-security-platform_final.git /opt/cloud-security-platform
-chown -R ec2-user:ec2-user /opt/cloud-security-platform
 cd /opt/cloud-security-platform
 
 # 4. Python 3.11 의존성
@@ -83,29 +82,33 @@ APP_IP=$(aws ec2 describe-instances \
 python3.11 scripts/generate_config.py 2>/dev/null || true
 
 # generate_config가 못 채운 값 보완
-ALB_DNS="$ALB_DNS" MY_IP="$MY_IP" APP_IP="$APP_IP" python3.11 - <<PYEOF
+python3.11 - <<PYEOF
 import re, pathlib, os
 f = pathlib.Path("/opt/cloud-security-platform/platform.yaml")
 if not f.exists():
     f.write_text("")
 txt = f.read_text()
 def patch(txt, key, val):
-    if not val or val in ("", "None", "null"):
+    if not val or val == "None":
         return txt
     return re.sub(r"(  " + key + r":).*", r"\1 " + val, txt)
 txt = patch(txt, "dns_name",    os.environ.get("ALB_DNS", ""))
 txt = patch(txt, "analysis_ip", os.environ.get("MY_IP", ""))
 txt = patch(txt, "app_ip",      os.environ.get("APP_IP", ""))
+# github_repo는 정적값
 import re as _re
 txt = _re.sub(r'(  github_repo:).*', r'\1 "goormSecurity/cloud-security-platform_final"', txt)
+# remote_dir: 파이프라인 로컬 실행 시 SCP 대상 경로
+if "remote_dir:" not in txt:
+    txt = txt.rstrip() + "\n  remote_dir: /opt/cloud-security-platform/output\n"
 f.write_text(txt)
 PYEOF
 chown ec2-user:ec2-user /opt/cloud-security-platform/platform.yaml 2>/dev/null || true
 echo "[platform.yaml] ALB=$ALB_DNS / 분석서버=$MY_IP / 앱서버=$APP_IP"
 
 # 9. Grafana + Loki + JSON API (repo의 docker-compose 사용)
-mkdir -p /opt/cloud-security-platform/output
-chown ec2-user:ec2-user /opt/cloud-security-platform/output
+mkdir -p /opt/cloud-security-platform/output/waf_latest
+chown -R ec2-user:ec2-user /opt/cloud-security-platform/output
 cd /opt/cloud-security-platform/monitoring
 docker-compose up -d
 

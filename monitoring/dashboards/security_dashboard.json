@@ -538,7 +538,7 @@
             {
               "selector": "hour",
               "text": "Time",
-              "type": "string"
+              "type": "time"
             },
             {
               "selector": "count",

@@ -550,6 +550,8 @@ def step_sync_monitoring(analysis_json: str | None) -> bool:
         *sorted((ROOT / "output").glob("zap_report_*.json"))[-1:],
         *sorted((ROOT / "output").glob("fp_fn_*.json"))[-1:],
     ]
+    live_logs = sorted((ROOT / "analyzer" / "live_logs").glob("live_*.jsonl"))[-1:]
+
     if not targets:
         _skip("전송할 분석 파일 없음")
         return False
@@ -563,7 +565,6 @@ def step_sync_monitoring(analysis_json: str | None) -> bool:
     local_ips.add("127.0.0.1")
 
     if ssh_host in local_ips or ssh_host == socket.gethostbyname(socket.gethostname()):
-        # 같은 서버 — Grafana는 output/ 을 직접 마운트하므로 이미 반영됨
         for p in targets:
             _info(f"{p.name} → (로컬 output/ 마운트, 이미 반영)")
         _ok(f"Grafana 동기화 완료 (로컬) → http://{ssh_host}:3000")
@@ -571,23 +572,35 @@ def step_sync_monitoring(analysis_json: str | None) -> bool:
 
     scp_opts = ["-i", ssh_key, "-o", "StrictHostKeyChecking=no", "-o", "ConnectTimeout=10"]
 
-    # 원격 디렉토리 확보
+    # 원격 디렉토리 확보 (waf_latest/ 포함)
     subprocess.run(
         ["ssh"] + scp_opts + [f"{ssh_user}@{ssh_host}",
-         f"mkdir -p {remote_dir} && sudo chown {ssh_user}:{ssh_user} {remote_dir} 2>/dev/null; true"],
+         f"mkdir -p {remote_dir} {remote_dir}/waf_latest && "
+         f"sudo chown -R {ssh_user}:{ssh_user} {remote_dir} 2>/dev/null; true"],
         capture_output=True, timeout=15,
     )
 
-    # 파일 일괄 전송
+    # 분석 파일 전송
     src_paths = [str(p) for p in targets]
     r = subprocess.run(
         ["scp"] + scp_opts + src_paths + [f"{ssh_user}@{ssh_host}:{remote_dir}/"],
         capture_output=True, text=True, timeout=60,
         encoding="utf-8", errors="replace",
     )
+
+    # WAF live log → waf_latest/ (Fluent Bit → Loki)
+    if live_logs:
+        subprocess.run(
+            ["scp"] + scp_opts + [str(live_logs[0])] + [f"{ssh_user}@{ssh_host}:{remote_dir}/waf_latest/"],
+            capture_output=True, text=True, timeout=30,
+            encoding="utf-8", errors="replace",
+        )
+
     if r.returncode == 0:
         for p in targets:
             _info(f"{p.name} → {ssh_host}:{remote_dir}/")
+        if live_logs:
+            _info(f"{live_logs[0].name} → {ssh_host}:{remote_dir}/waf_latest/")
         _ok(f"{len(targets)}개 파일 동기화 완료 → Grafana http://{ssh_host}:3000")
         return True
     else:
