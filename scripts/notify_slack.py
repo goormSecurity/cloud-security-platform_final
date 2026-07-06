@@ -138,10 +138,23 @@ def _build_payload(data: dict, filename: str, url: str) -> dict:
             False,
         ))
 
-    if block_rate == 0 and attack_counts:
+    # WAF 실제 설정 기반 Count 모드 판단 (block_rate만으로 판단하면 sample_logs 오판 가능)
+    waf_acl_path = ROOT / "raw" / "waf_web_acl.json"
+    count_mode_rules = []
+    if waf_acl_path.exists():
+        try:
+            acl_data = json.loads(waf_acl_path.read_text(encoding="utf-8"))
+            rules = acl_data.get("WebACL", acl_data).get("Rules", [])
+            for r in rules:
+                if "Count" in r.get("OverrideAction", {}):
+                    count_mode_rules.append(r.get("Name", "?"))
+        except Exception:
+            pass
+
+    if count_mode_rules:
         fields_data.append((
             "⚠️ 주의",
-            "WAF가 Count 모드. 공격이 차단되지 않고 있습니다. Block 전환을 검토하세요.",
+            f"WAF 규칙이 Count 모드: {', '.join(count_mode_rules)}. 공격이 차단되지 않습니다. Block 전환을 검토하세요.",
             False,
         ))
 
