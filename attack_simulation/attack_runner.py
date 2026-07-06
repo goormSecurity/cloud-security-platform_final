@@ -289,7 +289,7 @@ def main():
         return
 
     os.makedirs(os.path.dirname(args.output) or ".", exist_ok=True)
-    with open(args.output, "a", encoding="utf-8") as f:
+    with open(args.output, "w", encoding="utf-8") as f:
         for rec in results:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 

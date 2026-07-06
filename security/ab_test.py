@@ -269,16 +269,18 @@ def run_ab_test_from_sent(
 
     payloads = _parse_attack_payloads()
 
-    # 현재 모드: 실제 HTTP 응답 기반 (blocked=True 또는 status_code=403 → block)
+    # 현재 모드: 실제 HTTP 응답 기반
+    # sent_attacks.jsonl 필드: status(int), waf_action("LIKELY_BLOCKED" 등)
     current = []
     for item in sent_items:
-        blocked = item.get("blocked", False)
-        status = item.get("status_code", 0)
-        action = "block" if (blocked or status == 403) else "allow"
+        status = item.get("status", item.get("status_code", 0))
+        waf_action = item.get("waf_action", "")
+        blocked_flag = item.get("blocked", False)
+        action = "block" if (status == 403 or "BLOCKED" in waf_action or blocked_flag) else "allow"
         current.append({
-            "category": item.get("attack_type", "Unknown"),
-            "name": item.get("name", item.get("attack_type", "?")),
-            "uri": item.get("path", item.get("url", "")),
+            "category": item.get("category", item.get("attack_type", "Unknown")),
+            "name": item.get("name", "?"),
+            "uri": item.get("url", item.get("path", "")),
             "action": action,
             "matched_rule": item.get("matched_rule", None),
         })
