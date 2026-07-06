@@ -532,7 +532,7 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000/time-buckets",
+          "url": "http://json-api:5000/time-buckets?from=${__from:date:seconds}&to=${__to:date:seconds}",
           "url_options": {
             "method": "GET",
             "data": ""
