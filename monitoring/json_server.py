@@ -123,7 +123,21 @@ def action_timeline():
                 merged[ts][action] = b["count"]
             except Exception:
                 pass
-    return jsonify(sorted(merged.values(), key=lambda x: x["time"]))
+    if merged:
+        return jsonify(sorted(merged.values(), key=lambda x: x["time"]))
+
+    # 기존 분석 파일에 time_buckets_by_action 없으면 block_rate 비율로 추정
+    block_rate = data.get("summary", {}).get("block_rate", 0)
+    result = []
+    for b in data.get("time_buckets", []):
+        try:
+            dt = datetime.strptime(b["hour"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+            ts = int(dt.timestamp() * 1000)
+            block_n = round(b["count"] * block_rate)
+            result.append({"time": ts, "BLOCK": block_n, "ALLOW": b["count"] - block_n})
+        except Exception:
+            pass
+    return jsonify(sorted(result, key=lambda x: x["time"]))
 
 
 # ── TOP IP ───────────────────────────────────────────────────────
