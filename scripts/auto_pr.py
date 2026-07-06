@@ -303,7 +303,7 @@ def _build_pr_body(analysis: dict, ips: list[str]) -> str:
     generated_at = analysis.get("generated_at", "")
     total_req = summary.get("total_requests", 0)
     block_rate = summary.get("block_rate", 0)
-    high_risk = summary.get("high_risk_ips", 0)
+    high_risk = len(ips)  # 자체 서버 IP 제외 후 실제 차단 대상 수
 
     ip_table = "\n".join(f"| `{ip}` | HIGH |" for ip in ips) if ips else "| (없음) | - |"
 
