@@ -339,6 +339,24 @@ def _build_pr_body(analysis: dict, ips: list[str]) -> str:
 """
 
 
+def _get_open_pr_ips(token: str) -> set:
+    """현재 OPEN 상태인 auto/waf-blocklist PR에서 이미 처리된 IP 목록 반환."""
+    try:
+        prs = _gh("GET", f"/repos/{REPO}/pulls?state=open&per_page=50", token)
+        ips = set()
+        for pr in prs:
+            if pr.get("head", {}).get("ref", "").startswith("auto/waf-blocklist-"):
+                body = pr.get("body", "") or ""
+                for line in body.splitlines():
+                    # `| `192.0.2.1/32` | HIGH |` 형식에서 추출
+                    if line.startswith("| `") and "/32`" in line:
+                        ip = line.split("`")[1]
+                        ips.add(ip)
+        return ips
+    except Exception:
+        return set()
+
+
 def run(analysis_path: str = None, dry_run: bool = False):
     token = os.environ.get("GITHUB_TOKEN")
     if not token and not dry_run:
@@ -365,6 +383,18 @@ def run(analysis_path: str = None, dry_run: bool = False):
         print("── PR 내용 미리보기 ─────────────────────────────────")
         print(_build_pr_body(analysis, ips))
         return
+
+    # 이미 OPEN PR에 동일 IP 포함 시 중복 생성 방지
+    already_open = _get_open_pr_ips(token)
+    new_ips = [ip for ip in ips if ip not in already_open]
+    if not new_ips:
+        print(f"[auto_pr] 이미 OPEN PR에 동일 IP 포함 — PR 중복 생성 생략 ({', '.join(ips)})")
+        return
+    if len(new_ips) < len(ips):
+        skipped = set(ips) - set(new_ips)
+        print(f"[auto_pr] 기존 OPEN PR 중복 제외: {', '.join(skipped)}")
+        ips = new_ips
+        tfvars_content = _generate_tfvars(ips)
 
     ts = datetime.now().strftime("%Y%m%d%H%M%S")
     branch = f"auto/waf-blocklist-{ts}"

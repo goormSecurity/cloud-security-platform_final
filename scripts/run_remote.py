@@ -269,8 +269,8 @@ def main():
                    help="로컬 ZAP 스캔 건너뜀")
     p.add_argument("--target",    default=None, metavar="URL",
                    help="ZAP 스캔 대상 URL (생략 시 platform.yaml의 ALB 주소 사용)")
-    p.add_argument("--live-hours", default=6, type=int, metavar="N",
-                   help="EC2가 수집할 WAF 로그 시간 범위 (기본: 6)")
+    p.add_argument("--live-hours", default=24, type=int, metavar="N",
+                   help="EC2가 수집할 WAF 로그 시간 범위 (기본: 24)")
     args = p.parse_args()
 
     # .env 로딩
