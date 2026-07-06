@@ -183,6 +183,7 @@ def send_one(target, category, name, method, path, extra_headers, timeout, body=
         "asid": asid,
         "sent_at": datetime.now(timezone.utc).isoformat(),
         "category": category,
+        "is_attack": category not in {"gh_normal"},  # 정상 트래픽은 FP 기준선, FN 집계 제외
         "name": name,
         "method": method,
         "url": url,

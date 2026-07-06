@@ -271,8 +271,11 @@ def run_ab_test_from_sent(
 
     # 현재 모드: 실제 HTTP 응답 기반
     # sent_attacks.jsonl 필드: status(int), waf_action("LIKELY_BLOCKED" 등)
+    # is_attack=False(gh_normal 등 정상 트래픽)는 FP 기준선용 — FN 집계에서 제외
     current = []
     for item in sent_items:
+        if not item.get("is_attack", True):
+            continue  # 정상 트래픽은 FN 집계 대상이 아님
         status = item.get("status", item.get("status_code", 0))
         waf_action = item.get("waf_action", "")
         blocked_flag = item.get("blocked", False)
@@ -282,6 +285,7 @@ def run_ab_test_from_sent(
             "name": item.get("name", "?"),
             "uri": item.get("url", item.get("path", "")),
             "action": action,
+            "is_attack": True,
             "matched_rule": item.get("matched_rule", None),
         })
 

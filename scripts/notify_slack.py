@@ -169,6 +169,13 @@ def _build_payload(data: dict, filename: str, url: str) -> dict:
             f"WAF 규칙이 Count 모드: {', '.join(count_mode_rules)}. 공격이 차단되지 않습니다. Block 전환을 검토하세요.",
             False,
         ))
+    elif block_rate == 0 and attack_counts:
+        # WAF ACL 파일 없이도 차단율 0% + 공격 탐지 시 Count 모드 의심 경고
+        fields_data.append((
+            "⚠️ 주의",
+            "WAF 차단율이 0%입니다. 모든 규칙이 Count 모드이거나 WAF가 비활성 상태일 수 있습니다. Block 전환을 검토하세요.",
+            False,
+        ))
 
     # WAF WebACL 존재 여부 — Prowler 결과 참조
     prowler_path = ROOT / "compliance" / "input" / "prowler_report.json"
