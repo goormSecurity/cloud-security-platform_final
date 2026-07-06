@@ -4,7 +4,7 @@ resource "aws_key_pair" "main" {
   public_key = var.ssh_public_key
 }
 
-# Amazon Linux 2023 AMI
+# Amazon Linux 2023 AMI (앱 서버용)
 data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]
@@ -12,6 +12,17 @@ data "aws_ami" "amazon_linux" {
   filter {
     name   = "name"
     values = ["al2023-ami-*-x86_64"]
+  }
+}
+
+# Deep Learning AMI — NVIDIA 드라이버 포함 (분석 서버용)
+data "aws_ami" "dlami" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["Deep Learning Base OSS Nvidia Driver GPU AMI (Amazon Linux 2023)*"]
   }
 }
 
@@ -72,9 +83,9 @@ resource "aws_instance" "app" {
   }
 }
 
-# 분석 서버 (Grafana + Loki)
+# 분석 서버 (Ollama GPU + Grafana)
 resource "aws_instance" "analysis" {
-  ami                         = data.aws_ami.amazon_linux.id
+  ami                         = data.aws_ami.dlami.id
   instance_type               = var.instance_type_analysis
   key_name                    = aws_key_pair.main.key_name
   vpc_security_group_ids      = [aws_security_group.analysis.id]
@@ -83,13 +94,13 @@ resource "aws_instance" "analysis" {
   user_data_replace_on_change = true
 
   lifecycle {
-    ignore_changes = [ami, user_data, root_block_device]
+    ignore_changes = [user_data, root_block_device]
   }
 
   user_data = base64encode(file("${path.module}/templates/analysis_setup.sh"))
 
   root_block_device {
-    volume_size = 30
+    volume_size = 80
     volume_type = "gp3"
   }
 
