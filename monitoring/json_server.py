@@ -11,7 +11,8 @@ app = Flask(__name__)
 CORS(app)
 
 _HERE = Path(__file__).resolve().parent
-_ROOT_OUTPUT = _HERE.parent / "output"
+_ROOT        = _HERE.parent
+_ROOT_OUTPUT = _ROOT / "output"
 _LOCAL_DATA  = _HERE / "data"
 _COMPLIANCE  = _HERE / "compliance"
 
@@ -89,7 +90,8 @@ def time_buckets():
                 filtered.append(b)
             except Exception:
                 filtered.append(b)
-        return jsonify(filtered)
+        # 필터 결과가 없으면 전체 반환 (시간 범위 밖 데이터도 차트에 표시)
+        return jsonify(filtered if filtered else buckets)
 
     return jsonify(buckets)
 
@@ -330,7 +332,22 @@ def security_status():
     s          = data.get("summary", {})
     block_rate = round(s.get("block_rate", 0) * 100, 1)
     high_ips   = [ip["ip"] for ip in data.get("top_ips", []) if ip.get("risk_level") == "HIGH"]
-    waf_mode   = "Block 모드 실제 작동 중" if block_rate > 0 else "Count 모드"
+    # WAF 모드: waf_web_acl.json의 OverrideAction:Count 여부로 판단 (block_rate만으로 오판 방지)
+    waf_mode = "Block 모드"
+    waf_acl_path = _ROOT / "raw" / "waf_web_acl.json"
+    if waf_acl_path.exists():
+        try:
+            acl = json.loads(waf_acl_path.read_text(encoding="utf-8"))
+            count_rules = [r.get("Name", "?") for r in acl.get("WebACL", acl).get("Rules", [])
+                           if "Count" in r.get("OverrideAction", {})]
+            if count_rules:
+                waf_mode = f"Count 모드 ({', '.join(count_rules)})"
+            elif block_rate > 0:
+                waf_mode = f"Block 모드 실제 작동 중 (차단율 {block_rate}%)"
+        except Exception:
+            pass
+    elif block_rate > 0:
+        waf_mode = f"Block 모드 실제 작동 중 (차단율 {block_rate}%)"
     updated    = data.get("generated_at", "")[:16].replace("T", " ")
 
     # WAF 존재 여부 (Prowler)

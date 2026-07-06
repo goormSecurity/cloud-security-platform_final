@@ -610,6 +610,8 @@ def step_sync_monitoring(analysis_json: str | None) -> bool:
         *sorted((ROOT / "output").glob("fp_fn_*.json"))[-1:],
     ]
     live_logs = sorted((ROOT / "analyzer" / "live_logs").glob("live_*.jsonl"))[-1:]
+    # WAF WebACL 설정 파일 — json_server.py의 WAF 모드 판단에 사용
+    waf_acl = ROOT / "raw" / "waf_web_acl.json"
 
     if not targets:
         _skip("전송할 분석 파일 없음")
@@ -652,6 +654,19 @@ def step_sync_monitoring(analysis_json: str | None) -> bool:
         subprocess.run(
             ["scp"] + scp_opts + [str(live_logs[0])] + [f"{ssh_user}@{ssh_host}:{remote_dir}/waf_latest/"],
             capture_output=True, text=True, timeout=30,
+            encoding="utf-8", errors="replace",
+        )
+
+    # WAF WebACL 설정 → json_server WAF 모드 판단용 (raw/ 디렉토리 생성 후 전송)
+    if waf_acl.exists():
+        remote_raw = remote_dir.replace("/output", "/raw")
+        subprocess.run(
+            ["ssh"] + scp_opts + [f"{ssh_user}@{ssh_host}", f"mkdir -p {remote_raw}"],
+            capture_output=True, timeout=10,
+        )
+        subprocess.run(
+            ["scp"] + scp_opts + [str(waf_acl)] + [f"{ssh_user}@{ssh_host}:{remote_raw}/"],
+            capture_output=True, text=True, timeout=15,
             encoding="utf-8", errors="replace",
         )
 
