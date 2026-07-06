@@ -125,7 +125,7 @@ def trigger_ec2_pipeline(ssh_host: str, ssh_user: str, ssh_key: str,
     cmd = (
         f"cd {remote_path} && "
         f"source .venv/bin/activate 2>/dev/null || true && "
-        f"python3 scripts/run_pipeline.py --live --live-hours {live_hours} --skip-zap 2>&1"
+        f"python3 scripts/run_pipeline.py --live --live-hours {live_hours} 2>&1"
     )
     r = subprocess.run(
         ["ssh"] + _ssh_opts(ssh_key) + [f"{ssh_user}@{ssh_host}", cmd],

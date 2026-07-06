@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 """
-run_pipeline.py — 전체 보안 파이프라인 로컬 실행기
+run_pipeline.py — EC2 보안 분석 파이프라인
 
-기획서 14단계 파이프라인을 로컬에서 순서대로 실행한다.
-각 단계는 독립적으로 실패해도 다음 단계를 계속 진행하며,
-최종 요약 보고서를 출력한다.
+[실행 위치] EC2 (run_remote.py에 의해 원격 실행)
+[ZAP 스캔]  로컬 PC에서 실행 → 결과만 EC2로 SCP 전달됨 (이 파일에서는 실행 안 함)
 
 사용 예:
-    python scripts/run_pipeline.py
-    python scripts/run_pipeline.py --skip-zap --skip-ai
-    python scripts/run_pipeline.py --target http://localhost:5000
-    python scripts/run_pipeline.py --log-dir analyzer/sample_logs
+    python scripts/run_pipeline.py --live --live-hours 24   # EC2 표준 실행
+    python scripts/run_pipeline.py --skip-ai                # AI 보고서 제외
+    python scripts/run_pipeline.py --log-dir analyzer/sample_logs  # 샘플 로그 테스트
 """
 import argparse
 import os
@@ -52,7 +50,7 @@ def _fail(msg): print(f"{C.RED}  ✘ {msg}{C.RESET}", flush=True)
 def _info(msg): print(f"{C.CYAN}  → {msg}{C.RESET}", flush=True)
 
 _STEP_N = 0
-_STEP_TOTAL = 22  # main()에서 실행되는 총 단계 수
+_STEP_TOTAL = 20  # main()에서 실행되는 총 단계 수 (--live 시 21)
 
 def _step(n, title):
     global _STEP_N
@@ -180,12 +178,6 @@ def _run_live_spin(cmd, cwd=None, env=None, timeout=300, keyword=None,
     return proc.returncode, "\n".join(lines)
 
 
-def _check_docker() -> bool:
-    try:
-        r = subprocess.run("docker info", capture_output=True, timeout=20, shell=True)
-        return r.returncode == 0
-    except Exception:
-        return False
 
 
 def _check_ollama() -> bool:
@@ -265,7 +257,7 @@ def step_ab_test(target: str, log_dir: str, dry_run: bool) -> bool:
 
 
 def step_fp_fn(analysis_json: str | None, target: str | None) -> bool:
-    _step("3h", "오탐/미탐(FP/FN) 분석 (scripts/analyze_fp_fn.py)")
+    _step(4, "오탐/미탐(FP/FN) 분석 (scripts/analyze_fp_fn.py)")
     cmd = [sys.executable, str(ROOT / "scripts" / "analyze_fp_fn.py")]
     if analysis_json:
         cmd += ["--analysis", analysis_json]
@@ -283,39 +275,10 @@ def step_fp_fn(analysis_json: str | None, target: str | None) -> bool:
         return False
 
 
-def step_zap(target: str) -> bool:
-    _step(4, "OWASP ZAP 자동 스캔 (security/zap_scanner.py)")
-    if not target:
-        _skip("--target 미지정 — ZAP 스킵")
-        return False
-
-    local_docker = _check_docker()
-    # analysis_ip 우선, 없으면 app_ip fallback (컨테이너 서버에 Docker 있음)
-    ssh_host = cfg("servers.analysis_ip", "") or cfg("servers.app_ip", "")
-
-    if not local_docker and not ssh_host:
-        _skip("로컬 Docker 없음 + platform.yaml servers.analysis_ip/app_ip 미설정 — ZAP 스킵")
-        return False
-
-    mode = "로컬 Docker" if local_docker else f"SSH 원격 ({ssh_host})"
-    _info(f"대상: {target}  실행 모드: {mode}")
-
-    cmd = [sys.executable, str(ROOT / "security" / "zap_scanner.py"),
-           "--target", target, "--baseline-only", "--out", str(ROOT / "output")]
-    if not local_docker:
-        cmd += ["--ssh-host", ssh_host]
-
-    code, _ = _run_live(cmd, timeout=660, keyword="[ZAP]")
-    if code == 0:
-        _ok("ZAP 스캔 완료")
-        return True
-    else:
-        _fail(f"ZAP 종료 코드: {code}")
-        return False
 
 
 def step_ai_report(analysis_json: str | None, model: str = "qwen2.5:7b") -> bool:
-    _step(5, f"AI 보안 보고서 생성 (ai/report_generator.py, model={model})")
+    _step(12, f"AI 보안 보고서 생성 (ai/report_generator.py, model={model})")
     if not _check_ollama():
         _skip("Ollama 미실행 — AI 보고서 스킵\n"
               "     (Ollama 설치: https://ollama.ai  모델: ollama pull qwen2.5:7b)")
@@ -342,7 +305,7 @@ def step_ai_report(analysis_json: str | None, model: str = "qwen2.5:7b") -> bool
 
 
 def step_compliance_report(analysis_json: str | None) -> bool:
-    _step(6, "컴플라이언스 감사 보고서 생성")
+    _step(15, "컴플라이언스 감사 보고서 생성")
 
     real_data = str(ROOT / "compliance" / "real_data.json")
 
@@ -372,7 +335,7 @@ def step_compliance_report(analysis_json: str | None) -> bool:
 
 
 def step_collect_waf() -> bool:
-    _step("3b", "WAF describe 수집 (scripts/collect_waf.py)")
+    _step(5, "WAF describe 수집 (scripts/collect_waf.py)")
     if not _has_aws_creds():
         _skip("AWS 자격증명 없음 — WAF describe 스킵 (~/.aws/credentials 또는 AWS_ACCESS_KEY_ID 설정)")
         return False
@@ -387,7 +350,7 @@ def step_collect_waf() -> bool:
 
 
 def step_collect_cloudtrail() -> bool:
-    _step("3c", "CloudTrail 변경 이력 수집 (scripts/collect_cloudtrail.py)")
+    _step(6, "CloudTrail 변경 이력 수집 (scripts/collect_cloudtrail.py)")
     if not _has_aws_creds():
         _skip("AWS 자격증명 없음 — CloudTrail 수집 스킵")
         return False
@@ -402,7 +365,7 @@ def step_collect_cloudtrail() -> bool:
 
 
 def step_collect_prowler() -> bool:
-    _step("3d", "Prowler 보안 점검 수집 (scripts/collect_prowler.py)")
+    _step(7, "Prowler 보안 점검 수집 (scripts/collect_prowler.py)")
     if not _has_aws_creds():
         _skip("AWS 자격증명 없음 — Prowler 스킵")
         return False
@@ -417,7 +380,7 @@ def step_collect_prowler() -> bool:
 
 
 def step_collect_cmk() -> bool:
-    _step("3e", "CMK + Object Lock 증적 수집 (scripts/collect_cmk.py)")
+    _step(8, "CMK + Object Lock 증적 수집 (scripts/collect_cmk.py)")
     if not _has_aws_creds():
         _skip("AWS 자격증명 없음 — CMK 수집 스킵")
         return False
@@ -432,7 +395,7 @@ def step_collect_cmk() -> bool:
 
 
 def step_collect_config_diff() -> bool:
-    _step("3f", "AWS Config 드리프트 감지 (scripts/collect_config_diff.py)")
+    _step(9, "AWS Config 드리프트 감지 (scripts/collect_config_diff.py)")
     if not _has_aws_creds():
         _skip("AWS 자격증명 없음 — Config 드리프트 스킵")
         return False
@@ -447,7 +410,7 @@ def step_collect_config_diff() -> bool:
 
 
 def step_collect_trivy() -> bool:
-    _step("3h", "Trivy 컨테이너·IaC 취약점 스캔 (scripts/collect_trivy.py, OSS)")
+    _step(11, "Trivy 컨테이너·IaC 취약점 스캔 (scripts/collect_trivy.py, OSS)")
     ssh_host = cfg("servers.analysis_ip", "")
     cmd = [sys.executable, str(ROOT / "scripts" / "collect_trivy.py"), "--mode", "all"]
     if not ssh_host:
@@ -463,7 +426,7 @@ def step_collect_trivy() -> bool:
 
 
 def step_collect_s3_security() -> bool:
-    _step("3g", "S3 버킷 보안 감사 (scripts/collect_s3_security.py)")
+    _step(10, "S3 버킷 보안 감사 (scripts/collect_s3_security.py)")
     if not _has_aws_creds():
         _skip("AWS 자격증명 없음 — S3 보안 감사 스킵")
         return False
@@ -479,7 +442,7 @@ def step_collect_s3_security() -> bool:
 
 
 def step_upload_s3() -> bool:
-    _step("10", "결과물 S3 업로드 (audit-evidence 버킷)")
+    _step(19, "결과물 S3 업로드 (audit-evidence 버킷)")
     if not _has_aws_creds():
         _skip("AWS 자격증명 없음 — S3 업로드 스킵")
         return False
@@ -522,7 +485,7 @@ def step_upload_s3() -> bool:
 
 
 def step_notify_slack(analysis_json: str | None) -> bool:
-    _step("9", "Slack 알림 전송 (scripts/notify_slack.py)")
+    _step(18, "Slack 알림 전송 (scripts/notify_slack.py)")
     if not os.environ.get("SLACK_WEBHOOK_URL"):
         _skip("SLACK_WEBHOOK_URL 없음 — 알림 스킵 (.env에 추가하면 활성화)")
         return False
@@ -541,7 +504,7 @@ def step_notify_slack(analysis_json: str | None) -> bool:
 
 
 def step_generate_ai_json(analysis_json: str | None) -> bool:
-    _step("5b", "AI 분석 JSON 생성 (ai/generate_analysis_json.py)")
+    _step(13, "AI 분석 JSON 생성 (ai/generate_analysis_json.py)")
     if not analysis_json:
         _skip("분석 JSON 없음 — AI JSON 생성 스킵")
         return False
@@ -557,7 +520,7 @@ def step_generate_ai_json(analysis_json: str | None) -> bool:
 
 
 def step_pr_collector() -> bool:
-    _step(7, "PR 이력 수집 — ISMS-P 변경관리 증적 (compliance/pr_collector.py)")
+    _step(14, "PR 이력 수집 — ISMS-P 변경관리 증적 (compliance/pr_collector.py)")
     token = os.environ.get("GITHUB_TOKEN")
     if not token:
         _skip("GITHUB_TOKEN 없음 — PR 수집 스킵 (.env에 GITHUB_TOKEN 설정)")
@@ -574,7 +537,7 @@ def step_pr_collector() -> bool:
 
 
 def step_auto_pr(analysis_json: str | None, dry_run: bool) -> bool:
-    _step(8, "GitHub PR 자동 생성 (scripts/auto_pr.py)")
+    _step(16, "WAF 차단 IP PR 자동 생성 (scripts/auto_pr.py)")
     if not analysis_json:
         _skip("분석 JSON 없음 — PR 자동 생성 스킵")
         return False
@@ -599,7 +562,7 @@ def step_auto_pr(analysis_json: str | None, dry_run: bool) -> bool:
 
 
 def step_auto_remediation_pr(dry_run: bool) -> bool:
-    _step(9, "보안 취약점 수정 코드 PR 자동 생성 (scripts/auto_remediation_pr.py)")
+    _step(17, "보안 취약점 수정 코드 PR 자동 생성 (scripts/auto_remediation_pr.py)")
     token = os.environ.get("GITHUB_TOKEN")
     if not token and not dry_run:
         _skip("GITHUB_TOKEN 없음 — 수정 코드 PR 스킵")
@@ -621,7 +584,7 @@ def step_auto_remediation_pr(dry_run: bool) -> bool:
 
 def step_sync_monitoring(analysis_json: str | None) -> bool:
     """최신 분석 결과를 분석 서버 output/ 에 동기화 → Grafana 대시보드 갱신."""
-    _step("11", "Grafana 모니터링 동기화 (분석 결과 → 분석 서버)")
+    _step(20, "Grafana 모니터링 동기화 (분석 결과 → 분석 서버)")
     ssh_host = cfg("servers.analysis_ip", "")
     ssh_user = cfg("servers.ssh_user", "ec2-user")
     ssh_key  = str(Path(cfg("servers.ssh_key", "~/.ssh/cloud-sec-key2")).expanduser())
@@ -718,7 +681,8 @@ def step_sync_monitoring(analysis_json: str | None) -> bool:
 
 def _collect_reports():  # -> Path | None
     """모든 결과물을 reports/{timestamp}/ 에 모으고 reports/latest/ 를 갱신."""
-    _step("11", "결과물 통합 수집 → reports/latest/")
+    print(f"\n{C.BOLD}{C.CYAN}[수집] 결과물 통합 → reports/latest/{C.RESET}")
+    print(f"{C.GRAY}{'─' * 50}{C.RESET}", flush=True)
     ts = now_kst("%Y%m%d_%H%M%S")
     dest = ROOT / "reports" / ts
     dest.mkdir(parents=True, exist_ok=True)
@@ -765,38 +729,37 @@ def _collect_reports():  # -> Path | None
 def main():
     p = argparse.ArgumentParser(
         description=(
-            "클라우드 WAF 보안 플랫폼 — 전체 파이프라인 실행\n"
+            "클라우드 WAF 보안 플랫폼 — EC2 보안 분석 파이프라인\n"
             "\n"
-            "WAF 로그 분석 → 공격 시뮬레이션 → A/B 테스트 → FP/FN 분석 →\n"
-            "ZAP 스캔 → AI 보고서 → 컴플라이언스 판정 → GitHub PR → Slack 알림\n"
-            "위 흐름을 한 번에 실행합니다. 각 단계는 독립적으로 실패해도 계속 진행됩니다."
+            "S3 WAF 로그 수집 → 공격 시뮬레이션 → WAF 분석 → A/B/FP/FN 분석 →\n"
+            "AWS 인프라 점검(Prowler·Trivy·Config) → AI 보고서 → 컴플라이언스 → PR → Slack\n"
+            "ZAP은 로컬(run_remote.py)에서 실행 후 결과만 EC2로 전달됩니다.\n"
+            "각 단계는 독립적으로 실패해도 다음 단계를 계속 진행합니다."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "예시:\n"
-            "  # 샘플 로그로 빠른 테스트 (ZAP·AI 스킵)\n"
-            "  python scripts/run_pipeline.py --skip-zap --skip-ai\n"
+            "  # EC2 표준 실행 (run_remote.py가 자동으로 이 명령을 실행)\n"
+            "  python scripts/run_pipeline.py --live --live-hours 24\n"
             "\n"
-            "  # 실제 서버 대상 전체 파이프라인\n"
-            "  python scripts/run_pipeline.py --target http://43.202.x.x\n"
+            "  # AI 보고서 제외\n"
+            "  python scripts/run_pipeline.py --live --skip-ai\n"
             "\n"
-            "  # JuiceShop만 공격 시뮬레이션\n"
-            "  python scripts/run_pipeline.py --target http://x.x.x.x --app juiceshop\n"
+            "  # 샘플 로그로 빠른 테스트\n"
+            "  python scripts/run_pipeline.py --skip-ai\n"
             "\n"
             "  # S3 실시간 로그 6시간치 수집 + 정확도 높은 AI 모델\n"
             "  python scripts/run_pipeline.py --live --live-hours 6 --ai-model qwen2.5:7b\n"
-            "\n"
-            "  # 시연용 dry-run (실제 HTTP 요청·PR 없음)\n"
-            "  python scripts/run_pipeline.py --dry-run --skip-zap\n"
         ),
     )
 
     # ── 대상 설정 ────────────────────────────────────────────────
     p.add_argument(
         "--target", default=None, metavar="URL",
-        help="공격 시뮬레이션·ZAP 스캔·FP 테스트 대상 서버 주소\n"
+        help="공격 시뮬레이션·FP 테스트 대상 서버 주소\n"
              "(예: http://localhost:5000  또는  http://43.202.x.x)\n"
-             "지정 안 하면 공격 시뮬레이션은 dry-run, ZAP은 스킵됨",
+             "지정 안 하면 공격 시뮬레이션은 dry-run 모드로 실행됨\n"
+             "ZAP은 로컬(run_remote.py)에서 실행되며 결과만 EC2로 전달됨",
     )
     p.add_argument(
         "--app", default="all", choices=["dvwa", "juiceshop", "ghost", "all"],
@@ -832,11 +795,6 @@ def main():
              "파이프라인이 오류 없이 돌아가는지 확인하거나 발표 시연 시 사용",
     )
     p.add_argument(
-        "--skip-zap", action="store_true",
-        help="OWASP ZAP 동적 스캔 단계를 건너뜀\n"
-             "Docker 없는 환경이거나 빠른 테스트 시 사용",
-    )
-    p.add_argument(
         "--skip-ai", action="store_true",
         help="AI 보고서 생성 단계를 건너뜀\n"
              "Ollama 미실행 환경에서 나머지 단계만 돌릴 때 사용",
@@ -857,10 +815,26 @@ def main():
     )
     args = p.parse_args()
 
-    # --live: S3에서 실시간 로그 다운로드
+    # 단계 수 동적 설정: --live 시 step 0 (WAF 로그 수집) 추가
+    global _STEP_TOTAL
+    _STEP_TOTAL = 21 if args.live else 20
+
+    # --live: 이전 실행 캐시 제거 후 S3 실시간 로그 다운로드
     if args.live:
         live_dir = str(ROOT / "analyzer" / "live_logs")
-        _step("0", f"S3 WAF 실시간 로그 수집 (최근 {args.live_hours}시간)")
+
+        # 이전 실행 JSONL 캐시 삭제 — 구 로그가 새 로그와 섞이는 것을 방지
+        import glob as _glob
+        old_jsonl = _glob.glob(str(ROOT / "analyzer" / "live_logs" / "*.jsonl"))
+        if old_jsonl:
+            for f in old_jsonl:
+                try:
+                    os.remove(f)
+                except Exception:
+                    pass
+            _info(f"이전 JSONL 캐시 {len(old_jsonl)}개 삭제 완료")
+
+        _step(0, f"S3 WAF 실시간 로그 수집 (최근 {args.live_hours}시간)")
         code, _ = _run_live(
             [sys.executable, str(ROOT / "scripts" / "collect_waf_logs.py"),
              "--hours", str(args.live_hours), "--out", live_dir],
@@ -871,17 +845,22 @@ def main():
             _ok(f"실시간 로그 준비 완료 → {live_dir}")
         else:
             _fail("S3 로그 수집 실패 — sample_logs로 폴백")
-            # log_dir은 기본값(sample_logs) 유지
 
         # --live + --target 미지정 시 ALB DNS 자동 사용
         if not args.target:
             alb_url = _alb_target_url()
             if alb_url:
                 args.target = alb_url
-                _ok(f"--live 모드: ZAP 대상 자동 설정 → {alb_url}")
+
+    # ZAP 결과 파일 확인 (로컬에서 실행 후 SCP로 전달됨)
+    zap_files = sorted(ROOT.glob("output/zap_report_*.json"))
+    if zap_files:
+        _info(f"ZAP 결과 수신됨 (로컬 스캔 → EC2 전달): {zap_files[-1].name}  → AI 보고서에 반영됨")
+    else:
+        _info("ZAP 결과 없음 — run_remote.py 실행 시 ZAP 결과가 있으면 자동 반영됨")
 
     print(f"\n{C.BOLD}{C.CYAN}{'=' * 60}")
-    print(f"  Cloud Security Platform — 로컬 파이프라인")
+    print(f"  Cloud Security Platform — EC2 보안 분석 파이프라인")
     print(f"  {now_kst('%Y-%m-%d %H:%M:%S')} (KST)")
     print(f"{'=' * 60}{C.RESET}")
 
@@ -913,7 +892,10 @@ def main():
     results["s3_security"]   = step_collect_s3_security()
     results["trivy"]         = step_collect_trivy()
 
-    results["zap"]           = False if args.skip_zap else step_zap(args.target)
+    # ZAP은 로컬(run_remote.py)에서 실행 후 결과만 EC2로 전달됨
+    # build_zap_facts()가 output/zap_report_*.json을 자동으로 읽음
+    results["zap_received"]  = bool(zap_files)
+
     results["ai_report"]     = False if args.skip_ai  else step_ai_report(analysis_json, args.ai_model)
     results["ai_json"]       = step_generate_ai_json(analysis_json)
 
