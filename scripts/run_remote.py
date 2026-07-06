@@ -5,6 +5,7 @@ run_remote.py — 하이브리드 파이프라인 (로컬 스캔 + EC2 분석 + 
 원시 WAF 로그는 EC2/S3 밖으로 나오지 않습니다.
 
 [실행 흐름]
+0. 코드 동기화 — 로컬 소스를 EC2로 rsync (변경분만 전송)
 1. (선택) ZAP 웹 취약점 스캔 — 로컬에서 실행
    (EC2 IP로 스캔 시 WAF 차단 위험 → 로컬 전용)
 2. (선택) 공격 시뮬레이션 (attack_runner) — 로컬에서 실행
@@ -17,7 +18,8 @@ run_remote.py — 하이브리드 파이프라인 (로컬 스캔 + EC2 분석 + 
    - AI 보고서(MD), 컴플라이언스 PDF·HTML, WAF 분석 요약 JSON
 
 사용 예:
-    python scripts/run_remote.py                        # 전체 실행 (ZAP + 공격 포함)
+    python scripts/run_remote.py                        # 전체 실행 (코드 동기화 + ZAP + 공격 포함)
+    python scripts/run_remote.py --skip-sync            # 코드 동기화 생략
     python scripts/run_remote.py --skip-zap             # ZAP 없이
     python scripts/run_remote.py --skip-attack          # 공격 시뮬레이션 없이
     python scripts/run_remote.py --pull-only            # 최신 S3 결과만 내려받기
@@ -71,6 +73,64 @@ def _ssh_opts(ssh_key: str) -> list:
 def _print_step(n: int, title: str):
     print(f"\n\033[1m\033[96m[{n}] {title}\033[0m")
     print("─" * 50)
+
+
+# ── 0단계: 코드 동기화 ───────────────────────────────────────────
+
+_SYNC_DIRS = [
+    "scripts",
+    "analyzer",
+    "ai",
+    "compliance",
+    "security",
+    "monitoring/dashboards",
+]
+
+_RSYNC_EXCLUDES = [
+    "--exclude=__pycache__/",
+    "--exclude=*.pyc",
+    "--exclude=*.pyc",
+    "--exclude=.venv/",
+    "--exclude=output/",
+    "--exclude=reports/",
+    "--exclude=.git/",
+    "--exclude=*.tfstate",
+    "--exclude=attack_simulation/output/",
+]
+
+
+def sync_code_to_ec2(ssh_host: str, ssh_user: str, ssh_key: str,
+                     remote_path: str) -> bool:
+    """로컬 소스코드를 EC2로 rsync. 변경된 파일만 전송, 삭제도 반영."""
+    import shutil
+    _print_step(0, f"코드 동기화 (로컬 → EC2 {ssh_host})")
+
+    if not shutil.which("rsync"):
+        print("  ✘ rsync 명령을 찾을 수 없음 — Git Bash 또는 WSL에서 실행하세요")
+        return False
+
+    # Windows 경로를 rsync용 POSIX 경로로 변환
+    ssh_key_posix = ssh_key.replace("\\", "/")
+    ssh_cmd = f"ssh -i '{ssh_key_posix}' -o StrictHostKeyChecking=no -o ConnectTimeout=15"
+
+    ok = True
+    for rel in _SYNC_DIRS:
+        src  = str(ROOT / rel.replace("/", os.sep)) + ("/" if True else "")
+        dest = f"{ssh_user}@{ssh_host}:{remote_path}/{rel}/"
+        r = subprocess.run(
+            ["rsync", "-az", "--delete"] + _RSYNC_EXCLUDES +
+            ["-e", ssh_cmd, src, dest],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        if r.returncode == 0:
+            print(f"  ✔ {rel}/")
+        else:
+            print(f"  ✘ {rel}/  →  {r.stderr.strip()[:100]}")
+            ok = False
+
+    if ok:
+        print("  → EC2 코드 최신화 완료")
+    return ok
 
 
 # ── 1단계: 로컬 ZAP 스캔 ─────────────────────────────────────────
@@ -321,6 +381,8 @@ def main():
                    help="S3 결과 날짜 목록 출력")
     p.add_argument("--date",      default=None, metavar="YYYY/MM/DD",
                    help="특정 날짜 결과 다운로드 (기본: 최신)")
+    p.add_argument("--skip-sync",   action="store_true",
+                   help="EC2 코드 동기화 건너뜀 (코드 변경 없을 때 시간 단축)")
     p.add_argument("--skip-zap",    action="store_true",
                    help="로컬 ZAP 스캔 건너뜀")
     p.add_argument("--skip-attack", action="store_true",
@@ -359,6 +421,10 @@ def main():
     if not ssh_host:
         print("[error] platform.yaml에 servers.analysis_ip 미설정")
         sys.exit(1)
+
+    # 0. 코드 동기화
+    if not args.skip_sync:
+        sync_code_to_ec2(ssh_host, ssh_user, ssh_key, remote_path)
 
     zap_path    = None
     attack_path = None
