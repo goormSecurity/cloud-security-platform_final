@@ -35,6 +35,7 @@ services:
     volumes:
       - ./json_server.py:/app/json_server.py
       - ../output:/app/data:ro
+      - ../compliance/input:/app/compliance:ro
     ports:
       - "5000:5000"
     restart: unless-stopped
