@@ -235,20 +235,138 @@ def run_ab_test(
     return result
 
 
+def run_ab_test_from_sent(
+    sent_path: str,
+    output_dir: str = "output",
+) -> dict:
+    """sent_attacks.jsonl 결과 기반 A/B 테스트 (로컬 실행용).
+
+    attack_runner.py를 EC2에서 다시 실행하지 않고, 로컬에서 실행한
+    attack_runner의 sent_attacks.jsonl 결과를 현재 WAF 상태로 사용.
+    EC2 IP가 WAF 공격자로 기록되는 오염을 방지하기 위해 사용.
+    """
+    print(f"[A/B] sent_attacks.jsonl 기반 로컬 A/B 테스트")
+    sent_path = Path(sent_path)
+    if not sent_path.exists():
+        print(f"[A/B] 파일 없음: {sent_path}")
+        return {}
+
+    sent_items = []
+    with open(sent_path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                try:
+                    sent_items.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
+
+    if not sent_items:
+        print("[A/B] sent_attacks.jsonl가 비어 있음")
+        return {}
+
+    print(f"[A/B] 총 {len(sent_items)}개 공격 결과 로딩")
+
+    payloads = _parse_attack_payloads()
+
+    # 현재 모드: 실제 HTTP 응답 기반 (blocked=True 또는 status_code=403 → block)
+    current = []
+    for item in sent_items:
+        blocked = item.get("blocked", False)
+        status = item.get("status_code", 0)
+        action = "block" if (blocked or status == 403) else "allow"
+        current.append({
+            "category": item.get("attack_type", "Unknown"),
+            "name": item.get("name", item.get("attack_type", "?")),
+            "uri": item.get("path", item.get("url", "")),
+            "action": action,
+            "matched_rule": item.get("matched_rule", None),
+        })
+
+    # 제안 모드: WAF 패턴 시뮬레이션 (모든 룰 BLOCK 전환 가정)
+    if payloads:
+        proposed = _simulate_waf(payloads, mode="proposed")
+    else:
+        proposed = [{**r, "action": "block"} for r in current]
+
+    def count_actions(results):
+        counts = {"block": 0, "count": 0, "allow": 0}
+        for r in results:
+            counts[r["action"]] += 1
+        return counts
+
+    cur_counts = count_actions(current)
+    prop_counts = count_actions(proposed)
+    total = len(current)
+    if total == 0:
+        return {}
+
+    result = {
+        "generated_at": now_kst(),
+        "target_url": "local-from-sent-attacks",
+        "total_attack_patterns": total,
+        "current_mode": {
+            "description": "실제 결과: sent_attacks.jsonl (attack_runner HTTP 응답 기반)",
+            "actions": cur_counts,
+            "block_rate": f"{cur_counts['block'] / total * 100:.1f}%",
+            "detection_rate": f"{(cur_counts['block'] + cur_counts['count']) / total * 100:.1f}%",
+            "detail": current,
+        },
+        "proposed_block_mode": {
+            "description": "제안 상태: 모든 룰 → BLOCK 전환 (WAF 패턴 시뮬레이션)",
+            "actions": prop_counts,
+            "block_rate": f"{prop_counts['block'] / total * 100:.1f}%",
+            "detection_rate": f"{prop_counts['block'] / total * 100:.1f}%",
+            "detail": proposed,
+        },
+        "improvement": {
+            "additional_blocks": prop_counts["block"] - cur_counts["block"],
+            "recommendation": (
+                "Block 모드 전환 권장 (오탐 재검토 후)"
+                if prop_counts["block"] > cur_counts["block"]
+                else "현재 설정 유지"
+            ),
+        },
+        "real_log_analysis": None,
+    }
+
+    os.makedirs(output_dir, exist_ok=True)
+    ts = now_kst("%Y%m%d_%H%M%S")
+    out_path = os.path.join(output_dir, f"ab_test_{ts}.json")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+
+    print(f"\n[A/B] 결과 (실제 WAF 응답 기반):")
+    print(f"  현재(실제): BLOCK {cur_counts['block']} / ALLOW {cur_counts['allow']}")
+    print(f"  제안(Block): BLOCK {prop_counts['block']} / ALLOW {prop_counts['allow']}")
+    print(f"  추가 차단 가능: {result['improvement']['additional_blocks']}건")
+    print(f"  권고: {result['improvement']['recommendation']}")
+    print(f"[A/B] 보고서 저장: {out_path}")
+    return result
+
+
 def main():
     p = argparse.ArgumentParser(description="WAF Count/Block A/B 테스트")
     p.add_argument("--target", default="http://localhost:5000", help="공격 대상 URL")
     p.add_argument("--dry-run", action="store_true", help="실제 요청 없이 시뮬레이션만")
     p.add_argument("--log-dir", default=None, help="실제 WAF 로그 디렉토리 (선택)")
     p.add_argument("--out", default="output", help="결과 저장 디렉토리")
+    p.add_argument("--from-sent-attacks", default=None, metavar="PATH",
+                   help="sent_attacks.jsonl 경로 — 로컬 실행 모드 (EC2 IP 오염 방지)")
     args = p.parse_args()
 
-    run_ab_test(
-        target=args.target,
-        dry_run=args.dry_run,
-        log_dir=args.log_dir,
-        output_dir=args.out,
-    )
+    if args.from_sent_attacks:
+        run_ab_test_from_sent(
+            sent_path=args.from_sent_attacks,
+            output_dir=args.out,
+        )
+    else:
+        run_ab_test(
+            target=args.target,
+            dry_run=args.dry_run,
+            log_dir=args.log_dir,
+            output_dir=args.out,
+        )
 
 
 if __name__ == "__main__":

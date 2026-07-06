@@ -813,6 +813,10 @@ def main():
         help="공격 시뮬레이션 단계를 건너뜀 (run_remote.py가 로컬에서 실행 후 결과만 전달 시 사용)",
     )
     p.add_argument(
+        "--skip-ab-test", action="store_true",
+        help="WAF A/B 테스트 단계를 건너뜀 (run_remote.py가 로컬에서 실행 후 결과 SCP 전달 시 사용)",
+    )
+    p.add_argument(
         "--ai-model", default="qwen2.5:7b", metavar="MODEL",
         help="AI 보고서 생성에 사용할 Ollama 모델 (기본: qwen2.5:7b)\n"
              "사용 전 올라마에 모델이 pull 되어 있어야 함",
@@ -888,7 +892,12 @@ def main():
         results["attack_sim"] = step_attack_sim(args.target, args.dry_run, args.app)
     analysis_json            = step_analyzer(args.log_dir)
     results["analyzer"]      = bool(analysis_json)
-    results["ab_test"]       = step_ab_test(args.target, args.log_dir, args.dry_run)
+    if args.skip_ab_test:
+        _step(3, "WAF A/B 테스트 — 로컬에서 실행됨 (스킵)")
+        _skip("--skip-ab-test: run_remote.py가 로컬에서 실행 후 결과 SCP 전달")
+        results["ab_test"] = True
+    else:
+        results["ab_test"] = step_ab_test(args.target, args.log_dir, args.dry_run)
     results["fp_fn"]         = (False if args.skip_fp_fn
                                 else step_fp_fn(analysis_json, args.target))
 

@@ -192,9 +192,28 @@ def compute_risk(stats, threshold=Config.IP_REQUEST_THRESHOLD, cti=None):
     return score, level
 
 
+def _self_server_ips() -> set:
+    """분석 파이프라인 서버(EC2) IP 반환 — WAF 분석에서 제외.
+
+    ab_test.py / analyze_fp_fn.py 가 EC2에서 ALB로 요청을 보내기 때문에
+    EC2 자체 IP가 WAF 로그에 공격자로 기록됨. 분석 단계에서 제외해 false-positive 방지.
+    """
+    try:
+        import sys as _sys, os as _os
+        _sys.path.insert(0, str(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/scripts"))
+        from config_loader import cfg
+        return {cfg("servers.analysis_ip", ""), cfg("servers.app_ip", "")} - {""}
+    except Exception:
+        return set()
+
+
 def analyze(records, threshold=Config.IP_REQUEST_THRESHOLD):
     """레코드 이터러블 → 분석 결과 dict (JSON 직렬화 가능)."""
     records = list(records)
+
+    # EC2 자체 IP 제외 (ab_test/fp_fn이 EC2→ALB 요청을 보내 자체 IP가 공격자로 기록됨)
+    _exclude_ips = _self_server_ips()
+
     action_counts = Counter()
     attack_type_counts = Counter()
     rule_hits = Counter()
@@ -207,6 +226,8 @@ def analyze(records, threshold=Config.IP_REQUEST_THRESHOLD):
     for rec in records:
         req = rec.get("httpRequest", {})
         ip = req.get("clientIp", "unknown")
+        if ip in _exclude_ips:
+            continue  # 파이프라인 서버 자체 트래픽 제외
         action = (rec.get("action") or "ALLOW").upper()
         atype = classify_attack(rec)
 
