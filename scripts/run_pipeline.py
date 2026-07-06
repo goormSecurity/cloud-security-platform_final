@@ -233,21 +233,11 @@ def step_analyzer(log_dir: str):  # -> str | None
         _ok("분석 완료")
         latest = _latest_file("output/analysis_*.json")
         if latest:
-            # 요청 수가 너무 적으면 할루시네이션 위험 — 가장 큰 분석 파일로 fallback
             try:
                 import json as _json
                 summary = _json.loads(Path(latest).read_text(encoding="utf-8")).get("summary", {})
                 total = summary.get("total_requests", 0)
-                if total < 2000:
-                    candidates = sorted(ROOT.glob("output/analysis_*.json"), key=lambda p: p.stat().st_size)
-                    best = str(candidates[-1]) if candidates else latest
-                    if best != latest:
-                        _info(f"요청 수 {total}건 — 더 큰 분석 파일로 대체: {Path(best).name}")
-                        latest = best
-                    else:
-                        _info(f"결과 파일: {Path(latest).name} ({total}건)")
-                else:
-                    _info(f"결과 파일: {Path(latest).name} ({total}건)")
+                _info(f"결과 파일: {Path(latest).name} ({total}건)")
             except Exception:
                 _info(f"결과 파일: {Path(latest).name}")
         return latest
