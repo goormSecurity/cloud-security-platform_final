@@ -66,6 +66,28 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
+    # 5) Loki 스트리밍용 라이브 로그 작성 (Fluent Bit이 tail → Loki 전송)
+    from datetime import timezone
+    live_path = os.path.join(Config.OUTPUT_DIR, "live_waf.jsonl")
+    written = 0
+    with open(live_path, "a", encoding="utf-8") as lf:
+        for rec in records:
+            req = rec.get("httpRequest", {})
+            ts = rec.get("timestamp")
+            if isinstance(ts, (int, float)):
+                dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+            else:
+                dt = datetime.now(timezone.utc)
+            lf.write(json.dumps({
+                "timestamp": dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "action":    (rec.get("action") or "ALLOW").upper(),
+                "clientIp":  req.get("clientIp", "-"),
+                "uri":       (req.get("uri", "-") or "-")[:120],
+                "country":   req.get("country", "-"),
+            }, ensure_ascii=False) + "\n")
+            written += 1
+    print(f"[*] 라이브 로그 추가: {live_path} ({written}건)")
+
     s = result["summary"]
     print(f"\n[*] 요약: 총 {s['total_requests']}건 / IP {s['unique_ips']}개 / "
           f"차단율 {s['block_rate']:.0%} / 고위험 IP {s['high_risk_ips']}개")

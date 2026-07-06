@@ -79,7 +79,7 @@ def time_buckets():
     def _with_epoch(b):
         try:
             dt = datetime.strptime(b["hour"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
-            return {**b, "time": int(dt.timestamp() * 1000)}
+            return {"hour": dt.strftime("%Y-%m-%dT%H:%M:%SZ"), "count": b["count"]}
         except Exception:
             return b
 
@@ -115,10 +115,10 @@ def action_timeline():
         for b in buckets:
             try:
                 dt = datetime.strptime(b["hour"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
-                ts = int(dt.timestamp() * 1000)
-                if ts not in merged:
-                    merged[ts] = {"time": ts, "BLOCK": 0, "ALLOW": 0}
-                merged[ts][action] = b["count"]
+                iso = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                if iso not in merged:
+                    merged[iso] = {"time": iso, "BLOCK": 0, "ALLOW": 0}
+                merged[iso][action] = b["count"]
             except Exception:
                 pass
     if merged:
@@ -130,9 +130,9 @@ def action_timeline():
     for b in data.get("time_buckets", []):
         try:
             dt = datetime.strptime(b["hour"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
-            ts = int(dt.timestamp() * 1000)
+            iso = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
             block_n = round(b["count"] * block_rate)
-            result.append({"time": ts, "BLOCK": block_n, "ALLOW": b["count"] - block_n})
+            result.append({"time": iso, "BLOCK": block_n, "ALLOW": b["count"] - block_n})
         except Exception:
             pass
     return jsonify(sorted(result, key=lambda x: x["time"]))
