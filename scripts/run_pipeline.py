@@ -809,6 +809,10 @@ def main():
         help="오탐(False Positive) / 미탐(False Negative) 분석 단계를 건너뜀",
     )
     p.add_argument(
+        "--skip-attack-sim", action="store_true",
+        help="공격 시뮬레이션 단계를 건너뜀 (run_remote.py가 로컬에서 실행 후 결과만 전달 시 사용)",
+    )
+    p.add_argument(
         "--ai-model", default="qwen2.5:7b", metavar="MODEL",
         help="AI 보고서 생성에 사용할 Ollama 모델 (기본: qwen2.5:7b)\n"
              "사용 전 올라마에 모델이 pull 되어 있어야 함",
@@ -876,7 +880,12 @@ def main():
                 k, _, v = line.partition("=")
                 os.environ.setdefault(k.strip(), v.strip())
 
-    results["attack_sim"]    = step_attack_sim(args.target, args.dry_run, args.app)
+    if args.skip_attack_sim:
+        _step(1, "공격 시뮬레이션 — 로컬에서 실행됨 (스킵)")
+        _skip("--skip-attack-sim: run_remote.py가 로컬에서 실행 후 결과 전달")
+        results["attack_sim"] = True
+    else:
+        results["attack_sim"] = step_attack_sim(args.target, args.dry_run, args.app)
     analysis_json            = step_analyzer(args.log_dir)
     results["analyzer"]      = bool(analysis_json)
     results["ab_test"]       = step_ab_test(args.target, args.log_dir, args.dry_run)

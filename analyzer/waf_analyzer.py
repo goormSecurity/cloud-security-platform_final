@@ -219,7 +219,9 @@ def analyze(records, threshold=Config.IP_REQUEST_THRESHOLD):
                 rule_hits[rid] += 1
         ts = rec.get("timestamp")
         if isinstance(ts, (int, float)):
-            hour = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d %H:00")
+            _dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+            _min5 = (_dt.minute // 5) * 5
+            hour = _dt.strftime(f"%Y-%m-%d %H:{_min5:02d}")
             time_buckets[hour] += 1
 
         s = per_ip[ip]

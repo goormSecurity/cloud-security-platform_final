@@ -113,10 +113,24 @@ def _load_latest_zap():  # -> dict | None
 
 
 def _extract_high_risk_ips(analysis: dict) -> list[str]:
+    # 파이프라인 서버 자체 IP는 차단 목록에서 제외 (attack_runner가 EC2에서 실행되므로 자기 자신이 탐지됨)
+    try:
+        from config_loader import cfg
+        _self_ips = {
+            cfg("servers.analysis_ip", ""),
+            cfg("servers.app_ip", ""),
+        }
+    except Exception:
+        _self_ips = set()
+    _self_ips.discard("")
+
     ips = []
     for entry in analysis.get("top_ips", []):
         if entry.get("risk_level") == "HIGH":
             ip = entry.get("ip", "")
+            if ip in _self_ips:
+                print(f"  [auto_pr] 자체 서버 IP 제외 (attack_runner 실행 서버): {ip}")
+                continue
             if ip and "/" not in ip:
                 ips.append(f"{ip}/32")
             elif ip:

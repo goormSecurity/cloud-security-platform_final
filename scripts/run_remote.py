@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
 """
-run_remote.py — 하이브리드 파이프라인 (로컬 ZAP + EC2 분석 + S3 결과 다운)
+run_remote.py — 하이브리드 파이프라인 (로컬 스캔 + EC2 분석 + S3 결과 다운)
 
 원시 WAF 로그는 EC2/S3 밖으로 나오지 않습니다.
 
 [실행 흐름]
-1. (선택) ZAP 웹 취약점 스캔 — 로컬에서 실행 (EC2 IP로 스캔 시 WAF 차단 위험)
-2. ZAP 결과를 EC2로 SCP 전달
-3. EC2에서 파이프라인 실행 (--live --skip-zap)
+1. (선택) ZAP 웹 취약점 스캔 — 로컬에서 실행
+   (EC2 IP로 스캔 시 WAF 차단 위험 → 로컬 전용)
+2. (선택) 공격 시뮬레이션 (attack_runner) — 로컬에서 실행
+   (EC2 IP로 공격 시 EC2 자체가 고위험 IP로 탐지됨 → 로컬 전용)
+3. ZAP 결과 + 공격 시뮬레이션 결과를 EC2로 SCP 전달
+4. EC2에서 파이프라인 실행 (--live --skip-attack-sim)
    - 원시 WAF 로그: S3에서 직접 읽고 EC2에서만 분석
    - AI 보고서·컴플라이언스·Slack 알림·S3 업로드 모두 EC2에서 처리
-4. S3에서 결과물만 로컬로 다운로드
+5. S3에서 결과물만 로컬로 다운로드
    - AI 보고서(MD), 컴플라이언스 PDF·HTML, WAF 분석 요약 JSON
 
 사용 예:
-    python scripts/run_remote.py                        # 전체 실행 (ZAP 포함)
-    python scripts/run_remote.py --skip-zap             # ZAP 없이 EC2 파이프라인만
+    python scripts/run_remote.py                        # 전체 실행 (ZAP + 공격 포함)
+    python scripts/run_remote.py --skip-zap             # ZAP 없이
+    python scripts/run_remote.py --skip-attack          # 공격 시뮬레이션 없이
     python scripts/run_remote.py --pull-only            # 최신 S3 결과만 내려받기
     python scripts/run_remote.py --pull-only --date 2026/07/06
     python scripts/run_remote.py --list                 # S3 결과 목록 출력
@@ -73,7 +77,7 @@ def _print_step(n: int, title: str):
 
 def run_zap_local(target: str):  # -> Path | None
     """로컬에서 ZAP 스캔 실행 후 결과 파일 경로 반환."""
-    _print_step(1, f"ZAP 웹 취약점 스캔 (로컬) → {target}")
+    _print_step(1, f"ZAP 웹 취약점 스캔 (로컬 Docker) → {target}")
     out_dir = ROOT / "output"
     out_dir.mkdir(exist_ok=True)
     cmd = [
@@ -95,37 +99,89 @@ def run_zap_local(target: str):  # -> Path | None
     return None
 
 
-# ── 2단계: ZAP 결과 EC2로 전달 ───────────────────────────────────
+# ── 2단계: 로컬 공격 시뮬레이션 ─────────────────────────────────
 
-def scp_zap_to_ec2(zap_path: Path, ssh_host: str, ssh_user: str,
-                   ssh_key: str, remote_dir: str) -> bool:
-    """ZAP 결과 JSON을 EC2 output/ 에 SCP."""
-    _print_step(2, f"ZAP 결과 EC2 전달 ({ssh_host})")
-    r = subprocess.run(
-        ["scp"] + _ssh_opts(ssh_key) +
-        [str(zap_path), f"{ssh_user}@{ssh_host}:{remote_dir}/"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace",
-    )
-    if r.returncode == 0:
-        print(f"  ✔ {zap_path.name} → {ssh_host}:{remote_dir}/")
-        return True
-    print(f"  ✘ SCP 실패: {r.stderr.strip()[:120]}")
-    return False
+def run_attack_local(target: str, app: str = "all"):  # -> Path | None
+    """로컬에서 attack_runner 실행 후 sent_attacks.jsonl 경로 반환.
+
+    EC2에서 실행하면 EC2 IP가 WAF 로그에 공격자로 기록되어
+    파이프라인 서버 자체가 고위험 IP로 탐지됨 → 로컬 실행 필수.
+    """
+    _print_step(2, f"공격 시뮬레이션 (로컬) → {target}  app={app}")
+    out_path = ROOT / "attack_simulation" / "output" / "sent_attacks.jsonl"
+    cmd = [
+        sys.executable,
+        str(ROOT / "attack_simulation" / "attack_runner.py"),
+        "--target", target,
+        "--app", app,
+    ]
+    result = subprocess.run(cmd, cwd=str(ROOT))
+    if result.returncode != 0:
+        print("  ✘ 공격 시뮬레이션 실패")
+        return None
+    if out_path.exists():
+        print(f"  ✔ 공격 시뮬레이션 완료 → {out_path.name}")
+        return out_path
+    print("  ✘ sent_attacks.jsonl 없음")
+    return None
 
 
-# ── 3단계: EC2 파이프라인 원격 실행 ──────────────────────────────
+# ── 3단계: 로컬 결과물 EC2로 전달 ────────────────────────────────
+
+def scp_local_results_to_ec2(zap_path, attack_path, ssh_host: str,
+                              ssh_user: str, ssh_key: str,
+                              remote_output_dir: str, remote_attack_dir: str) -> None:
+    """ZAP 결과 + 공격 시뮬레이션 결과를 EC2로 전달."""
+    _print_step(3, f"로컬 결과물 EC2 전달 ({ssh_host})")
+
+    files_sent = 0
+    if zap_path:
+        r = subprocess.run(
+            ["scp"] + _ssh_opts(ssh_key) +
+            [str(zap_path), f"{ssh_user}@{ssh_host}:{remote_output_dir}/"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        if r.returncode == 0:
+            print(f"  ✔ {zap_path.name} → {ssh_host}:{remote_output_dir}/")
+            files_sent += 1
+        else:
+            print(f"  ✘ ZAP SCP 실패: {r.stderr.strip()[:120]}")
+
+    if attack_path:
+        # EC2의 attack_simulation/output/ 디렉토리 확보
+        subprocess.run(
+            ["ssh"] + _ssh_opts(ssh_key) + [f"{ssh_user}@{ssh_host}",
+             f"mkdir -p {remote_attack_dir}"],
+            capture_output=True, timeout=10,
+        )
+        r = subprocess.run(
+            ["scp"] + _ssh_opts(ssh_key) +
+            [str(attack_path), f"{ssh_user}@{ssh_host}:{remote_attack_dir}/"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        if r.returncode == 0:
+            print(f"  ✔ {attack_path.name} → {ssh_host}:{remote_attack_dir}/")
+            files_sent += 1
+        else:
+            print(f"  ✘ 공격결과 SCP 실패: {r.stderr.strip()[:120]}")
+
+    if files_sent == 0:
+        print("  ⊘ 전달할 로컬 결과물 없음")
+
+
+# ── 4단계: EC2 파이프라인 원격 실행 ──────────────────────────────
 
 def trigger_ec2_pipeline(ssh_host: str, ssh_user: str, ssh_key: str,
                          remote_path: str, live_hours: int) -> bool:
-    """EC2에서 파이프라인 실행 (--live --skip-zap). 완료까지 대기."""
-    _print_step(3, f"EC2 파이프라인 실행 ({ssh_host})")
+    """EC2에서 파이프라인 실행 (--live --skip-attack-sim). 완료까지 대기."""
+    _print_step(4, f"EC2 파이프라인 실행 ({ssh_host})")
     print("  원시 WAF 로그는 EC2/S3에서만 처리됩니다.")
     print("  완료까지 대기 중... (Ctrl+C로 중단 가능)\n")
 
     cmd = (
         f"cd {remote_path} && "
         f"source .venv/bin/activate 2>/dev/null || true && "
-        f"python3 scripts/run_pipeline.py --live --live-hours {live_hours} 2>&1"
+        f"python3 scripts/run_pipeline.py --live --live-hours {live_hours} --skip-attack-sim 2>&1"
     )
     r = subprocess.run(
         ["ssh"] + _ssh_opts(ssh_key) + [f"{ssh_user}@{ssh_host}", cmd],
@@ -138,7 +194,7 @@ def trigger_ec2_pipeline(ssh_host: str, ssh_user: str, ssh_key: str,
     return False
 
 
-# ── 4단계: S3 결과물 로컬 다운로드 ──────────────────────────────
+# ── 5단계: S3 결과물 로컬 다운로드 ──────────────────────────────
 
 def _latest_prefix(s3, bucket: str, base: str):  # -> str | None
     prefixes = []
@@ -155,7 +211,7 @@ def _latest_prefix(s3, bucket: str, base: str):  # -> str | None
 
 def pull_results(date_str=None):  # date_str: str | None -> Path | None
     """S3 pipeline-results/ 에서 결과물만 로컬 reports/pulled/ 에 저장."""
-    _print_step(4, "S3 결과물 로컬 다운로드 (원시 로그 제외)")
+    _print_step(5, "S3 결과물 로컬 다운로드 (원시 로그 제외)")
     try:
         import boto3
     except ImportError:
@@ -265,11 +321,13 @@ def main():
                    help="S3 결과 날짜 목록 출력")
     p.add_argument("--date",      default=None, metavar="YYYY/MM/DD",
                    help="특정 날짜 결과 다운로드 (기본: 최신)")
-    p.add_argument("--skip-zap",  action="store_true",
+    p.add_argument("--skip-zap",    action="store_true",
                    help="로컬 ZAP 스캔 건너뜀")
-    p.add_argument("--target",    default=None, metavar="URL",
-                   help="ZAP 스캔 대상 URL (생략 시 platform.yaml의 ALB 주소 사용)")
-    p.add_argument("--live-hours", default=24, type=int, metavar="N",
+    p.add_argument("--skip-attack", action="store_true",
+                   help="로컬 공격 시뮬레이션 건너뜀")
+    p.add_argument("--target",      default=None, metavar="URL",
+                   help="ZAP/공격 대상 URL (생략 시 platform.yaml의 ALB 주소 사용)")
+    p.add_argument("--live-hours",  default=24, type=int, metavar="N",
                    help="EC2가 수집할 WAF 로그 시간 범위 (기본: 24)")
     args = p.parse_args()
 
@@ -302,32 +360,41 @@ def main():
         print("[error] platform.yaml에 servers.analysis_ip 미설정")
         sys.exit(1)
 
-    zap_path = None
+    zap_path    = None
+    attack_path = None
+
+    # 공통 대상 URL 결정
+    try:
+        from config_loader import alb_target_url
+        target = args.target or alb_target_url()
+    except Exception:
+        target = args.target or ""
 
     # 1. ZAP 로컬 실행
     if not args.skip_zap:
-        try:
-            from config_loader import alb_target_url
-            target = args.target or alb_target_url()
-        except Exception:
-            target = args.target or ""
-
         if target:
             zap_path = run_zap_local(target)
         else:
-            print("[1] ZAP 스캔 스킵 — --target 미지정 (platform.yaml에 app.alb_url 설정 시 자동 사용)")
+            print("[1] ZAP 스캔 스킵 — 대상 URL 없음 (platform.yaml에 app.alb_url 설정 시 자동 사용)")
 
-    # 2. ZAP 결과 EC2로 전달
-    if zap_path:
-        scp_zap_to_ec2(zap_path, ssh_host, ssh_user, ssh_key, remote_dir)
-    elif not args.skip_zap:
-        print("[2] ZAP 결과 없음 — EC2에 전달 스킵")
+    # 2. 공격 시뮬레이션 로컬 실행
+    if not args.skip_attack:
+        if target:
+            attack_path = run_attack_local(target)
+        else:
+            print("[2] 공격 시뮬레이션 스킵 — 대상 URL 없음")
 
-    # 3. EC2 파이프라인 실행
+    # 3. 로컬 결과물 EC2로 전달
+    remote_attack_dir = f"{remote_path}/attack_simulation/output"
+    scp_local_results_to_ec2(zap_path, attack_path,
+                             ssh_host, ssh_user, ssh_key,
+                             remote_dir, remote_attack_dir)
+
+    # 4. EC2 파이프라인 실행 (attack_sim은 EC2에서 스킵)
     ec2_ok = trigger_ec2_pipeline(ssh_host, ssh_user, ssh_key,
                                   remote_path, args.live_hours)
 
-    # 4. S3 결과물 다운로드
+    # 5. S3 결과물 다운로드
     dest = pull_results(date_str=args.date)
 
     if dest:

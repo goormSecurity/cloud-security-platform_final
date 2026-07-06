@@ -496,8 +496,8 @@
                    },
                    {
                        "id":  21,
-                       "type":  "barchart",
-                       "title":  "시간대별 요청 추이",
+                       "type":  "timeseries",
+                       "title":  "시간대별 요청 추이 (5분 단위)",
                        "gridPos":  {
                                        "x":  0,
                                        "y":  7,
@@ -518,26 +518,21 @@
                                                                            "lineWidth":  2,
                                                                            "fillOpacity":  20,
                                                                            "gradientMode":  "opacity",
-                                                                           "drawStyle":  "line",
+                                                                           "drawStyle":  "bars",
+                                                                           "barAlignment":  0,
                                                                            "pointSize":  5
                                                                        },
                                                             "unit":  "short"
                                                         }
                                        },
                        "options":  {
-                                       "xField":  "Time",
-                                       "barWidth":  0.8,
-                                       "groupWidth":  0.7,
-                                       "fillOpacity":  80,
                                        "legend":  {
                                                       "displayMode":  "list",
                                                       "placement":  "bottom"
                                                   },
                                        "tooltip":  {
                                                        "mode":  "multi"
-                                                   },
-                                       "xTickLabelRotation":  -45,
-                                       "xTickLabelSpacing":  200
+                                                   }
                                    },
                        "targets":  [
                                        {
@@ -559,7 +554,7 @@
                                                            {
                                                                "selector":  "hour",
                                                                "text":  "Time",
-                                                               "type":  "string"
+                                                               "type":  "timestamp"
                                                            },
                                                            {
                                                                "selector":  "count",
