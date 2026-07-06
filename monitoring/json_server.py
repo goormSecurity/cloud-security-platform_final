@@ -64,7 +64,14 @@ def time_buckets():
     data = _load("analysis_*.json")
     if not data:
         return jsonify([]), 404
-    return jsonify(data.get("time_buckets", []))
+    buckets = []
+    for b in data.get("time_buckets", []):
+        hour = b.get("hour", "")
+        # "2026-06-21 15:00" → "2026-06-21T15:00:00Z" (Infinity backend parser 호환)
+        if hour and "T" not in hour:
+            hour = hour.replace(" ", "T") + ":00Z"
+        buckets.append({"hour": hour, "count": b.get("count", 0)})
+    return jsonify(buckets)
 
 
 # ── TOP IP ───────────────────────────────────────────────────────
