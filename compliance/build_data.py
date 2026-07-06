@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """
 build_data.py — 레이어별 Raw 데이터 수집 계약 기반 중앙 Adapter
 

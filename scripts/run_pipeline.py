@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """
 run_pipeline.py — 전체 보안 파이프라인 로컬 실행기
 
