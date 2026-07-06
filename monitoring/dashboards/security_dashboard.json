@@ -82,14 +82,20 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/summary",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "total_requests",
+              "text": "total_requests",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -146,14 +152,20 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/summary",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "blocked",
+              "text": "blocked",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -217,14 +229,20 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/summary",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "block_rate_pct",
+              "text": "block_rate_pct",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -281,14 +299,20 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/summary",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "high_risk_ips",
+              "text": "high_risk_ips",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -345,14 +369,20 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/summary",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "unique_ips",
+              "text": "unique_ips",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -416,14 +446,20 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/zap-stats",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "total",
+              "text": "total",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -491,14 +527,25 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/time-buckets",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "hour",
+              "text": "Time",
+              "type": "string"
+            },
+            {
+              "selector": "count",
+              "text": "요청 수",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -579,14 +626,25 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/action-counts",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "action",
+              "text": "action",
+              "type": "string"
+            },
+            {
+              "selector": "count",
+              "text": "count",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -652,14 +710,25 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/attack-types",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "type",
+              "text": "type",
+              "type": "string"
+            },
+            {
+              "selector": "count",
+              "text": "count",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -712,14 +781,25 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/rule-hits",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "rule",
+              "text": "rule",
+              "type": "string"
+            },
+            {
+              "selector": "count",
+              "text": "count",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -852,14 +932,55 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/top-ips",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "ip",
+              "text": "ip",
+              "type": "string"
+            },
+            {
+              "selector": "country",
+              "text": "country",
+              "type": "string"
+            },
+            {
+              "selector": "risk_level",
+              "text": "risk_level",
+              "type": "string"
+            },
+            {
+              "selector": "risk_score",
+              "text": "risk_score",
+              "type": "number"
+            },
+            {
+              "selector": "request_count",
+              "text": "request_count",
+              "type": "number"
+            },
+            {
+              "selector": "blocked",
+              "text": "blocked",
+              "type": "number"
+            },
+            {
+              "selector": "block_rate_pct",
+              "text": "block_rate_pct",
+              "type": "number"
+            },
+            {
+              "selector": "attack_types",
+              "text": "attack_types",
+              "type": "string"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -970,14 +1091,25 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/risk-distribution",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "level",
+              "text": "level",
+              "type": "string"
+            },
+            {
+              "selector": "count",
+              "text": "count",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -1088,14 +1220,30 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/ab-test",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
-          "root_selector": "",
-          "columns": [],
+          "root_selector": "bars",
+          "columns": [
+            {
+              "selector": "metric",
+              "text": "metric",
+              "type": "string"
+            },
+            {
+              "selector": "현재_Count모드",
+              "text": "현재_Count모드",
+              "type": "number"
+            },
+            {
+              "selector": "제안_Block모드",
+              "text": "제안_Block모드",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -1184,14 +1332,30 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/ab-test",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
-          "root_selector": "",
-          "columns": [],
+          "root_selector": "rates",
+          "columns": [
+            {
+              "selector": "mode",
+              "text": "mode",
+              "type": "string"
+            },
+            {
+              "selector": "block_rate",
+              "text": "block_rate",
+              "type": "string"
+            },
+            {
+              "selector": "detection_rate",
+              "text": "detection_rate",
+              "type": "string"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -1309,14 +1473,40 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/pipeline-runs",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "generated_at",
+              "text": "generated_at",
+              "type": "string"
+            },
+            {
+              "selector": "total_requests",
+              "text": "total_requests",
+              "type": "number"
+            },
+            {
+              "selector": "blocked",
+              "text": "blocked",
+              "type": "number"
+            },
+            {
+              "selector": "block_rate_pct",
+              "text": "block_rate_pct",
+              "type": "number"
+            },
+            {
+              "selector": "high_risk_ips",
+              "text": "high_risk_ips",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -1604,14 +1794,30 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/latest-run",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "항목",
+              "text": "항목",
+              "type": "string"
+            },
+            {
+              "selector": "값",
+              "text": "값",
+              "type": "string"
+            },
+            {
+              "selector": "상태",
+              "text": "상태",
+              "type": "string"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -1675,14 +1881,20 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/zap-stats",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "high",
+              "text": "high",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -1746,14 +1958,20 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/zap-stats",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "medium",
+              "text": "medium",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -1805,14 +2023,20 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/zap-stats",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "low",
+              "text": "low",
+              "type": "number"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
@@ -1904,14 +2128,30 @@
           },
           "type": "json",
           "source": "url",
-          "url": "http://json-api:5000",
+          "url": "http://json-api:5000/security-status",
           "url_options": {
             "method": "GET",
             "data": ""
           },
           "parser": "backend",
           "root_selector": "",
-          "columns": [],
+          "columns": [
+            {
+              "selector": "항목",
+              "text": "항목",
+              "type": "string"
+            },
+            {
+              "selector": "값",
+              "text": "값",
+              "type": "string"
+            },
+            {
+              "selector": "상태",
+              "text": "상태",
+              "type": "string"
+            }
+          ],
           "filters": [],
           "format": "table"
         }
