@@ -28,7 +28,8 @@
       "options": {
         "mode": "html",
         "content": "<div style='display:flex;align-items:center;padding:10px 20px;background:#111827;border-left:3px solid #4fc3f7;'><div><div style='font-size:17px;font-weight:600;color:#e2e8f0;letter-spacing:0.02em;'>AWS WAF Security Dashboard</div><div style='font-size:12px;color:#64748b;margin-top:3px;'>Cloud Security Platform &nbsp;|&nbsp; WAF Log Analysis · AI Risk Scoring · Auto Block</div></div></div>"
-      }
+      },
+      "targets": []
     },
     {
       "id": 10,
@@ -41,8 +42,8 @@
         "h": 4
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -76,18 +77,26 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/summary",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/summary",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$.total_requests",
-              "name": "total_requests",
+              "selector": "total_requests",
+              "text": "total_requests",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -102,8 +111,8 @@
         "h": 4
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -137,18 +146,26 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/summary",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/summary",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$.blocked",
-              "name": "blocked",
+              "selector": "blocked",
+              "text": "blocked",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -163,8 +180,8 @@
         "h": 4
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -205,18 +222,26 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/summary",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/summary",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$.block_rate_pct",
-              "name": "block_rate_pct",
+              "selector": "block_rate_pct",
+              "text": "block_rate_pct",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -231,8 +256,8 @@
         "h": 4
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -266,18 +291,26 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/summary",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/summary",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$.high_risk_ips",
-              "name": "high_risk_ips",
+              "selector": "high_risk_ips",
+              "text": "high_risk_ips",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -292,8 +325,8 @@
         "h": 4
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -327,18 +360,26 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/summary",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/summary",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$.unique_ips",
-              "name": "unique_ips",
+              "selector": "unique_ips",
+              "text": "unique_ips",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -353,8 +394,8 @@
         "h": 4
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -395,18 +436,26 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/zap-stats",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/zap-stats",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$.total",
-              "name": "total",
+              "selector": "total",
+              "text": "total",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -420,7 +469,8 @@
         "w": 24,
         "h": 1
       },
-      "collapsed": false
+      "collapsed": false,
+      "targets": []
     },
     {
       "id": 21,
@@ -433,8 +483,8 @@
         "h": 9
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -466,23 +516,31 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/time-buckets",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/time-buckets",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$[*].hour",
-              "name": "Time",
-              "type": "time"
+              "selector": "hour",
+              "text": "Time",
+              "type": "string"
             },
             {
-              "jsonPath": "$[*].count",
-              "name": "요청 수",
+              "selector": "count",
+              "text": "요청 수",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -497,8 +555,8 @@
         "h": 9
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -556,23 +614,31 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/action-counts",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/action-counts",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$[*].action",
-              "name": "action",
+              "selector": "action",
+              "text": "action",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].count",
-              "name": "count",
+              "selector": "count",
+              "text": "count",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -586,7 +652,8 @@
         "w": 24,
         "h": 1
       },
-      "collapsed": false
+      "collapsed": false,
+      "targets": []
     },
     {
       "id": 31,
@@ -599,8 +666,8 @@
         "h": 8
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -630,23 +697,31 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/attack-types",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/attack-types",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$[*].type",
-              "name": "type",
+              "selector": "type",
+              "text": "type",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].count",
-              "name": "count",
+              "selector": "count",
+              "text": "count",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -661,8 +736,8 @@
         "h": 8
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -692,23 +767,31 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/rule-hits",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/rule-hits",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$[*].rule",
-              "name": "rule",
+              "selector": "rule",
+              "text": "rule",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].count",
-              "name": "count",
+              "selector": "count",
+              "text": "count",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -722,7 +805,8 @@
         "w": 24,
         "h": 1
       },
-      "collapsed": false
+      "collapsed": false,
+      "targets": []
     },
     {
       "id": 41,
@@ -735,8 +819,8 @@
         "h": 10
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -833,53 +917,61 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/top-ips",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/top-ips",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$[*].ip",
-              "name": "ip",
+              "selector": "ip",
+              "text": "ip",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].country",
-              "name": "country",
+              "selector": "country",
+              "text": "country",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].risk_level",
-              "name": "risk_level",
+              "selector": "risk_level",
+              "text": "risk_level",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].risk_score",
-              "name": "risk_score",
+              "selector": "risk_score",
+              "text": "risk_score",
               "type": "number"
             },
             {
-              "jsonPath": "$[*].request_count",
-              "name": "request_count",
+              "selector": "request_count",
+              "text": "request_count",
               "type": "number"
             },
             {
-              "jsonPath": "$[*].blocked",
-              "name": "blocked",
+              "selector": "blocked",
+              "text": "blocked",
               "type": "number"
             },
             {
-              "jsonPath": "$[*].block_rate_pct",
-              "name": "block_rate_pct",
+              "selector": "block_rate_pct",
+              "text": "block_rate_pct",
               "type": "number"
             },
             {
-              "jsonPath": "$[*].attack_types",
-              "name": "attack_types",
+              "selector": "attack_types",
+              "text": "attack_types",
               "type": "string"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -894,8 +986,8 @@
         "h": 10
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -983,23 +1075,31 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/risk-distribution",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/risk-distribution",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$[*].level",
-              "name": "level",
+              "selector": "level",
+              "text": "level",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].count",
-              "name": "count",
+              "selector": "count",
+              "text": "count",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -1013,7 +1113,8 @@
         "w": 24,
         "h": 1
       },
-      "collapsed": false
+      "collapsed": false,
+      "targets": []
     },
     {
       "id": 51,
@@ -1028,7 +1129,8 @@
       "options": {
         "mode": "html",
         "content": "<div style='padding:8px 16px;background:#1e293b;border-left:2px solid #334155;font-size:12px;color:#94a3b8;'>동일한 공격 패턴을 현재 WAF 설정(일부 Count 모드)과 전체 Block 전환 시 각각 시뮬레이션하여 탐지율·차단율 변화를 비교합니다.</div>"
-      }
+      },
+      "targets": []
     },
     {
       "id": 52,
@@ -1041,8 +1143,8 @@
         "h": 9
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -1101,28 +1203,36 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/ab-test",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/ab-test",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "bars",
+          "columns": [
             {
-              "jsonPath": "$.bars[*].metric",
-              "name": "metric",
+              "selector": "metric",
+              "text": "metric",
               "type": "string"
             },
             {
-              "jsonPath": "$.bars[*].현재_Count모드",
-              "name": "현재_Count모드",
+              "selector": "현재_Count모드",
+              "text": "현재_Count모드",
               "type": "number"
             },
             {
-              "jsonPath": "$.bars[*].제안_Block모드",
-              "name": "제안_Block모드",
+              "selector": "제안_Block모드",
+              "text": "제안_Block모드",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -1137,8 +1247,8 @@
         "h": 9
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -1204,28 +1314,36 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/ab-test",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/ab-test",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "rates",
+          "columns": [
             {
-              "jsonPath": "$.rates[*].mode",
-              "name": "mode",
+              "selector": "mode",
+              "text": "mode",
               "type": "string"
             },
             {
-              "jsonPath": "$.rates[*].block_rate",
-              "name": "block_rate",
+              "selector": "block_rate",
+              "text": "block_rate",
               "type": "string"
             },
             {
-              "jsonPath": "$.rates[*].detection_rate",
-              "name": "detection_rate",
+              "selector": "detection_rate",
+              "text": "detection_rate",
               "type": "string"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -1239,7 +1357,8 @@
         "w": 24,
         "h": 1
       },
-      "collapsed": false
+      "collapsed": false,
+      "targets": []
     },
     {
       "id": 61,
@@ -1252,8 +1371,8 @@
         "h": 8
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -1335,38 +1454,46 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/pipeline-runs",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/pipeline-runs",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$[*].generated_at",
-              "name": "generated_at",
+              "selector": "generated_at",
+              "text": "generated_at",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].total_requests",
-              "name": "total_requests",
+              "selector": "total_requests",
+              "text": "total_requests",
               "type": "number"
             },
             {
-              "jsonPath": "$[*].blocked",
-              "name": "blocked",
+              "selector": "blocked",
+              "text": "blocked",
               "type": "number"
             },
             {
-              "jsonPath": "$[*].block_rate_pct",
-              "name": "block_rate_pct",
+              "selector": "block_rate_pct",
+              "text": "block_rate_pct",
               "type": "number"
             },
             {
-              "jsonPath": "$[*].high_risk_ips",
-              "name": "high_risk_ips",
+              "selector": "high_risk_ips",
+              "text": "high_risk_ips",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -1380,7 +1507,8 @@
         "w": 24,
         "h": 1
       },
-      "collapsed": false
+      "collapsed": false,
+      "targets": []
     },
     {
       "id": 71,
@@ -1507,7 +1635,8 @@
         "w": 24,
         "h": 1
       },
-      "collapsed": false
+      "collapsed": false,
+      "targets": []
     },
     {
       "id": 91,
@@ -1520,8 +1649,8 @@
         "h": 9
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -1645,28 +1774,36 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/latest-run",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/latest-run",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$[*].항목",
-              "name": "항목",
+              "selector": "항목",
+              "text": "항목",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].값",
-              "name": "값",
+              "selector": "값",
+              "text": "값",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].상태",
-              "name": "상태",
+              "selector": "상태",
+              "text": "상태",
               "type": "string"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -1681,8 +1818,8 @@
         "h": 4
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -1723,18 +1860,26 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/zap-stats",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/zap-stats",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$.high",
-              "name": "high",
+              "selector": "high",
+              "text": "high",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -1749,8 +1894,8 @@
         "h": 4
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -1791,18 +1936,26 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/zap-stats",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/zap-stats",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$.medium",
-              "name": "medium",
+              "selector": "medium",
+              "text": "medium",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -1817,8 +1970,8 @@
         "h": 5
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -1847,18 +2000,26 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/zap-stats",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/zap-stats",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$.low",
-              "name": "low",
+              "selector": "low",
+              "text": "low",
               "type": "number"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     },
@@ -1873,8 +2034,8 @@
         "h": 5
       },
       "datasource": {
-        "type": "simpod-json-datasource",
-        "uid": "afot70vnoy7swf"
+        "type": "yesoreyeram-infinity-datasource",
+        "uid": "infinity-uid"
       },
       "fieldConfig": {
         "defaults": {
@@ -1943,28 +2104,36 @@
         {
           "refId": "A",
           "datasource": {
-            "type": "simpod-json-datasource",
-            "uid": "afot70vnoy7swf"
+            "type": "yesoreyeram-infinity-datasource",
+            "uid": "infinity-uid"
           },
-          "queryType": "default",
-          "pathExpression": "/security-status",
-          "fields": [
+          "type": "json",
+          "source": "url",
+          "url": "http://json-api:5000/security-status",
+          "url_options": {
+            "method": "GET",
+            "data": ""
+          },
+          "root_selector": "",
+          "columns": [
             {
-              "jsonPath": "$[*].항목",
-              "name": "항목",
+              "selector": "항목",
+              "text": "항목",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].값",
-              "name": "값",
+              "selector": "값",
+              "text": "값",
               "type": "string"
             },
             {
-              "jsonPath": "$[*].상태",
-              "name": "상태",
+              "selector": "상태",
+              "text": "상태",
               "type": "string"
             }
-          ]
+          ],
+          "filters": [],
+          "format": "table"
         }
       ]
     }

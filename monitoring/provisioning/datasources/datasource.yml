@@ -1,13 +1,15 @@
 apiVersion: 1
 
 datasources:
-  - name: JSON API
-    type: simpod-json-datasource
-    uid: afot70vnoy7swf
-    url: http://json-api:5000
+  - name: Infinity
+    type: yesoreyeram-infinity-datasource
+    uid: infinity-uid
     access: proxy
     isDefault: true
     editable: false
+    jsonData:
+      allowedHosts:
+        - http://json-api:5000
 
   - name: Loki
     type: loki
