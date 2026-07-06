@@ -277,23 +277,47 @@ def test_build_cloudtrail_dict_format():
 # 3. 허용 숫자 목록 — 할루시네이션 방지 기반
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def test_allowed_numbers_includes_data_values():
-    nums = report_generator.build_allowed_numbers(SAMPLE_WAF)
-    assert "25000" in nums
-    assert "2625" in nums
-    assert "120" in nums
+def test_key_metrics_waf_numbers():
+    metrics = report_generator.build_key_metrics(
+        SAMPLE_WAF, None, None, None, None, [], None
+    )
+    assert "25,000" in metrics
+    assert "2,625" in metrics
+    assert "10.5%" in metrics  # block_rate 0.105 → 10.5%
+    assert "고위험 IP 수: 2개" in metrics
 
 
-def test_allowed_numbers_converts_rate_to_pct():
-    # block_rate=0.105 → "10.5" 포함되어야 함
-    nums = report_generator.build_allowed_numbers(SAMPLE_WAF)
-    assert "10.5" in nums
+def test_key_metrics_trivy_correct_numbers():
+    trivy = {
+        "summary": {"total_vulns": 1812, "critical": 269, "high": 735},
+        "iac": {"total": 41, "by_severity": {"CRITICAL": 4, "HIGH": 15}},
+    }
+    metrics = report_generator.build_key_metrics(
+        SAMPLE_WAF, None, None, None, trivy, [], None
+    )
+    assert "1,812" in metrics
+    assert "269" in metrics
+    assert "735" in metrics
+    assert "41" in metrics
 
 
-def test_allowed_numbers_always_includes_base_digits():
-    nums = report_generator.build_allowed_numbers({})
-    for d in ["0", "1", "10", "100"]:
-        assert d in nums
+def test_key_metrics_zap_numbers():
+    zap = {"total_alerts": 24, "risk_counts": {"High": 0, "Medium": 2, "Low": 19}}
+    metrics = report_generator.build_key_metrics(
+        SAMPLE_WAF, None, None, zap, None, [], None
+    )
+    assert "24" in metrics
+    assert "High 0" in metrics
+    assert "Medium 2" in metrics
+
+
+def test_key_metrics_no_account_id_pollution():
+    """AWS 계정 ID(12자리)나 CVE 번호 같은 노이즈가 key_metrics에 포함되지 않아야 한다"""
+    metrics = report_generator.build_key_metrics(
+        SAMPLE_WAF, None, None, None, None, [], None
+    )
+    assert "677673473281" not in metrics  # AWS account ID
+    assert "45447" not in metrics         # CVE 번호 조각
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -306,7 +330,7 @@ def test_prompt_forbids_low_ip_as_high_risk():
 
 def test_prompt_forbids_number_substitution():
     assert "trivy.critical" in report_generator.SYSTEM_PROMPT
-    assert "임의 대체하지 않는다" in report_generator.SYSTEM_PROMPT
+    assert "임의 대체 금지" in report_generator.SYSTEM_PROMPT
 
 
 def test_prompt_forbids_cross_section_data_mixing():
@@ -330,7 +354,7 @@ def test_system_prompt_has_9_sections():
 
 def test_user_prompt_has_all_data_blocks():
     for block in ["WAF 분석 데이터", "FP/FN", "A/B 테스트", "Prowler",
-                  "ZAP", "Trivy", "CloudTrail", "허용 숫자 목록"]:
+                  "ZAP", "Trivy", "CloudTrail", "핵심 보안 지표"]:
         assert block in report_generator.USER_PROMPT_TEMPLATE, f"블록 누락: {block}"
 
 
@@ -340,7 +364,7 @@ def test_user_prompt_template_keys_match_generate_report():
     placeholders = set(re.findall(r"\{(\w+)\}", report_generator.USER_PROMPT_TEMPLATE))
     expected_keys = {
         "waf_facts", "fpfn_facts", "abtest_facts", "prowler_facts",
-        "infra_facts", "zap_facts", "trivy_facts", "cloudtrail_facts", "allowed_numbers",
+        "infra_facts", "zap_facts", "trivy_facts", "cloudtrail_facts", "key_metrics",
     }
     assert placeholders == expected_keys, f"불일치: {placeholders ^ expected_keys}"
 

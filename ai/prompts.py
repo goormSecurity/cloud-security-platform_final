@@ -18,14 +18,13 @@ S3 버킷 보안·CloudTrail 변경 이력·Config 드리프트 결과를 종합
 ## 9. 운영자 검토 사항
 
 [절대 금지 규칙]
-1. FACTS 또는 허용 숫자 목록에 없는 숫자를 쓰지 않는다.
+1. [핵심 보안 지표] 블록에 없는 숫자는 보고서에 쓰지 않는다.
 2. FACTS에 없는 IP 주소를 쓰지 않는다.
 3. FACTS에 없는 Rule ID, URI, CVE ID, 도메인을 쓰지 않는다.
 4. risk_level이 LOW인 IP를 "위험한 IP" 또는 "고위험 IP"라고 표현하지 않는다.
-5. trivy.critical, trivy.high, trivy.total_vulns, zap.total_alerts 등 FACTS 키에 명시된 수치는
-   반드시 그 값 그대로 인용한다. 0이나 한 자릿수로 임의 대체하지 않는다.
+5. trivy.critical, trivy.high, trivy.total_vulns, zap.total_alerts 등 수치는
+   [핵심 보안 지표]에 명시된 숫자를 그대로 인용한다. 임의 대체 금지.
 6. 특정 섹션에서 데이터 부족 시 다른 도구의 수치를 혼용하지 않는다.
-   예: WAF action_counts가 0이어도 "Trivy action_counts..."라고 쓰지 않는다.
 7. 데이터가 없거나 0인 항목은 "데이터 없음" 또는 "0건"으로 명시하고 다른 수치로 채우지 않는다.
 
 [섹션별 작성 지침]
@@ -36,7 +35,7 @@ S3 버킷 보안·CloudTrail 변경 이력·Config 드리프트 결과를 종합
 - 섹션 5: Prowler PASS/FAIL/WARN 항목·Config 드리프트·S3 버킷 보안 상태·KMS/Object Lock
 - 섹션 6: ZAP High/Medium 취약점명·Trivy CRITICAL/HIGH CVE 수·IaC 오설정 수
 - 섹션 7: CloudTrail 주요 API 변경 이력·S3 암호화 상태·데이터 보안 현황
-- 섹션 8: 모든 데이터를 종합하여 우선순위별 구체적 개선 권고 5~8개 항목 (WAF 룰 조정·인프라 강화·취약점 패치·데이터 보호·변경관리)
+- 섹션 8: 모든 데이터를 종합하여 우선순위별 구체적 개선 권고 5~8개 항목
 - 섹션 9: 즉시 조치 필요한 운영 액션 아이템 bullet 목록
 """
 
@@ -67,22 +66,22 @@ USER_PROMPT_TEMPLATE = """
 [CloudTrail 변경 이력]
 {cloudtrail_facts}
 
-[허용 숫자 목록 — 이 목록에 없는 숫자는 절대 작성하지 않는다]
-{allowed_numbers}
+{key_metrics}
 
 위 데이터만 근거로 클라우드 종합 보안 분석 보고서를 작성하라.
 
-[데이터 인용 필수 확인]
-- WAF 섹션(2·3·4): [WAF 분석 데이터]와 [FP/FN], [A/B 테스트] 블록만 사용
-- 인프라 섹션(5): [인프라 보안 점검], [Config 드리프트 및 S3·KMS 보안] 블록만 사용
-- 취약점 섹션(6): [웹 취약점 스캔]와 [컨테이너·IaC 취약점 스캔] 블록만 사용
+[데이터 인용 규칙]
+- 모든 수치는 [핵심 보안 지표]에 명시된 숫자를 그대로 사용한다.
+- [핵심 보안 지표]에 없는 수치는 "데이터 없음"으로 표기한다. 임의 숫자를 만들지 않는다.
+- WAF 섹션(2·3·4): [WAF 분석 데이터]·[FP/FN]·[A/B 테스트] 블록 참조
+- 인프라 섹션(5): [인프라 보안 점검]·[Config 드리프트 및 S3·KMS 보안] 블록 참조
+- 취약점 섹션(6): [웹 취약점 스캔]·[컨테이너·IaC 취약점 스캔] 블록만 사용
 - 변경이력 섹션(7): [CloudTrail 변경 이력] 블록만 사용
-- Trivy 수치 인용 시: trivy.total_vulns, trivy.critical, trivy.high 값을 그대로 사용
 
 작성 순서:
 1. "# WAF 보안 분석 보고서" 로 시작한다.
-2. "## 1. 공격 현황 요약" — 전체 보안 지표 한눈 요약
-3. "## 2. WAF 탐지·차단 현황" — action_counts, rule_hits, block_rate
+2. "## 1. 공격 현황 요약" — [핵심 보안 지표]의 WAF 총 요청·고위험 IP·차단율·Trivy·ZAP·Prowler 수치 요약
+3. "## 2. WAF 탐지·차단 현황" — BLOCK/COUNT/ALLOW 건수, rule_hits, block_rate
 4. "## 3. 위험 IP 분석" — top_ip별 위험도·국가·공격유형
 5. "## 4. WAF 효과성 평가" — FP/FN 미탐률·오탐 IP·A/B 테스트 Block 전환 효과
 6. "## 5. 인프라 보안 점검" — Prowler FAIL/WARN·Config 드리프트·S3 버킷·KMS
@@ -92,7 +91,6 @@ USER_PROMPT_TEMPLATE = """
 10. "## 9. 운영자 검토 사항" — 즉시 조치 필요 항목 bullet
 
 핵심 규칙:
-- 허용 숫자 목록에 없는 숫자는 숫자 없이 서술한다.
 - IP는 FACTS에 있는 것만 적는다.
 - 코드블록(```) 없이 순수 Markdown만 출력한다.
 """

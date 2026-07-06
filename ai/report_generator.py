@@ -273,51 +273,96 @@ def build_cloudtrail_facts(data) -> str:
     return "\n".join(lines)
 
 
-# ── 숫자·IP 추출 ──────────────────────────────────────────────────────
+# ── IP 추출 ───────────────────────────────────────────────────────────
 
 def _extract_ips(text: str) -> Set[str]:
     return set(re.findall(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])", text))
 
 
-def _extract_numbers(data: Any) -> Set[str]:
-    nums: Set[str] = set()
-    def walk(v):
-        if isinstance(v, dict):
-            for x in v.values(): walk(x)
-        elif isinstance(v, list):
-            for x in v: walk(x)
-        elif isinstance(v, bool) or v is None:
-            return
-        elif isinstance(v, int):
-            nums.add(str(v))
-        elif isinstance(v, float):
-            nums.add(str(v))
-            if v.is_integer(): nums.add(str(int(v)))
-        elif isinstance(v, str):
-            nums.update(re.findall(r"(?<![\d.])-?\d+(?:\.\d+)?(?![\d.])", v))
-    walk(data)
-    return nums
+# ── 핵심 지표 요약 (허용 숫자 목록 대체) ─────────────────────────────
 
+def build_key_metrics(
+    waf: Dict, fpfn: Optional[Dict], abtest: Optional[Dict],
+    zap: Optional[Dict], trivy: Optional[Dict],
+    prowler: List[Dict], cloudtrail_raw,
+) -> str:
+    """LLM에게 전달할 핵심 수치 요약 — 계정ID·CVE번호·ARN 오염 없이 통계만 전달"""
+    lines = ["[핵심 보안 지표 — 보고서에서 반드시 이 숫자를 그대로 인용할 것]"]
 
-def build_allowed_numbers(*datasets) -> str:
-    all_nums: Set[str] = set()
-    for d in datasets:
-        if d:
-            all_nums |= _extract_numbers(d)
-    pct: Set[str] = set()
-    for n in list(all_nums):
-        try:
-            v = float(n)
-            if 0 <= v <= 1:
-                p = round(v * 100, 1)
-                pct |= {str(p), str(int(p)), str(round(100-p,1)), str(int(100-p))}
-        except ValueError:
-            pass
-    allowed = sorted(
-        all_nums | pct | {"0","1","2","3","4","5","6","7","8","9","10","100"},
-        key=lambda x: float(x) if x.replace(".","").lstrip("-").isdigit() else 0,
-    )
-    return ", ".join(allowed)
+    # WAF
+    s = (waf or {}).get("summary", {})
+    ac = s.get("action_counts", {})
+    block = ac.get("BLOCK", 0)
+    count = ac.get("COUNT", 0)
+    allow = ac.get("ALLOW", 0)
+    total = s.get("total_requests", 0)
+    rate  = s.get("block_rate", 0)
+    high  = s.get("high_risk_ips", 0)
+    lines.append(f"WAF 총 요청: {total:,}건")
+    lines.append(f"WAF 액션 — BLOCK: {block:,}건 / COUNT: {count:,}건 / ALLOW: {allow:,}건")
+    lines.append(f"WAF 차단율: {rate * 100:.1f}%")
+    lines.append(f"고위험 IP 수: {high}개")
+
+    # FP/FN
+    if fpfn:
+        fn = fpfn.get("false_negative", {})
+        lines.append(
+            f"FP/FN — 미탐(FN): {fn.get('fn_count', 0)}건 "
+            f"/ 미탐률: {fn.get('fn_rate', 0):.0%} "
+            f"/ 총 패턴: {fn.get('total_attack_patterns', 0)}개 "
+            f"/ Block 전환 즉시 차단 가능: {fn.get('improvable_by_block_mode', 0)}개"
+        )
+    else:
+        lines.append("FP/FN: 데이터 없음")
+
+    # A/B test
+    if abtest:
+        cur  = abtest.get("current_mode", {})
+        prop = abtest.get("proposed_block_mode", {})
+        lines.append(
+            f"A/B 테스트 — 현재 차단율: {cur.get('block_rate','N/A')} "
+            f"/ Block 전환 시: {prop.get('block_rate','N/A')}"
+        )
+
+    # ZAP
+    if zap:
+        rc = zap.get("risk_counts", {})
+        lines.append(
+            f"ZAP 웹 취약점: 전체 {zap.get('total_alerts', 0)}건 "
+            f"(High {rc.get('High', 0)} / Medium {rc.get('Medium', 0)} / Low {rc.get('Low', 0)})"
+        )
+    else:
+        lines.append("ZAP: 데이터 없음")
+
+    # Trivy
+    if trivy:
+        ts  = trivy.get("summary", {})
+        iac = trivy.get("iac", {})
+        lines.append(
+            f"Trivy 컨테이너 취약점: 전체 {ts.get('total_vulns', 0):,}건 "
+            f"(CRITICAL {ts.get('critical', 0)} / HIGH {ts.get('high', 0)})"
+        )
+        lines.append(
+            f"Trivy IaC 오설정: {iac.get('total', 0)}건 "
+            f"(CRITICAL {iac.get('by_severity', {}).get('CRITICAL', 0)} "
+            f"/ HIGH {iac.get('by_severity', {}).get('HIGH', 0)})"
+        )
+    else:
+        lines.append("Trivy: 데이터 없음")
+
+    # Prowler
+    if prowler:
+        fail = sum(1 for f in prowler if f.get("status") in ("FAIL", "WARN"))
+        lines.append(f"Prowler: 전체 {len(prowler)}건, FAIL/WARN {fail}건")
+    else:
+        lines.append("Prowler: 데이터 없음")
+
+    # CloudTrail
+    events = cloudtrail_raw if isinstance(cloudtrail_raw, list) \
+             else (cloudtrail_raw or {}).get("Events", (cloudtrail_raw or {}).get("events", []))
+    lines.append(f"CloudTrail 이벤트: {len(events)}건")
+
+    return "\n".join(lines)
 
 
 # ── LangChain 호출 ────────────────────────────────────────────────────
@@ -406,17 +451,17 @@ def generate_report(input_path: Path, output_dir: Path, model: str, ollama_base_
 
     # FACTS 블록 구성
     facts = {
-        "waf_facts":       build_waf_facts(waf_data),
-        "fpfn_facts":      build_fpfn_facts(fpfn_data),
-        "abtest_facts":    build_abtest_facts(abtest_data),
-        "prowler_facts":   build_prowler_facts(prowler_list),
-        "infra_facts":     build_infra_facts(config_diff, s3_sec, enc_data, kms_data, objlock_data),
-        "zap_facts":       build_zap_facts(zap_data),
-        "trivy_facts":     build_trivy_facts(trivy_data),
+        "waf_facts":        build_waf_facts(waf_data),
+        "fpfn_facts":       build_fpfn_facts(fpfn_data),
+        "abtest_facts":     build_abtest_facts(abtest_data),
+        "prowler_facts":    build_prowler_facts(prowler_list),
+        "infra_facts":      build_infra_facts(config_diff, s3_sec, enc_data, kms_data, objlock_data),
+        "zap_facts":        build_zap_facts(zap_data),
+        "trivy_facts":      build_trivy_facts(trivy_data),
         "cloudtrail_facts": build_cloudtrail_facts(cloudtrail_raw),
-        "allowed_numbers": build_allowed_numbers(
+        "key_metrics":      build_key_metrics(
             waf_data, fpfn_data, abtest_data, zap_data, trivy_data,
-            prowler_raw, config_diff, s3_sec, enc_data, kms_data, objlock_data,
+            prowler_list, cloudtrail_raw,
         ),
     }
 
