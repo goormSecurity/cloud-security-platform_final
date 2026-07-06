@@ -11,7 +11,7 @@ main.py — 분석 엔진 전체 실행
 import argparse
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from config import Config
 import waf_analyzer
@@ -67,17 +67,14 @@ def main():
         json.dump(result, f, ensure_ascii=False, indent=2)
 
     # 5) Loki 스트리밍용 라이브 로그 작성 (Fluent Bit이 tail → Loki 전송)
-    from datetime import timezone
     live_path = os.path.join(Config.OUTPUT_DIR, "live_waf.jsonl")
     written = 0
+    now = datetime.now(timezone.utc)
     with open(live_path, "a", encoding="utf-8") as lf:
-        for rec in records:
+        for i, rec in enumerate(records):
             req = rec.get("httpRequest", {})
-            ts = rec.get("timestamp")
-            if isinstance(ts, (int, float)):
-                dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
-            else:
-                dt = datetime.now(timezone.utc)
+            # Loki는 7일 이상 오래된 타임스탬프를 거부 → 항상 현재 시각 기준으로 기록
+            dt = now.replace(microsecond=0) - timedelta(seconds=len(records) - i)
             lf.write(json.dumps({
                 "timestamp": dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "action":    (rec.get("action") or "ALLOW").upper(),
