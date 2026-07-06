@@ -41,7 +41,7 @@ services:
 
   # ── Grafana: 시각화 대시보드 ─────────────────────────────────
   grafana:
-    image: grafana/grafana:10.4.18
+    image: grafana/grafana:9.5.21
     container_name: grafana
     ports:
       - "3000:3000"
