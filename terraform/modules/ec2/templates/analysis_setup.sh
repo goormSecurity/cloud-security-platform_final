@@ -98,14 +98,17 @@ txt = patch(txt, "app_ip",      os.environ.get("APP_IP", ""))
 # github_repo는 정적값
 import re as _re
 txt = _re.sub(r'(  github_repo:).*', r'\1 "goormSecurity/cloud-security-platform_final"', txt)
+# remote_dir: 파이프라인 로컬 실행 시 SCP 대상 경로
+if "remote_dir:" not in txt:
+    txt = txt.rstrip() + "\n  remote_dir: /opt/cloud-security-platform/output\n"
 f.write_text(txt)
 PYEOF
 chown ec2-user:ec2-user /opt/cloud-security-platform/platform.yaml 2>/dev/null || true
 echo "[platform.yaml] ALB=$ALB_DNS / 분석서버=$MY_IP / 앱서버=$APP_IP"
 
 # 9. Grafana + Loki + JSON API (repo의 docker-compose 사용)
-mkdir -p /opt/cloud-security-platform/output
-chown ec2-user:ec2-user /opt/cloud-security-platform/output
+mkdir -p /opt/cloud-security-platform/output/waf_latest
+chown -R ec2-user:ec2-user /opt/cloud-security-platform/output
 cd /opt/cloud-security-platform/monitoring
 docker-compose up -d
 
