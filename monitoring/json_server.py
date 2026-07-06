@@ -5,6 +5,7 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 import json
 from pathlib import Path
+from datetime import datetime, timezone
 
 app = Flask(__name__)
 CORS(app)
@@ -67,10 +68,13 @@ def time_buckets():
     buckets = []
     for b in data.get("time_buckets", []):
         hour = b.get("hour", "")
-        # "2026-06-21 15:00" → "2026-06-21T15:00:00Z" (Infinity backend parser 호환)
-        if hour and "T" not in hour:
-            hour = hour.replace(" ", "T") + ":00Z"
-        buckets.append({"hour": hour, "count": b.get("count", 0)})
+        try:
+            # "2026-06-21 15:00" → Unix ms (Infinity backend가 number type을 time으로 확실히 인식)
+            dt = datetime.strptime(hour, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+            ts_ms = int(dt.timestamp() * 1000)
+        except Exception:
+            ts_ms = 0
+        buckets.append({"hour": ts_ms, "count": b.get("count", 0)})
     return jsonify(buckets)
 
 
