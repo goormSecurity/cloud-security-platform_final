@@ -348,7 +348,31 @@ def _parse_prowler(data):
     }
 
 
-# ── 8. Trivy 🟡 ─────────────────────────────────────────────────
+# ── 8. ZAP 웹 취약점 🟡 ─────────────────────────────────────────
+def _parse_zap(data: dict | None) -> dict:
+    if not data or not isinstance(data, dict):
+        return {"total_alerts": 0, "high": 0, "medium": 0, "low": 0,
+                "top_alerts": [], "collected_at": "", "_data_collected": False}
+    rc = data.get("risk_counts", {})
+    alerts = data.get("alerts") or []
+    top = [
+        {"name": a.get("name") or a.get("alert", ""), "risk": a.get("risk", "")}
+        for a in alerts
+        if a.get("risk") in ("High", "Medium")
+    ][:5]
+    return {
+        "total_alerts":   data.get("total_alerts", 0),
+        "high":           rc.get("High", 0),
+        "medium":         rc.get("Medium", 0),
+        "low":            rc.get("Low", 0),
+        "informational":  rc.get("Informational", 0),
+        "top_alerts":     top,
+        "collected_at":   data.get("generated_at", data.get("collected_at", "")),
+        "_data_collected": True,
+    }
+
+
+# ── 9. Trivy 🟡 ─────────────────────────────────────────────────
 def _parse_trivy(data: dict | None) -> dict:
     if not data or not isinstance(data, dict):
         return {"total_vulns": 0, "critical": 0, "high": 0, "images": [], "iac_misconfigs": 0, "_data_collected": False}
@@ -619,6 +643,12 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
     trivy_raw = _load_json(INPUT_DIR / "trivy_report.json", "Trivy 취약점 스캔 🟡")
     trivy = _parse_trivy(trivy_raw if isinstance(trivy_raw, dict) else None)
 
+    # 🟡 ZAP 웹 취약점 스캔
+    zap_candidates = sorted(OUTPUT_DIR.glob("zap_report_*.json"))
+    zap_path = zap_candidates[-1] if zap_candidates else None
+    zap_raw = _load_json(zap_path, "ZAP 웹 취약점 🟡") if zap_path else None
+    zap = _parse_zap(zap_raw if isinstance(zap_raw, dict) else None)
+
 
     # ── 조합 ────────────────────────────────────────────────────
     block_rate = ana["summary"].get("block_rate", 0)
@@ -741,6 +771,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
             },
             "prowler": prowler,
             "trivy": trivy,
+            "zap": zap,
             "config_diff": {
                 "recorder_status": (cfgdiff_raw or {}).get("recorder_status", "NOT_CONFIGURED"),
                 "drift_detected": (cfgdiff_raw or {}).get("drift_detected", False),
@@ -804,6 +835,7 @@ def build(analysis_path=None, cloudtrail_path=None, github_pr_path=None, ai_path
             "object_lock": str(INPUT_DIR / "object_lock_config.json") if objlock_raw else None,
             "config_diff": str(INPUT_DIR / "config_diff.json") if cfgdiff_raw else None,
             "s3_security": str(INPUT_DIR / "s3_security.json") if s3sec_raw else None,
+            "zap": str(zap_path) if zap_raw else None,
         },
     }
 
@@ -851,6 +883,7 @@ def main():
         "object_lock":       "Object Lock 증적  🟡",
         "config_diff":       "Config 드리프트   🟡",
         "s3_security":       "S3 버킷 보안 감사 🟡",
+        "zap":               "ZAP 웹 취약점     🟡",
     }
     for key, label in labels.items():
         mark = "+" if data["_sources"].get(key) else "-"
