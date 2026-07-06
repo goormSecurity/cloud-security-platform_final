@@ -91,6 +91,27 @@ def _load_latest_fpfn() -> dict | None:
         return None
 
 
+def _load_prowler() -> list | None:
+    p = ROOT / "compliance" / "input" / "prowler_report.json"
+    if not p.exists():
+        return None
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+        return data if isinstance(data, list) else None
+    except Exception:
+        return None
+
+
+def _load_latest_zap() -> dict | None:
+    candidates = sorted(OUTPUT_DIR.glob("zap_report_*.json"))
+    if not candidates:
+        return None
+    try:
+        return json.loads(candidates[-1].read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+
 def _extract_high_risk_ips(analysis: dict) -> list[str]:
     ips = []
     for entry in analysis.get("top_ips", []):
@@ -207,6 +228,62 @@ def _build_waf_section(fpfn: dict) -> str:
 """
 
 
+def _build_prowler_section(findings: list) -> str:
+    if not findings:
+        return ""
+    fail = [f for f in findings if f.get("status") in ("FAIL", "WARN")]
+    pass_ = [f for f in findings if f.get("status") == "PASS"]
+    rows = "\n".join(
+        f"| `{f['check_id']}` | {'🔴 FAIL' if f['status']=='FAIL' else '🟡 WARN'} | {f.get('severity','').upper()} | {f.get('status_extended','')} |"
+        for f in fail
+    )
+    if not fail:
+        return "\n## 인프라 보안 점검 (Prowler)\n\n✅ 모든 점검 항목 통과\n"
+    return f"""
+## 인프라 보안 점검 (Prowler)
+
+> PASS: {len(pass_)}개 / 이상: {len(fail)}개
+
+| 체크 항목 | 결과 | 심각도 | 상세 |
+|---|---|---|---|
+{rows}
+
+> 위 항목은 Prowler 보안 점검 결과입니다. FAIL/WARN 항목에 대한 조치가 필요합니다.
+"""
+
+
+def _build_zap_section(zap: dict) -> str:
+    if not zap:
+        return ""
+    rc = zap.get("risk_counts", {})
+    high = rc.get("High", 0)
+    med  = rc.get("Medium", 0)
+    low  = rc.get("Low", 0)
+    total = zap.get("total_alerts", 0)
+    alerts = zap.get("alerts") or []
+    critical_rows = "\n".join(
+        f"| {a.get('name') or a.get('alert','?')} | {a.get('risk','?')} | {(a.get('url') or '')[:60]} |"
+        for a in alerts[:5] if a.get("risk") in ("High", "Medium")
+    )
+    critical_section = f"""
+| 취약점명 | 위험도 | URL |
+|---|---|---|
+{critical_rows}
+""" if critical_rows else ""
+    return f"""
+## 웹 취약점 스캔 (ZAP)
+
+| 등급 | 건수 |
+|---|---|
+| 🔴 High | {high} |
+| 🟡 Medium | {med} |
+| 🔵 Low | {low} |
+| 합계 | {total} |
+{critical_section}
+> ZAP 스캔 결과입니다. High/Medium 취약점은 즉시 패치 또는 WAF 규칙 추가가 필요합니다.
+"""
+
+
 def _build_pr_body(analysis: dict, ips: list[str]) -> str:
     summary = analysis.get("summary", {})
     generated_at = analysis.get("generated_at", "")
@@ -217,7 +294,11 @@ def _build_pr_body(analysis: dict, ips: list[str]) -> str:
     ip_table = "\n".join(f"| `{ip}` | HIGH |" for ip in ips) if ips else "| (없음) | - |"
 
     fpfn = _load_latest_fpfn()
-    waf_section = _build_waf_section(fpfn) if fpfn else ""
+    prowler = _load_prowler()
+    zap = _load_latest_zap()
+    waf_section     = _build_waf_section(fpfn)     if fpfn    else ""
+    prowler_section = _build_prowler_section(prowler) if prowler else ""
+    zap_section     = _build_zap_section(zap)      if zap     else ""
 
     return f"""## 개요
 
@@ -238,7 +319,7 @@ def _build_pr_body(analysis: dict, ips: list[str]) -> str:
 | IP (CIDR) | 위험도 |
 |---|---|
 {ip_table}
-{waf_section}
+{waf_section}{prowler_section}{zap_section}
 ## 변경 파일
 
 - `terraform/waf_blocked_ips.auto.tfvars` — WAF IP 차단 목록 자동 갱신
@@ -247,6 +328,8 @@ def _build_pr_body(analysis: dict, ips: list[str]) -> str:
 
 - [ ] HIGH 위험 판정 근거 확인 (output/ 폴더의 분석 JSON 참조)
 - [ ] WAF Count 모드 → Block 전환 검토 (위 FP/FN 분석 참조)
+- [ ] Prowler FAIL/WARN 항목 조치 계획 수립
+- [ ] ZAP High/Medium 취약점 패치 또는 WAF 룰 추가
 - [ ] Infracost 비용 영향 확인 (이 PR에 자동 댓글 게시됨)
 - [ ] 오탐 여부 검토
 - [ ] 승인 후 Terraform Apply → AWS WAF 자동 반영
