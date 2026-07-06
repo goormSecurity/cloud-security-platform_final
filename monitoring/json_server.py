@@ -190,8 +190,10 @@ def action_counts():
     data = _load("analysis_*.json")
     if not data:
         return jsonify([]), 404
-    actions = data.get("summary", {}).get("action_counts", {})
-    return jsonify([{"action": k, "count": v} for k, v in actions.items()])
+    raw = data.get("summary", {}).get("action_counts", {})
+    # WAF COUNT 모드(집계만, 차단 안 함)는 ALLOW로 합산
+    merged = {"BLOCK": raw.get("BLOCK", 0), "ALLOW": raw.get("ALLOW", 0) + raw.get("COUNT", 0)}
+    return jsonify([{"action": k, "count": v} for k, v in merged.items() if v > 0])
 
 
 # ── IP 위험 등급 분포 ──────────────────────────────────────────────
