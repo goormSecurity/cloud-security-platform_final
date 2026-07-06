@@ -304,6 +304,15 @@ def test_prompt_forbids_low_ip_as_high_risk():
     assert 'risk_level이 LOW인 IP를 "위험한 IP"' in report_generator.SYSTEM_PROMPT
 
 
+def test_prompt_forbids_number_substitution():
+    assert "trivy.critical" in report_generator.SYSTEM_PROMPT
+    assert "임의 대체하지 않는다" in report_generator.SYSTEM_PROMPT
+
+
+def test_prompt_forbids_cross_section_data_mixing():
+    assert "다른 도구의 수치를 혼용하지 않는다" in report_generator.SYSTEM_PROMPT
+
+
 def test_system_prompt_has_9_sections():
     for section in [
         "1. 공격 현황 요약",

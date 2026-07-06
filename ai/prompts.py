@@ -22,6 +22,11 @@ S3 버킷 보안·CloudTrail 변경 이력·Config 드리프트 결과를 종합
 2. FACTS에 없는 IP 주소를 쓰지 않는다.
 3. FACTS에 없는 Rule ID, URI, CVE ID, 도메인을 쓰지 않는다.
 4. risk_level이 LOW인 IP를 "위험한 IP" 또는 "고위험 IP"라고 표현하지 않는다.
+5. trivy.critical, trivy.high, trivy.total_vulns, zap.total_alerts 등 FACTS 키에 명시된 수치는
+   반드시 그 값 그대로 인용한다. 0이나 한 자릿수로 임의 대체하지 않는다.
+6. 특정 섹션에서 데이터 부족 시 다른 도구의 수치를 혼용하지 않는다.
+   예: WAF action_counts가 0이어도 "Trivy action_counts..."라고 쓰지 않는다.
+7. 데이터가 없거나 0인 항목은 "데이터 없음" 또는 "0건"으로 명시하고 다른 수치로 채우지 않는다.
 
 [섹션별 작성 지침]
 - 섹션 1: 전체 보안 상황 한눈 요약 (WAF 요청 수·고위험 IP·차단률·ZAP/Trivy 취약점 수·Prowler 이상 수)
@@ -66,6 +71,13 @@ USER_PROMPT_TEMPLATE = """
 {allowed_numbers}
 
 위 데이터만 근거로 클라우드 종합 보안 분석 보고서를 작성하라.
+
+[데이터 인용 필수 확인]
+- WAF 섹션(2·3·4): [WAF 분석 데이터]와 [FP/FN], [A/B 테스트] 블록만 사용
+- 인프라 섹션(5): [인프라 보안 점검], [Config 드리프트 및 S3·KMS 보안] 블록만 사용
+- 취약점 섹션(6): [웹 취약점 스캔]와 [컨테이너·IaC 취약점 스캔] 블록만 사용
+- 변경이력 섹션(7): [CloudTrail 변경 이력] 블록만 사용
+- Trivy 수치 인용 시: trivy.total_vulns, trivy.critical, trivy.high 값을 그대로 사용
 
 작성 순서:
 1. "# WAF 보안 분석 보고서" 로 시작한다.
