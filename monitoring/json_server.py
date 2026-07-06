@@ -62,10 +62,34 @@ def summary():
 # ── 시간대별 추이 ─────────────────────────────────────────────────
 @app.route("/time-buckets")
 def time_buckets():
+    from flask import request as req
     data = _load("analysis_*.json")
     if not data:
         return jsonify([]), 404
     buckets = data.get("time_buckets", [])
+    # Grafana ${__from:date:seconds} / ${__to:date:seconds} 변수 수신
+    try:
+        from_ts = int(req.args.get("from", 0))
+        to_ts   = int(req.args.get("to",   0))
+    except Exception:
+        from_ts = to_ts = 0
+
+    if from_ts or to_ts:
+        from_dt = datetime.fromtimestamp(from_ts, tz=timezone.utc) if from_ts else None
+        to_dt   = datetime.fromtimestamp(to_ts,   tz=timezone.utc) if to_ts   else None
+        filtered = []
+        for b in buckets:
+            try:
+                dt = datetime.strptime(b["hour"], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+                if from_dt and dt < from_dt:
+                    continue
+                if to_dt and dt > to_dt:
+                    continue
+                filtered.append(b)
+            except Exception:
+                filtered.append(b)
+        return jsonify(filtered)
+
     return jsonify(buckets)
 
 
