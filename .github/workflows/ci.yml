@@ -179,7 +179,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: SSH — git pull + 컨테이너 재시작
+      - name: SSH — git pull + 의존성 갱신 + 컨테이너 재시작
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -188,8 +188,29 @@ jobs:
           script: |
             set -e
             cd /opt/cloud-security-platform
+
+            # 코드 최신화
             git pull --ff-only
+
+            # Python 의존성 — requirements 변경 시 자동 갱신
+            PYTHON=".venv/bin/pip"
+            if [ ! -f ".venv/bin/activate" ]; then
+              python3.11 -m venv .venv
+            fi
+            $PYTHON install --upgrade pip --quiet
+            $PYTHON install -r requirements.txt --quiet
+            [ -f compliance/requirements.txt ] && $PYTHON install -r compliance/requirements.txt --quiet
+
+            # 한국어 폰트 (없으면 설치)
+            if ! fc-list :lang=ko 2>/dev/null | grep -q "Noto"; then
+              sudo yum install -y --quiet google-noto-sans-cjk-ttc-fonts 2>/dev/null || true
+            fi
+
+            # Grafana 대시보드는 provisioning 디렉터리를 볼륨 마운트로 공유하므로
+            # git pull 후 10초 이내 Grafana가 자동 감지 → 컨테이너 재시작 불필요
+            # json-api: 코드 변경 반영, fluent-bit: 로그 파이프라인 안정화
             docker restart json-api fluent-bit
+
             echo "[OK] 배포 완료: $(date)"
         continue-on-error: true
 

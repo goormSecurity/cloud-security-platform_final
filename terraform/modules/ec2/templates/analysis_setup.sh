@@ -4,7 +4,10 @@ set -x
 
 # 1. 패키지
 yum update -y
-yum install -y docker python3.11 python3.11-pip git
+yum install -y docker python3.11 python3.11-pip git \
+  google-noto-sans-cjk-ttc-fonts google-noto-cjk-fonts \
+  nss atk at-spi2-atk libXcomposite libXdamage libXext \
+  libXfixes libXrandr libgbm libxkbcommon alsa-lib pango cups-libs gtk3
 
 # 2. Docker
 systemctl start docker
@@ -21,12 +24,17 @@ chmod +x /usr/local/bin/docker-compose
 git clone https://github.com/goormSecurity/cloud-security-platform_final.git /opt/cloud-security-platform
 cd /opt/cloud-security-platform
 
-# 4. Python 3.11 의존성
-python3.11 -m pip install -r requirements.txt
+# 4. Python 가상환경 및 의존성
+cd /opt/cloud-security-platform
+python3.11 -m venv .venv
+.venv/bin/pip install --upgrade pip --quiet
+.venv/bin/pip install -r requirements.txt --quiet
+[ -f compliance/requirements.txt ] && .venv/bin/pip install -r compliance/requirements.txt --quiet
 
-# 5. Playwright 브라우저 설치 (컴플라이언스 PDF 생성용)
-dnf install -y nss atk at-spi2-atk cups-libs libXcomposite libXdamage libXext \
-  libXfixes libXrandr pango alsa-lib gtk3 2>/dev/null || true
+# 5. Playwright 브라우저 설치 (컴플라이언스 PDF 한국어 폰트 렌더링 포함)
+.venv/bin/playwright install chromium --with-deps 2>/dev/null || true
+# 시스템 python3.11에도 설치 (run_pipeline.py 직접 실행 호환)
+python3.11 -m pip install playwright --quiet 2>/dev/null || true
 python3.11 -m playwright install chromium 2>/dev/null || true
 
 # 6. Ollama 설치 — 0.0.0.0으로 바인딩 (외부 접근 허용)
@@ -49,7 +57,14 @@ for i in $(seq 1 12); do
   echo "[Ollama] 대기 중... ($i/12)"
   sleep 5
 done
-ollama pull qwen2.5:7b
+# qwen2.5:7b 다운로드 — 5 GB, 20~30분. user_data 타임아웃 방지를 위해 백그라운드 실행
+if ! ollama list 2>/dev/null | grep -q "qwen2.5:7b"; then
+  nohup bash -c 'ollama pull qwen2.5:7b && echo "[$(date)] qwen2.5:7b 완료"' \
+    >> /var/log/ollama-pull.log 2>&1 &
+  echo "[Ollama] qwen2.5:7b 백그라운드 다운로드 시작 → /var/log/ollama-pull.log"
+else
+  echo "[Ollama] qwen2.5:7b 이미 존재"
+fi
 
 # 7. SSM에서 시크릿 가져와 .env 생성
 SSM_GITHUB=$(aws ssm get-parameter --name /cloud-sec/github_token \
