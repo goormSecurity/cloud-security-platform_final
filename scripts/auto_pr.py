@@ -445,6 +445,20 @@ def run(analysis_path: str = None, dry_run: bool = False):
     print(f"  URL : {pr.get('html_url')}")
     print(f"  번호: #{pr.get('number')}")
 
+    # Grafana 대시보드용 PR 정보 저장
+    pr_info = {
+        "pr_url":   pr.get("html_url"),
+        "html_url": pr.get("html_url"),
+        "number":   pr.get("number"),
+        "branch":   branch,
+        "ips":      new_ips,
+        "created_at": ts,
+    }
+    pr_file = OUTPUT_DIR / f"github_pr_{ts}.json"
+    pr_file.parent.mkdir(parents=True, exist_ok=True)
+    pr_file.write_text(json.dumps(pr_info, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[auto_pr] PR 정보 저장: {pr_file.name}")
+
 
 def main():
     p = argparse.ArgumentParser(description="분석 결과 → GitHub PR 자동 생성")
