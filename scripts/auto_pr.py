@@ -353,6 +353,18 @@ def _build_pr_body(analysis: dict, ips: list[str]) -> str:
 """
 
 
+def _load_currently_blocked_ips() -> set:
+    """현재 terraform/waf_blocked_ips.auto.tfvars에서 이미 차단 중인 IP 반환."""
+    if not TFVARS_PATH.exists():
+        return set()
+    ips = set()
+    for line in TFVARS_PATH.read_text(encoding="utf-8").splitlines():
+        line = line.strip().strip(",").strip('"')
+        if "/" in line and not line.startswith("#"):
+            ips.add(line)
+    return ips
+
+
 def _get_open_pr_ips(token: str) -> set:
     """현재 OPEN 상태인 auto/waf-blocklist PR에서 이미 처리된 IP 목록 반환."""
     try:
@@ -378,43 +390,54 @@ def run(analysis_path: str = None, dry_run: bool = False):
 
     analysis = _load_latest_analysis(analysis_path)
     ips = _extract_high_risk_ips(analysis)
-    tfvars_content = _generate_tfvars(ips)
 
     print(f"[auto_pr] HIGH 위험 IP: {len(ips)}개")
     for ip in ips:
         print(f"  → {ip}")
 
-    # 로컬 파일도 함께 갱신
-    TFVARS_PATH.write_text(tfvars_content, encoding="utf-8")
-    print(f"[auto_pr] 로컬 파일 저장: {TFVARS_PATH.relative_to(ROOT)}")
-
     if not ips:
         print("[auto_pr] HIGH 위험 IP 없음 - PR 생성 생략 (차단 목록 변경 없음)")
         return
 
+    # 이미 차단 중인 IP 제외 (tfvars 대조)
+    currently_blocked = _load_currently_blocked_ips()
+    new_ips = [ip for ip in ips if ip not in currently_blocked]
+    already_blocked = [ip for ip in ips if ip in currently_blocked]
+
+    if already_blocked:
+        print(f"[auto_pr] 이미 차단 목록에 포함된 IP: {', '.join(already_blocked)} — PR 생성 불필요")
+
+    if not new_ips:
+        print("[auto_pr] 신규 차단 대상 없음 — 모든 HIGH 위험 IP가 이미 WAF 차단 목록에 적용됨")
+        return
+
+    # 신규 IP만 추가 (기존 차단 IP는 누적 유지)
+    ips = sorted(set(currently_blocked) | set(new_ips))
+    tfvars_content = _generate_tfvars(ips)
+
+    # 로컬 파일도 함께 갱신
+    TFVARS_PATH.write_text(tfvars_content, encoding="utf-8")
+    print(f"[auto_pr] 로컬 파일 저장: {TFVARS_PATH.relative_to(ROOT)}")
+    print(f"[auto_pr] 신규 추가 IP {len(new_ips)}개: {', '.join(new_ips)}")
+
     if dry_run:
         print("\n[auto_pr] --dry-run: PR 생성 생략")
         print("── PR 내용 미리보기 ─────────────────────────────────")
-        print(_build_pr_body(analysis, ips))
+        print(_build_pr_body(analysis, new_ips))
         return
 
     # 이미 OPEN PR에 동일 IP 포함 시 중복 생성 방지
     already_open = _get_open_pr_ips(token)
-    new_ips = [ip for ip in ips if ip not in already_open]
+    new_ips = [ip for ip in new_ips if ip not in already_open]
     if not new_ips:
-        print(f"[auto_pr] 이미 OPEN PR에 동일 IP 포함 — PR 중복 생성 생략 ({', '.join(ips)})")
+        print(f"[auto_pr] 이미 OPEN PR에 동일 IP 포함 — PR 중복 생성 생략")
         return
-    if len(new_ips) < len(ips):
-        skipped = set(ips) - set(new_ips)
-        print(f"[auto_pr] 기존 OPEN PR 중복 제외: {', '.join(skipped)}")
-        ips = new_ips
-        tfvars_content = _generate_tfvars(ips)
 
     ts = datetime.now().strftime("%Y%m%d%H%M%S")
     branch = f"auto/waf-blocklist-{ts}"
-    title = f"fix(waf): HIGH 위험 IP {len(ips)}개 차단 목록 추가"
-    commit_msg = f"chore(waf): blocked_ips 자동 갱신 ({len(ips)}개, {ts})"
-    pr_body = _build_pr_body(analysis, ips)
+    title = f"fix(waf): 신규 HIGH 위험 IP {len(new_ips)}개 차단 목록 추가"
+    commit_msg = f"chore(waf): blocked_ips 자동 갱신 (신규 {len(new_ips)}개 추가, 누적 {len(ips)}개, {ts})"
+    pr_body = _build_pr_body(analysis, new_ips)
 
     base_sha = _get_base_sha(token)
     _create_branch(token, branch, base_sha)
