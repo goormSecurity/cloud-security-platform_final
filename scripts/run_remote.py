@@ -293,6 +293,31 @@ def trigger_ec2_pipeline(ssh_host: str, ssh_user: str, ssh_key: str,
     return False
 
 
+# ── 6-B단계: EC2 reports/latest → 로컬 reports/latest 동기화 ────
+
+def sync_reports_latest_from_ec2(ssh_host: str, ssh_user: str, ssh_key: str,
+                                  remote_path: str) -> bool:
+    """EC2의 reports/latest/ 를 로컬 reports/latest/ 로 SCP 다운로드."""
+    _print_step("6-B", f"EC2 reports/latest → 로컬 동기화 ({ssh_host})")
+    local_latest = ROOT / "reports" / "latest"
+    local_latest.mkdir(parents=True, exist_ok=True)
+
+    remote_src = f"{remote_path}/reports/latest/."
+    r = subprocess.run(
+        ["scp"] + _ssh_opts(ssh_key) + ["-r",
+         f"{ssh_user}@{ssh_host}:{remote_src}",
+         str(local_latest) + "/"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        timeout=120,
+    )
+    if r.returncode == 0:
+        files = list(local_latest.iterdir())
+        print(f"  ✔ {len(files)}개 파일 → {local_latest}")
+        return True
+    print(f"  ✘ SCP 실패: {r.stderr.strip()[:200]}")
+    return False
+
+
 # ── 6단계: S3 결과물 로컬 다운로드 ──────────────────────────────
 
 def _latest_prefix(s3, bucket: str, base: str):  # -> str | None
@@ -450,16 +475,18 @@ def main():
         list_available()
         return
 
-    if args.pull_only:
-        dest = pull_results(date_str=args.date)
-        sys.exit(0 if dest else 1)
-
-    # ── 전체 실행 모드 ─────────────────────────────────────────────
-
     ssh_host  = cfg("servers.analysis_ip", "")
     ssh_user  = cfg("servers.ssh_user", "ec2-user")
     ssh_key   = str(Path(cfg("servers.ssh_key", "~/.ssh/cloud-sec-key2")).expanduser())
     remote_path = cfg("servers.remote_path", "/opt/cloud-security-platform")
+
+    if args.pull_only:
+        dest = pull_results(date_str=args.date)
+        if ssh_host:
+            sync_reports_latest_from_ec2(ssh_host, ssh_user, ssh_key, remote_path)
+        sys.exit(0 if dest else 1)
+
+    # ── 전체 실행 모드 ─────────────────────────────────────────────
     remote_dir  = cfg("servers.remote_dir", f"/opt/cloud-security-platform/output")
 
     if not ssh_host:
@@ -523,6 +550,9 @@ def main():
 
     # 6. S3 결과물 다운로드
     dest = pull_results(date_str=args.date)
+
+    # 6-B. EC2 reports/latest → 로컬 reports/latest 동기화 (한글 파일명 포함)
+    sync_reports_latest_from_ec2(ssh_host, ssh_user, ssh_key, remote_path)
 
     if dest:
         print(f"\n\033[1m\033[92m결과물이 준비됐습니다: {dest}\033[0m")
