@@ -267,9 +267,12 @@ def notify(analysis_path=None) -> bool:
     payload = _build_payload(data, path.name, webhook_url)
     ok = _send_webhook(webhook_url, payload)
     if ok:
-        high = data.get("summary", {}).get("high_risk_ips", 0)
-        level = "HIGH 위험" if high > 0 else "완료"
-        print(f"[notify_slack] Slack 알림 전송 완료 ({level})")
+        # 실제 전송된 레벨을 payload에서 추출해 로그에 반영
+        if _is_discord(webhook_url):
+            sent_level = payload.get("embeds", [{}])[0].get("title", "완료")
+        else:
+            sent_level = payload.get("attachments", [{}])[0].get("title", "완료")
+        print(f"[notify_slack] Slack 알림 전송 완료 — {sent_level}")
     return ok
 
 
