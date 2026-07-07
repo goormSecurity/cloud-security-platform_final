@@ -18,7 +18,7 @@ import argparse
 import json
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
@@ -194,7 +194,7 @@ def main():
     p.add_argument("--out",      default=None, help="출력 경로 (생략 시 output/fp_fn_*.json)")
     args = p.parse_args()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(timezone(timedelta(hours=9)))
     ts  = now.strftime("%Y%m%d_%H%M%S")
     out_path = Path(args.out) if args.out else OUTPUT_DIR / f"fp_fn_{ts}.json"
 

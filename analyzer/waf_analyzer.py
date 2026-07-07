@@ -30,7 +30,7 @@ import os
 import re
 import urllib.parse
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from config import Config
 
@@ -286,7 +286,7 @@ def analyze(records, threshold=Config.IP_REQUEST_THRESHOLD):
     )
 
     return {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S+09:00"),
         "summary": {
             "total_requests": total,
             "unique_ips": len(per_ip),

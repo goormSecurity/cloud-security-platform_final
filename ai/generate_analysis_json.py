@@ -20,7 +20,7 @@ import argparse
 import json
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -208,7 +208,7 @@ def generate(analysis_path=None, md_path=None):
 
     # ── 출력 ────────────────────────────────────────────────────
     result = {
-        "generated_at":      datetime.now(timezone.utc).isoformat(),
+        "generated_at":      datetime.now(timezone(timedelta(hours=9))).strftime("%Y-%m-%dT%H:%M:%S+09:00"),
         "source_analysis":   str(ana_file),
         "owasp":             owasp,
         "analyzer_judgment": analyzer_judgment,
