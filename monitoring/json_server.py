@@ -33,6 +33,44 @@ def _load(pattern: str):
         return json.load(fp)
 
 
+def _load_for_range(pattern: str, from_ts: int = 0, to_ts: int = 0):
+    """from_ts~to_ts 범위 내 generated_at을 가진 가장 최신 파일 반환.
+    범위 지정 없으면 _load()와 동일. 범위 내 파일 없으면 None."""
+    if not (from_ts or to_ts):
+        return _load(pattern)
+    from_dt = datetime.fromtimestamp(from_ts, tz=timezone.utc) if from_ts else None
+    to_dt   = datetime.fromtimestamp(to_ts,   tz=timezone.utc) if to_ts   else None
+    files = []
+    for base in (_ROOT_OUTPUT, _LOCAL_DATA):
+        files.extend(base.rglob(pattern))
+    for f in sorted(files, reverse=True):
+        try:
+            with open(f, encoding="utf-8") as fp:
+                data = json.load(fp)
+            gen_at = data.get("generated_at", "")
+            if gen_at:
+                gen_dt = datetime.fromisoformat(gen_at.replace("Z", "+00:00"))
+                if gen_dt.tzinfo is None:
+                    gen_dt = gen_dt.replace(tzinfo=timezone.utc)
+                if from_dt and gen_dt < from_dt:
+                    continue
+                if to_dt and gen_dt > to_dt:
+                    continue
+            return data
+        except Exception:
+            pass
+    return None
+
+
+def _parse_range():
+    """request에서 from/to unix 초 추출."""
+    from flask import request as req
+    try:
+        return int(req.args.get("from", 0)), int(req.args.get("to", 0))
+    except Exception:
+        return 0, 0
+
+
 @app.route("/")
 def index():
     return ("WAF API: /summary /top-ips /rule-hits /time-buckets /action-timeline "
@@ -43,7 +81,8 @@ def index():
 # ── 핵심 요약 ─────────────────────────────────────────────────────
 @app.route("/summary")
 def summary():
-    data = _load("analysis_*.json")
+    from_ts, to_ts = _parse_range()
+    data = _load_for_range("analysis_*.json", from_ts, to_ts)
     if not data:
         return jsonify({}), 404
     s = data.get("summary", {})
@@ -97,7 +136,7 @@ def time_buckets():
                 filtered.append(_with_epoch(b))
             except Exception:
                 filtered.append(_with_epoch(b))
-        return jsonify(filtered if filtered else [_with_epoch(b) for b in buckets])
+        return jsonify(filtered)  # 범위 내 데이터 없으면 빈 배열 반환
 
     return jsonify([_with_epoch(b) for b in buckets])
 
@@ -141,7 +180,8 @@ def action_timeline():
 # ── TOP IP ───────────────────────────────────────────────────────
 @app.route("/top-ips")
 def top_ips():
-    data = _load("analysis_*.json")
+    from_ts, to_ts = _parse_range()
+    data = _load_for_range("analysis_*.json", from_ts, to_ts)
     if not data:
         return jsonify([]), 404
     return jsonify([
@@ -162,7 +202,8 @@ def top_ips():
 # ── WAF 룰 탐지 ──────────────────────────────────────────────────
 @app.route("/rule-hits")
 def rule_hits():
-    data = _load("analysis_*.json")
+    from_ts, to_ts = _parse_range()
+    data = _load_for_range("analysis_*.json", from_ts, to_ts)
     if not data:
         return jsonify([]), 404
     return jsonify(sorted(
@@ -174,7 +215,8 @@ def rule_hits():
 # ── 공격 유형 분포 ─────────────────────────────────────────────────
 @app.route("/attack-types")
 def attack_types():
-    data = _load("analysis_*.json")
+    from_ts, to_ts = _parse_range()
+    data = _load_for_range("analysis_*.json", from_ts, to_ts)
     if not data:
         return jsonify([]), 404
     types = data.get("summary", {}).get("attack_type_counts", {})
@@ -187,7 +229,8 @@ def attack_types():
 # ── ALLOW/BLOCK 비율 ───────────────────────────────────────────────
 @app.route("/action-counts")
 def action_counts():
-    data = _load("analysis_*.json")
+    from_ts, to_ts = _parse_range()
+    data = _load_for_range("analysis_*.json", from_ts, to_ts)
     if not data:
         return jsonify([]), 404
     raw = data.get("summary", {}).get("action_counts", {})
@@ -199,7 +242,8 @@ def action_counts():
 # ── IP 위험 등급 분포 ──────────────────────────────────────────────
 @app.route("/risk-distribution")
 def risk_distribution():
-    data = _load("analysis_*.json")
+    from_ts, to_ts = _parse_range()
+    data = _load_for_range("analysis_*.json", from_ts, to_ts)
     if not data:
         return jsonify([]), 404
     dist: dict = {}
@@ -305,7 +349,8 @@ def zap_stats():
 # ── 최근 실행 상세 결과 (발표 자료용) ──────────────────────────────
 @app.route("/latest-run")
 def latest_run():
-    data = _load("analysis_*.json")
+    from_ts, to_ts = _parse_range()
+    data = _load_for_range("analysis_*.json", from_ts, to_ts)
     if not data:
         return jsonify([]), 404
 
