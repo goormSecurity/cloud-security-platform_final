@@ -183,13 +183,73 @@ def build_attachment_rows(data: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+def _find_korean_fonts() -> list[tuple[str, str, str]]:
+    """(font-family, weight, path) 순으로 사용 가능한 한국어 폰트 목록 반환."""
+    candidates = [
+        # Windows
+        ("NotoSansKR", "400", r"C:\Windows\Fonts\NotoSansKR-Regular.ttf"),
+        ("NotoSansKR", "700", r"C:\Windows\Fonts\NotoSansKR-Bold.ttf"),
+        ("NotoSansKR", "400", r"C:\Windows\Fonts\NotoSansKR-VF.ttf"),
+        ("MalgunGothic", "400", r"C:\Windows\Fonts\malgun.ttf"),
+        ("MalgunGothic", "700", r"C:\Windows\Fonts\malgunbd.ttf"),
+        # Linux — Amazon Linux 2023 (google-noto-sans-cjk-ttc-fonts)
+        ("NotoSansKR", "400", "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc"),
+        ("NotoSansKR", "700", "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Bold.ttc"),
+        # Linux — Ubuntu / Debian
+        ("NotoSansKR", "400", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"),
+        ("NotoSansKR", "700", "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc"),
+        ("NotoSansKR", "400", "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"),
+        ("NotoSansKR", "400", "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"),
+    ]
+    found: list[tuple[str, str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for family, weight, path in candidates:
+        key = (family, weight)
+        if key not in seen and Path(path).exists():
+            found.append((family, weight, path))
+            seen.add(key)
+    return found
+
+
+def _build_font_css(fonts: list[tuple[str, str, str]]) -> str:
+    """폰트를 base64로 인코딩해 @font-face CSS 반환."""
+    import base64
+    rules: list[str] = []
+    for family, weight, path in fonts:
+        ext = Path(path).suffix.lower().lstrip(".")
+        fmt = {"ttf": "truetype", "otf": "opentype", "ttc": "truetype", "woff2": "woff2"}.get(ext, "truetype")
+        data = base64.b64encode(Path(path).read_bytes()).decode()
+        rules.append(
+            f'@font-face {{'
+            f'font-family:"{family}";font-weight:{weight};font-style:normal;'
+            f'src:url("data:font/{fmt};base64,{data}") format("{fmt}");'
+            f'}}'
+        )
+    if rules:
+        # body 폰트 패밀리를 임베딩된 폰트로 덮어씀
+        families = ",".join(f'"{f}"' for f, _, _ in fonts[:2])
+        rules.append(f'body{{font-family:{families},"Malgun Gothic","Apple SD Gothic Neo",Arial,sans-serif!important;}}')
+    return "\n".join(rules)
+
+
 def _render_pdf(html_path: str, pdf_path: str) -> None:
-    """HTML → PDF 변환. Chromium 미설치 시 자동 설치 후 재시도."""
+    """HTML → PDF 변환. 한국어 폰트 base64 임베딩 포함. Chromium 미설치 시 자동 설치 후 재시도."""
+    fonts = _find_korean_fonts()
+    font_css = _build_font_css(fonts) if fonts else ""
+    if fonts:
+        print(f"  [폰트] {len(fonts)}개 한국어 폰트 임베딩: {', '.join(p for _, _, p in fonts)}")
+    else:
+        print("  [폰트] 경고: 한국어 폰트 미발견 — 시스템 기본 폰트 사용")
+
     def _do() -> None:
         with sync_playwright() as pw:
-            browser = pw.chromium.launch()
+            browser = pw.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
             page = browser.new_page()
             page.goto(f"file://{html_path}", wait_until="networkidle")
+            if font_css:
+                page.add_style_tag(content=font_css)
+                # 폰트 로드 완료 대기
+                page.evaluate("() => document.fonts.ready")
             page.pdf(
                 path=pdf_path,
                 format="A4",
