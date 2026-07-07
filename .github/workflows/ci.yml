@@ -215,13 +215,16 @@ jobs:
         continue-on-error: true
 
   # ================================================================
-  # JOB 4: AWS 인프라 배포 — 수동 실행 전용
+  # JOB 4: AWS 인프라 배포
   #   기획서 4.4: "승인된 정책은 GitHub Actions를 통해 Terraform 코드로 반영"
-  #   Actions 탭 → "Run workflow" 버튼으로 수동 실행
+  #   - terraform/ 변경 포함 push(main) 시 자동 실행 (WAF PR 머지 포함)
+  #   - workflow_dispatch 수동 실행도 가능
   # ================================================================
   deploy:
     name: "[CD] Deploy to AWS (Terraform Apply)"
-    if: github.event_name == 'workflow_dispatch'
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     environment: production
 
@@ -240,6 +243,11 @@ jobs:
 
       - name: Terraform init
         run: terraform -chdir=terraform init -backend-config=backend.hcl
+
+      - name: Terraform refresh — 실제 AWS 상태 동기화
+        run: terraform -chdir=terraform refresh
+        env:
+          TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
 
       - name: Terraform plan
         run: terraform -chdir=terraform plan -out=tfplan

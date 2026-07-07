@@ -68,12 +68,16 @@ def _build_slack_payload(data: dict, filename: str, level: str, color: str,
 
 
 def _build_discord_payload(data: dict, filename: str, level: str, color_hex: str,
-                           fields_data: list, high_risk_count: int = 0) -> dict:
+                           fields_data: list, high_risk_count: int = 0,
+                           blocked_count: int = 0) -> dict:
     color_int = int(color_hex.lstrip("#"), 16)
 
     if high_risk_count > 0:
         status_bar = "🔴🔴🔴 **즉각 조치 필요**"
-        desc_prefix = "⚠️ **HIGH 위험 IP가 탐지되었습니다.** WAF 차단 목록 업데이트를 위한 GitHub PR이 자동 생성되었습니다."
+        desc_prefix = "⚠️ **신규 HIGH 위험 IP가 탐지되었습니다.** WAF 차단 목록 업데이트를 위한 GitHub PR이 자동 생성되었습니다."
+    elif blocked_count > 0:
+        status_bar = "🟢🟢🟢 **위협 대응 완료**"
+        desc_prefix = "✅ 탐지된 IP가 WAF IP Set에 의해 정상 차단 중입니다. 추가 조치가 필요하지 않습니다."
     else:
         status_bar = "🟢🟢🟢 **정상 범위**"
         desc_prefix = "✅ 탐지된 고위험 IP가 없습니다. 인프라 보안 상태가 양호합니다."
@@ -107,6 +111,21 @@ def _self_ips() -> set:
         return set()
 
 
+def _load_blocked_ips() -> set:
+    """현재 WAF 차단 목록(waf_blocked_ips.auto.tfvars)에서 이미 차단된 IP 반환."""
+    tfvars = ROOT / "terraform" / "waf_blocked_ips.auto.tfvars"
+    if not tfvars.exists():
+        return set()
+    blocked = set()
+    for line in tfvars.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line.startswith('"') and line.rstrip('",').endswith('/32'):
+            blocked.add(line.strip('",'))
+        elif line.startswith('"'):
+            blocked.add(line.strip('",'))
+    return blocked
+
+
 def _build_payload(data: dict, filename: str, url: str) -> dict:
     summary = data.get("summary", {})
     total = summary.get("total_requests", 0)
@@ -114,17 +133,31 @@ def _build_payload(data: dict, filename: str, url: str) -> dict:
     attack_counts = summary.get("attack_type_counts", {})
     top_ips = data.get("top_ips", [])
 
-    # EC2 자체 IP 제외 (attack_runner가 로컬에서 실행되더라도 분석 서버 IP는 제외)
     _exclude = _self_ips()
-    high_ips = [
+    already_blocked = _load_blocked_ips()
+
+    # 이미 차단된 IP와 신규 HIGH 위험 IP를 분리
+    high_ips_new = [
         ip for ip in top_ips
-        if ip.get("risk_level") == "HIGH" and ip.get("ip") not in _exclude
+        if ip.get("risk_level") == "HIGH"
+        and ip.get("ip") not in _exclude
+        and f"{ip.get('ip')}/32" not in already_blocked
+        and ip.get("ip") not in already_blocked
     ]
-    high_risk = len(high_ips)
+    high_ips_blocked = [
+        ip for ip in top_ips
+        if ip.get("risk_level") == "HIGH"
+        and ip.get("ip") not in _exclude
+        and (f"{ip.get('ip')}/32" in already_blocked or ip.get("ip") in already_blocked)
+    ]
+    high_risk = len(high_ips_new)
 
     if high_risk > 0:
         color = "FF0000"
         level = "🔴 HIGH 위험 IP 탐지"
+    elif high_ips_blocked:
+        color = "36A64F"
+        level = "🟢 차단 완료 — 정상 모니터링 중"
     elif attack_counts:
         color = "FFA500"
         level = "🟡 공격 패턴 탐지"
@@ -140,13 +173,21 @@ def _build_payload(data: dict, filename: str, url: str) -> dict:
         ("⚔️ 공격 유형",   ", ".join(attack_counts) or "탐지 없음",      True),
     ]
 
-    if high_ips:
-        top = high_ips[0]
+    if high_ips_new:
+        top = high_ips_new[0]
         fields_data.append((
             f"🔍 최고위험 IP [{top.get('country', '??')}]",
             f"```{top.get('ip')}```\n"
             f"위험도 **{top.get('risk_score', 0):.0f}점** · "
             f"공격: {', '.join(top.get('attack_types', [])) or '없음'}",
+            False,
+        ))
+    elif high_ips_blocked:
+        top = high_ips_blocked[0]
+        fields_data.append((
+            f"✅ 차단 완료 IP [{top.get('country', '??')}]",
+            f"```{top.get('ip')}```\n"
+            f"WAF IP Set 차단 적용 중 — 추가 조치 불필요",
             False,
         ))
 
@@ -200,7 +241,9 @@ def _build_payload(data: dict, filename: str, url: str) -> dict:
             pass
 
     if _is_discord(url):
-        return _build_discord_payload(data, filename, level, color, fields_data, high_risk)
+        return _build_discord_payload(data, filename, level, color, fields_data,
+                                      high_risk_count=high_risk,
+                                      blocked_count=len(high_ips_blocked))
     return _build_slack_payload(data, filename, level, f"#{color}", fields_data)
 
 
