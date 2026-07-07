@@ -415,9 +415,6 @@ def run(analysis_path: str = None, dry_run: bool = False):
     ips = sorted(set(currently_blocked) | set(new_ips))
     tfvars_content = _generate_tfvars(ips)
 
-    # 로컬 파일도 함께 갱신
-    TFVARS_PATH.write_text(tfvars_content, encoding="utf-8")
-    print(f"[auto_pr] 로컬 파일 저장: {TFVARS_PATH.relative_to(ROOT)}")
     print(f"[auto_pr] 신규 추가 IP {len(new_ips)}개: {', '.join(new_ips)}")
 
     if dry_run:
