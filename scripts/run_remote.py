@@ -33,6 +33,7 @@ import argparse
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -431,6 +432,9 @@ def main():
                    help="ZAP/공격 대상 URL (생략 시 platform.yaml의 ALB 주소 사용)")
     p.add_argument("--live-hours",  default=24, type=int, metavar="N",
                    help="EC2가 수집할 WAF 로그 시간 범위 (기본: 24)")
+    p.add_argument("--waf-sync-delay", default=180, type=int, metavar="SECS",
+                   help="공격 시뮬 후 WAF→S3 동기화 대기 시간(초). "
+                        "공격 트래픽이 S3에 반영될 때까지 EC2 분석을 지연. (기본: 180초)")
     args = p.parse_args()
 
     # .env 로딩
@@ -500,6 +504,18 @@ def main():
     scp_local_results_to_ec2(zap_path, attack_path, ab_test_path,
                              ssh_host, ssh_user, ssh_key,
                              remote_dir, remote_attack_dir)
+
+    # 4-B. WAF→S3 동기화 대기
+    #   공격 시뮬레이션 트래픽은 ALB → WAF → S3에 약 2~5분 딜레이로 기록됨.
+    #   EC2 분석 파이프라인이 너무 빨리 실행되면 공격 로그가 S3에 없어
+    #   로컬 공격 IP가 분석에서 누락됨 → 딜레이로 보정.
+    if attack_path and not args.skip_attack and args.waf_sync_delay > 0:
+        delay = args.waf_sync_delay
+        _print_step("4-B", f"WAF→S3 동기화 대기 ({delay}초) — 공격 로그 S3 반영 기다리는 중")
+        for remaining in range(delay, 0, -10):
+            print(f"\r  대기 중... {remaining}초 남음   ", end="", flush=True)
+            time.sleep(min(10, remaining))
+        print(f"\r  ✔ {delay}초 대기 완료 — S3 WAF 로그 반영 예상됨           ")
 
     # 5. EC2 파이프라인 실행 (attack_sim, ab_test는 EC2에서 스킵)
     ec2_ok = trigger_ec2_pipeline(ssh_host, ssh_user, ssh_key,
