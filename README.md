@@ -10,7 +10,7 @@
 2. [아키텍처](#2-아키텍처)
 3. [사전 준비사항](#3-사전-준비사항)
 4. [필수 키 및 자격증명 목록](#4-필수-키-및-자격증명-목록)
-5. [인프라 배포 (Terraform)](#5-인프라-배포-terraform)
+5. [인프라 배포 (Terraform)](#5-인프라-배포-terraform) — [⚠️ 최초 배포 수동 설정 체크리스트](#5-0-최초-배포-수동-설정-체크리스트)
 6. [EC2 서버 초기 설정](#6-ec2-서버-초기-설정)
 7. [로컬 환경 설정](#7-로컬-환경-설정)
 8. [파이프라인 실행](#8-파이프라인-실행)
@@ -261,7 +261,229 @@ GitHub 저장소 → Settings → Secrets and variables → Actions에서 등록
 
 ## 5. 인프라 배포 (Terraform)
 
-Terraform으로 EC2, WAF, ALB, S3, VPC 등 전체 인프라를 배포합니다.
+> **⚠️ 아래 수동 설정을 완료하지 않으면 EC2 부트스트랩이 실패합니다. Terraform apply 전에 반드시 읽으세요.**
+
+### 5-0. 최초 배포 수동 설정 체크리스트
+
+자동화 범위: EC2 부팅 → Docker 설치 → Ollama 설치 → Grafana 스택 기동 → `platform.yaml` 자동 생성까지 자동화되어 있습니다.  
+**자동화되지 않는 항목** (반드시 수동으로 먼저 완료해야 합니다):
+
+| # | 항목 | 위치 | 완료 시점 |
+|---|---|---|---|
+| ① | SSM 파라미터 등록 (GitHub Token / AbuseIPDB / Slack) | AWS 콘솔 또는 CLI | **Terraform apply 전** |
+| ② | GitHub Actions Secrets 등록 | GitHub 저장소 Settings | Terraform apply 전 또는 직후 |
+| ③ | `terraform/backend.hcl` 작성 | 로컬 파일 | Terraform init 전 |
+| ④ | `platform.yaml` 후보정 (`alb.dns_name`, `app_ip`) | EC2 SSH 또는 로컬→SCP | Terraform apply 완료 후 |
+| ⑤ | `qwen2.5:7b` 모델 다운로드 완료 확인 | EC2 SSH | AI 보고서 실행 전 |
+
+---
+
+#### ① SSM 파라미터 등록 — Terraform apply 전 필수
+
+EC2 user_data 스크립트가 부팅 시 SSM에서 자동으로 시크릿을 읽어 `.env`를 생성합니다.  
+**파라미터가 없으면 `.env`가 빈 값으로 생성되어 파이프라인이 실패합니다.**
+
+```bash
+# GitHub Personal Access Token (repo 권한 필수)
+aws ssm put-parameter \
+  --name /cloud-sec/github_token \
+  --value "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  --type SecureString \
+  --region ap-northeast-2
+
+# AbuseIPDB API 키 (선택 — 없으면 CTI 조회 생략)
+aws ssm put-parameter \
+  --name /cloud-sec/abuseipdb_api_key \
+  --value "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  --type SecureString \
+  --region ap-northeast-2
+
+# Slack Webhook URL (선택 — 없으면 알림 스킵)
+aws ssm put-parameter \
+  --name /cloud-sec/slack_webhook_url \
+  --value "https://hooks.slack.com/services/<T_ID>/<B_ID>/<WEBHOOK_TOKEN>" \
+  --type SecureString \
+  --region ap-northeast-2
+```
+
+> 파라미터가 이미 등록되어 있으면 `--overwrite` 플래그를 추가하세요.
+
+EC2 IAM Role에 `AmazonSSMReadOnlyAccess` 또는 아래 최소 권한이 필요합니다:
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["ssm:GetParameter", "ssm:GetParameters"],
+  "Resource": "arn:aws:ssm:ap-northeast-2:*:parameter/cloud-sec/*"
+}
+```
+
+---
+
+#### ② GitHub Actions Secrets 등록
+
+CI/CD 파이프라인과 Terraform apply에 필요한 7개 Secret을 GitHub 저장소에 등록합니다.
+
+**필요 Secret 목록**
+
+| Secret 이름 | 필수 | 값 | 언제 등록 |
+|---|---|---|---|
+| `AWS_ACCESS_KEY_ID` | **필수** | IAM 액세스 키 ID | Terraform apply 전 |
+| `AWS_SECRET_ACCESS_KEY` | **필수** | IAM 시크릿 키 | Terraform apply 전 |
+| `AWS_REGION` | **필수** | `ap-northeast-2` | Terraform apply 전 |
+| `SSH_PUBLIC_KEY` | **필수** | EC2 공개키 전체 | Terraform apply 전 |
+| `EC2_HOST` | **필수** | EC2 퍼블릭 IP | **Terraform apply 완료 후 업데이트** |
+| `EC2_SSH_PRIVATE_KEY` | **필수** | EC2 개인키 전체 PEM | EC2 배포 후 |
+| `INFRACOST_API_KEY` | 선택 | infracost.io 발급 | 선택 |
+
+> `EC2_HOST`는 Terraform 배포 전에는 IP를 알 수 없습니다. **배포 완료 후 반드시 업데이트**해야 `deploy-ec2` 자동 배포가 동작합니다.
+
+---
+
+**방법 A — gh CLI (권장)**
+
+```bash
+# AWS 리전 (고정값)
+gh secret set AWS_REGION \
+  --body "ap-northeast-2" \
+  --repo goormSecurity/cloud-security-platform_final
+
+# AWS IAM 키 (값 직접 입력)
+gh secret set AWS_ACCESS_KEY_ID \
+  --body "AKIAIOSFODNN7EXAMPLE" \
+  --repo goormSecurity/cloud-security-platform_final
+
+gh secret set AWS_SECRET_ACCESS_KEY \
+  --body "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" \
+  --repo goormSecurity/cloud-security-platform_final
+
+# SSH 키 (파일에서 자동 읽기)
+# macOS / Linux
+gh secret set SSH_PUBLIC_KEY \
+  --body "$(cat ~/.ssh/cloud-sec-key2.pub)" \
+  --repo goormSecurity/cloud-security-platform_final
+
+gh secret set EC2_SSH_PRIVATE_KEY \
+  --body "$(cat ~/.ssh/cloud-sec-key2)" \
+  --repo goormSecurity/cloud-security-platform_final
+
+# EC2 IP (Terraform 완료 후 등록)
+gh secret set EC2_HOST \
+  --body "43.201.194.252" \
+  --repo goormSecurity/cloud-security-platform_final
+```
+
+> Windows PowerShell에서는 `$(cat ...)` 대신 아래 방식을 사용합니다:
+> ```powershell
+> gh secret set SSH_PUBLIC_KEY `
+>   --body (Get-Content ~/.ssh/cloud-sec-key2.pub -Raw) `
+>   --repo goormSecurity/cloud-security-platform_final
+>
+> gh secret set EC2_SSH_PRIVATE_KEY `
+>   --body (Get-Content ~/.ssh/cloud-sec-key2 -Raw) `
+>   --repo goormSecurity/cloud-security-platform_final
+> ```
+
+---
+
+**방법 B — GitHub 웹 UI**
+
+`https://github.com/goormSecurity/cloud-security-platform_final` → **Settings → Secrets and variables → Actions → New repository secret**
+
+각 Secret 이름과 값을 입력 후 **Add secret** 클릭.
+
+SSH 키 값 확인 방법:
+```bash
+# 공개키 (SSH_PUBLIC_KEY) — 출력 전체를 복사
+cat ~/.ssh/cloud-sec-key2.pub
+
+# 개인키 (EC2_SSH_PRIVATE_KEY) — -----BEGIN RSA PRIVATE KEY----- 부터 -----END----- 까지 전체 복사
+cat ~/.ssh/cloud-sec-key2
+```
+
+```powershell
+# Windows PowerShell
+Get-Content ~/.ssh/cloud-sec-key2.pub   # 공개키
+Get-Content ~/.ssh/cloud-sec-key2       # 개인키
+```
+
+---
+
+**AWS IAM 키 발급 위치**
+
+1. AWS 콘솔 → **IAM** → **사용자** → 본인 계정 선택
+2. **보안 자격 증명** 탭 → **액세스 키** → **액세스 키 만들기**
+3. `AWS_ACCESS_KEY_ID`와 `AWS_SECRET_ACCESS_KEY`를 즉시 복사 (시크릿 키는 생성 시 1회만 표시됨)
+
+> 기존 액세스 키가 있으면 재사용 가능합니다. 없으면 위 절차로 새로 생성하세요.
+
+---
+
+**등록 확인**
+
+```bash
+gh secret list --repo goormSecurity/cloud-security-platform_final
+```
+
+아래 6개가 모두 나와야 정상입니다:
+```
+AWS_ACCESS_KEY_ID       Updated YYYY-MM-DD
+AWS_SECRET_ACCESS_KEY   Updated YYYY-MM-DD
+AWS_REGION              Updated YYYY-MM-DD
+EC2_HOST                Updated YYYY-MM-DD
+EC2_SSH_PRIVATE_KEY     Updated YYYY-MM-DD
+SSH_PUBLIC_KEY          Updated YYYY-MM-DD
+```
+
+---
+
+#### ③ backend.hcl 작성 → 5-1~5-2 참고
+
+`terraform/backend.hcl.example`을 복사해 Terraform State 버킷 이름을 작성합니다.  
+Terraform init 전에 완료해야 합니다.
+
+---
+
+#### ④ platform.yaml 후보정 — Terraform apply 완료 후
+
+Terraform 배포가 끝나면 `python scripts/generate_config.py`로 `platform.yaml`을 자동 생성합니다 (5-4 참고).  
+EC2 user_data도 부팅 시 자동 생성하지만, `alb.dns_name`과 `app_ip`가 비어 있을 수 있습니다.
+
+EC2에서 값 확인:
+
+```bash
+ssh -i ~/.ssh/cloud-sec-key2 ec2-user@<EC2_IP> \
+  'grep -E "dns_name|app_ip" /opt/cloud-security-platform/platform.yaml'
+```
+
+값이 비어 있으면 로컬에서 생성 후 SCP로 전송합니다:
+
+```bash
+# 로컬에서 platform.yaml 생성
+python scripts/generate_config.py
+
+# EC2로 전송 (EC2_IP는 Terraform 출력값으로 교체)
+scp -i ~/.ssh/cloud-sec-key2 platform.yaml \
+  ec2-user@<EC2_IP>:/opt/cloud-security-platform/platform.yaml
+```
+
+---
+
+#### ⑤ qwen2.5:7b 모델 다운로드 완료 확인
+
+EC2 user_data가 백그라운드로 모델을 다운로드합니다 (**약 5 GB, 20~30분 소요**).  
+AI 보고서(`run_pipeline.py` 또는 `ai-report` 워크플로)를 실행하기 전에 반드시 완료 여부를 확인하세요.
+
+```bash
+# 다운로드 완료 확인 (qwen2.5:7b가 목록에 보이면 준비 완료)
+ssh -i ~/.ssh/cloud-sec-key2 ec2-user@<EC2_IP> 'ollama list'
+
+# 다운로드 진행 중이면 로그 확인
+ssh -i ~/.ssh/cloud-sec-key2 ec2-user@<EC2_IP> \
+  'tail -f /var/log/ollama-pull.log'
+```
+
+---
 
 ### 5-1. Terraform State S3 버킷 생성 (최초 1회)
 
@@ -694,16 +916,23 @@ LOW    < 40점
 
 ### 12-1. Secrets 등록 방법
 
-GitHub 저장소 → Settings → Secrets and variables → Actions → New repository secret
+> 상세 등록 절차 (gh CLI / 웹 UI / IAM 키 발급 방법 포함) → **[5-0 ② GitHub Actions Secrets 등록](#-github-actions-secrets-등록)** 참고
+
+등록이 필요한 Secret 목록:
 
 ```
 AWS_ACCESS_KEY_ID       = AKIA...
 AWS_SECRET_ACCESS_KEY   = ...
 AWS_REGION              = ap-northeast-2
 SSH_PUBLIC_KEY          = (cat ~/.ssh/cloud-sec-key2.pub 의 전체 출력)
-EC2_HOST                = 43.201.194.252
+EC2_HOST                = 43.201.194.252  ← Terraform 완료 후 업데이트
 EC2_SSH_PRIVATE_KEY     = (cat ~/.ssh/cloud-sec-key2 의 전체 PEM 내용)
-INFRACOST_API_KEY       = (선택 — infracost.io 가입 후 발급)
+INFRACOST_API_KEY       = (선택)
+```
+
+등록 확인:
+```bash
+gh secret list --repo goormSecurity/cloud-security-platform_final
 ```
 
 ### 12-2. 워크플로 구성
@@ -719,11 +948,31 @@ INFRACOST_API_KEY       = (선택 — infracost.io 가입 후 발급)
 
 ### 12-3. 수동 Terraform Apply (GitHub Actions)
 
+WAF IP 차단 목록 PR을 머지한 뒤 아래 방법 중 하나로 Terraform apply를 실행합니다.
+
+**웹 UI:**
 ```
 GitHub Actions 탭 → "Cloud Security Platform — CI/CD" 선택
-→ "Run workflow" 버튼 클릭
-→ 브랜치: main → Run workflow
+→ "Run workflow" 버튼 클릭 → 브랜치: main → Run workflow
 ```
+
+**gh CLI:**
+```bash
+# 워크플로 트리거
+gh workflow run "Cloud Security Platform — CI/CD" \
+  --repo goormSecurity/cloud-security-platform_final
+
+# 실행 상태 확인
+gh run list \
+  --repo goormSecurity/cloud-security-platform_final \
+  --workflow "Cloud Security Platform — CI/CD" \
+  --limit 3
+
+# 실시간 로그 스트림
+gh run watch --repo goormSecurity/cloud-security-platform_final
+```
+
+> `[Manual] AI Security Report` 잡은 `self-hosted` 러너가 없으면 대기 상태로 남습니다. `[CD] Deploy to AWS (Terraform Apply)` 잡만 완료되면 WAF 정책이 반영됩니다.
 
 ---
 

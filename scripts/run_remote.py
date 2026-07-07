@@ -156,19 +156,20 @@ def run_zap_local(target: str):  # -> Path | None
 
 # ── 2단계: 로컬 공격 시뮬레이션 ─────────────────────────────────
 
-def run_attack_local(target: str, app: str = "all"):  # -> Path | None
+def run_attack_local(target: str, app: str = "all", count: int = 1):  # -> Path | None
     """로컬에서 attack_runner 실행 후 sent_attacks.jsonl 경로 반환.
 
     EC2에서 실행하면 EC2 IP가 WAF 로그에 공격자로 기록되어
     파이프라인 서버 자체가 고위험 IP로 탐지됨 → 로컬 실행 필수.
     """
-    _print_step(2, f"공격 시뮬레이션 (로컬) → {target}  app={app}")
+    _print_step(2, f"공격 시뮬레이션 (로컬) → {target}  app={app}  count={count}")
     out_path = ROOT / "attack_simulation" / "output" / "sent_attacks.jsonl"
     cmd = [
         sys.executable,
         str(ROOT / "attack_simulation" / "attack_runner.py"),
         "--target", target,
         "--app", app,
+        "--count", str(count),
     ]
     result = subprocess.run(cmd, cwd=str(ROOT))
     if result.returncode != 0:
@@ -460,6 +461,9 @@ def main():
     p.add_argument("--waf-sync-delay", default=180, type=int, metavar="SECS",
                    help="공격 시뮬 후 WAF→S3 동기화 대기 시간(초). "
                         "공격 트래픽이 S3에 반영될 때까지 EC2 분석을 지연. (기본: 180초)")
+    p.add_argument("--attack-count", default=1, type=int, metavar="N",
+                   help="attack_runner 패턴당 전송 횟수 (기본: 1). "
+                        "HIGH 위험도 판정을 위해 100건 이상 필요 → 최소 3 이상 권장")
     args = p.parse_args()
 
     # .env 로딩
@@ -517,7 +521,7 @@ def main():
     # 2. 공격 시뮬레이션 로컬 실행
     if not args.skip_attack:
         if target:
-            attack_path = run_attack_local(target)
+            attack_path = run_attack_local(target, count=args.attack_count)
         else:
             print("[2] 공격 시뮬레이션 스킵 — 대상 URL 없음")
 
