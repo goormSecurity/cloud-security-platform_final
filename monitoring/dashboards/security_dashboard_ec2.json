@@ -1072,6 +1072,15 @@
           }
         ]
       },
+      "transformations": [
+        {
+          "id": "rowsToFields",
+          "options": {
+            "nameField": "level",
+            "valueField": "count"
+          }
+        }
+      ],
       "options": {
         "pieType": "pie",
         "legend": {
