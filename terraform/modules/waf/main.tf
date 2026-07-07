@@ -50,10 +50,33 @@ resource "aws_wafv2_web_acl" "main" {
     }
   }
 
+  # Command Injection / XXE / SSRF 등 알려진 악성 입력 차단
+  rule {
+    name     = "AWSManagedRulesKnownBadInputsRuleSet"
+    priority = 3
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "KnownBadInputsRuleSet"
+      sampled_requests_enabled   = true
+    }
+  }
+
   # IP별 속도 제한: 5분 내 100회 초과 시 자동 차단
   rule {
     name     = "RateLimitPerIP"
-    priority = 3
+    priority = 4
 
     action {
       block {}
